@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col } from "react-bootstrap";
+import { Navbar, Nav, Container, Button, Form, Row, Col, Card } from "react-bootstrap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -16,7 +16,6 @@ const Dashboard = () => {
       navigate("/"); // Redirect to login if no user is found
     } else {
       setUser(storedUser);
-      // Set default section based on user role:
       if (storedUser.role === "admin") {
         setActiveSection("attendanceForm");
       }
@@ -55,16 +54,7 @@ const Dashboard = () => {
               {/* Right-aligned Buttons */}
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
-                  {user.role === "employee" ? (
-                    <Button
-                      variant={activeSection === "employeeView" ? "secondary" : "light"}
-                      className="me-2 mb-2"
-                      onClick={() => setActiveSection("employeeView")}
-                      active={activeSection === "employeeView"}
-                    >
-                      Employee View
-                    </Button>
-                  ) : (
+                  {user.role === "admin" ? (
                     <>
                       <Button
                         variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -83,14 +73,6 @@ const Dashboard = () => {
                         Add Holidays
                       </Button>
                       <Button
-                        variant={activeSection === "employeeView" ? "secondary" : "light"}
-                        className="me-2 mb-2"
-                        onClick={() => setActiveSection("employeeView")}
-                        active={activeSection === "employeeView"}
-                      >
-                        Employee View
-                      </Button>
-                      <Button
                         variant={activeSection === "report" ? "secondary" : "light"}
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("report")}
@@ -98,8 +80,18 @@ const Dashboard = () => {
                       >
                         Report
                       </Button>
+                      <Button
+                         variant={activeSection === "nameSection" ? "secondary" : "light"}
+                         className="me-2 mb-2"
+                        onClick={() => setActiveSection("nameSection")}
+                         active={activeSection === "nameSection"}
+                      >
+                        EmployeeView
+                        </Button>
+                        
+
                     </>
-                  )}
+                  ) : null}
                   {/* Logout Button */}
                   <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
                     Logout
@@ -113,12 +105,10 @@ const Dashboard = () => {
 
       {/* Dynamic Section Rendering Based on Active State */}
       <Container>
-        {activeSection === "dashboard" && (
-          <h3 className="text-center mt-4">🏠 Dashboard Overview</h3>
-        )}
+        
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "addHolidays" && <AddHolidays />}
-        {activeSection === "employeeView" && <EmployeeView />}
+        {user.role === "employee" && <EmployeeView />}
         {activeSection === "report" && <Report />}
       </Container>
 
@@ -136,9 +126,11 @@ const AttendanceForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Replace this with your submission logic, such as an API call.
     console.log("Submitted Attendance Data:", attendanceText);
   };
+const NameSection = () => (
+  <h3 className="text-center mt-4">📝 Name Section</h3>
+);
 
   return (
     <div className="mt-4">
@@ -166,9 +158,37 @@ const AttendanceForm = () => {
 const AddHolidays = () => (
   <h3 className="text-center mt-4">🎉 Add Holidays</h3>
 );
+
+
 const EmployeeView = () => (
-  <h3 className="text-center mt-4">👨‍💼 Employee View</h3>
+  <div className="container mt-4">
+    <h3 className="text-center"> Employee Dashboard</h3>
+
+    {/* Leave Section */}
+    <Card className="p-3 shadow-sm mt-3" style={{ maxWidth: "400px", margin: "auto" }}>
+      <h5><b>Used Leaves</b></h5>
+      <div className="d-flex justify-content-between align-items-center">
+        <span>Sick Leave</span>
+        <input type="text" className="form-control w-50" />
+      </div>
+      <div className="d-flex justify-content-between align-items-center mt-2">
+        <span>Planned Leaves</span>
+        <input type="text" className="form-control w-50" />
+      </div>
+
+      <h5 className="mt-3"><b>Remaining Leaves</b></h5>
+      <div className="d-flex justify-content-between align-items-center">
+        <span>Sick Leave</span>
+        <input type="text" className="form-control w-50" />
+      </div>
+      <div className="d-flex justify-content-between align-items-center mt-2">
+        <span>Planned Leaves</span>
+        <input type="text" className="form-control w-50" />
+      </div>
+    </Card>
+  </div>
 );
+
 const Report = () => (
   <h3 className="text-center mt-4">📊 Report Section</h3>
 );
