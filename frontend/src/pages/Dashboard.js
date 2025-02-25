@@ -44,10 +44,10 @@ const Dashboard = () => {
               {/* Left-aligned Date Picker */}
               <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
                 <Form className="w-100">
-                  <Form.Control 
-                    type="date" 
+                  <Form.Control
+                    type="date"
                     className="w-100"
-                    value={selectedDate} 
+                    value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                   />
                 </Form>
@@ -56,9 +56,9 @@ const Dashboard = () => {
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
                   {user.role === "employee" ? (
-                    <Button 
+                    <Button
                       variant={activeSection === "employeeView" ? "secondary" : "light"}
-                      className="me-2 mb-2" 
+                      className="me-2 mb-2"
                       onClick={() => setActiveSection("employeeView")}
                       active={activeSection === "employeeView"}
                     >
@@ -66,33 +66,33 @@ const Dashboard = () => {
                     </Button>
                   ) : (
                     <>
-                      <Button 
+                      <Button
                         variant={activeSection === "attendanceForm" ? "secondary" : "light"}
-                        className="me-2 mb-2" 
+                        className="me-2 mb-2"
                         onClick={() => setActiveSection("attendanceForm")}
                         active={activeSection === "attendanceForm"}
                       >
                         Attendance Form
                       </Button>
-                      <Button 
+                      <Button
                         variant={activeSection === "addHolidays" ? "secondary" : "light"}
-                        className="me-2 mb-2" 
+                        className="me-2 mb-2"
                         onClick={() => setActiveSection("addHolidays")}
                         active={activeSection === "addHolidays"}
                       >
                         Add Holidays
                       </Button>
-                      <Button 
+                      <Button
                         variant={activeSection === "employeeView" ? "secondary" : "light"}
-                        className="me-2 mb-2" 
+                        className="me-2 mb-2"
                         onClick={() => setActiveSection("employeeView")}
                         active={activeSection === "employeeView"}
                       >
                         Employee View
                       </Button>
-                      <Button 
+                      <Button
                         variant={activeSection === "report" ? "secondary" : "light"}
-                        className="me-2 mb-2" 
+                        className="me-2 mb-2"
                         onClick={() => setActiveSection("report")}
                         active={activeSection === "report"}
                       >
@@ -113,8 +113,9 @@ const Dashboard = () => {
 
       {/* Dynamic Section Rendering Based on Active State */}
       <Container>
-        <h2 className="text-center mt-4">Welcome, {user.name}!</h2>
-        {activeSection === "dashboard" && <h3 className="text-center mt-4">🏠 Dashboard Overview</h3>}
+        {activeSection === "dashboard" && (
+          <h3 className="text-center mt-4">🏠 Dashboard Overview</h3>
+        )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "addHolidays" && <AddHolidays />}
         {activeSection === "employeeView" && <EmployeeView />}
@@ -126,10 +127,50 @@ const Dashboard = () => {
   );
 };
 
-// Placeholder Components
-const AttendanceForm = () => <h3 className="text-center mt-4">📋 Attendance Form</h3>;
-const AddHolidays = () => <h3 className="text-center mt-4">🎉 Add Holidays</h3>;
-const EmployeeView = () => <h3 className="text-center mt-4">👨‍💼 Employee View</h3>;
-const Report = () => <h3 className="text-center mt-4">📊 Report Section</h3>;
+const AttendanceForm = () => {
+  const [attendanceText, setAttendanceText] = useState("");
+
+  const handleChange = (e) => {
+    setAttendanceText(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Replace this with your submission logic, such as an API call.
+    console.log("Submitted Attendance Data:", attendanceText);
+  };
+
+  return (
+    <div className="mt-4">
+      <h3 className="text-center">Attendance Form</h3>
+      <Form onSubmit={handleSubmit} className="mt-3">
+        <Form.Group controlId="attendanceTextarea">
+          <Form.Control
+            as="textarea"
+            rows={13}
+            value={attendanceText}
+            onChange={handleChange}
+            placeholder="Attendance data here..."
+          />
+        </Form.Group>
+        <div className="d-flex justify-content-end mt-2">
+          <Button type="submit" variant="primary">
+            Submit
+          </Button>
+        </div>
+      </Form>
+    </div>
+  );
+};
+
+const AddHolidays = () => (
+  <h3 className="text-center mt-4">🎉 Add Holidays</h3>
+);
+const EmployeeView = () => (
+  <h3 className="text-center mt-4">👨‍💼 Employee View</h3>
+);
+const Report = () => (
+  <h3 className="text-center mt-4">📊 Report Section</h3>
+);
 
 export default Dashboard;
