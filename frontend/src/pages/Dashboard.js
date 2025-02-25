@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap"; // Added 'Card' import
+import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState("");
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState("employeeView");
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -55,16 +55,7 @@ const Dashboard = () => {
               {/* Right-aligned Buttons */}
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
-                  {user.role === "employee" ? (
-                    <Button
-                      variant={activeSection === "employeeView" ? "secondary" : "light"}
-                      className="me-2 mb-2"
-                      onClick={() => setActiveSection("employeeView")}
-                      active={activeSection === "employeeView"}
-                    >
-                      Employee View
-                    </Button>
-                  ) : (
+                  {user.role === "admin" && (
                     <>
                       <Button
                         variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -83,14 +74,6 @@ const Dashboard = () => {
                         Add Holidays
                       </Button>
                       <Button
-                        variant={activeSection === "employeeView" ? "secondary" : "light"}
-                        className="me-2 mb-2"
-                        onClick={() => setActiveSection("employeeView")}
-                        active={activeSection === "employeeView"}
-                      >
-                        Employee View
-                      </Button>
-                      <Button
                         variant={activeSection === "report" ? "secondary" : "light"}
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("report")}
@@ -100,6 +83,19 @@ const Dashboard = () => {
                       </Button>
                     </>
                   )}
+
+                  {/* Remove "Employee View" Button if Logged in as Employee */}
+                  {user.role === "admin" && (
+                    <Button
+                      variant={activeSection === "employeeView" ? "secondary" : "light"}
+                      className="me-2 mb-2"
+                      onClick={() => setActiveSection("employeeView")}
+                      active={activeSection === "employeeView"}
+                    >
+                      Employee View
+                    </Button>
+                  )}
+
                   {/* Logout Button */}
                   <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
                     Logout
@@ -189,9 +185,58 @@ const AttendanceForm = () => {
   );
 };
 
-const AddHolidays = () => (
-  <h3 className="text-center mt-4">🎉 Add Holidays</h3>
-);
+const AddHolidays = () => {
+  const [holidays, setHolidays] = useState([{ date: "", name: "" }]);
+
+  const handleAddRow = () => {
+    setHolidays([...holidays, { date: "", name: "" }]);
+  };
+
+  const handleInputChange = (index, field, value) => {
+    const updatedHolidays = [...holidays];
+    updatedHolidays[index][field] = value;
+    setHolidays(updatedHolidays);
+  };
+
+  const handleSave = () => {
+    console.log("Saved Holidays:", holidays);
+    // You can add API logic here to save holidays to the database
+  };
+
+  return (
+    <div className="container mt-4">
+      <h3 className="text-center">🎉 Add Holidays</h3>
+      <div className="border p-3 mt-3">
+        {holidays.map((holiday, index) => (
+          <div key={index} className="mb-3">
+            <h5>{index + 1} Date</h5>
+            <div className="d-flex gap-2">
+              <input
+                type="date"
+                className="form-control"
+                value={holiday.date}
+                onChange={(e) => handleInputChange(index, "date", e.target.value)}
+              />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Holiday Name"
+                value={holiday.name}
+                onChange={(e) => handleInputChange(index, "name", e.target.value)}
+              />
+            </div>
+          </div>
+        ))}
+        <button className="btn btn-light mt-2" onClick={handleAddRow}>
+          ➕
+        </button>
+        <button className="btn btn-primary mt-2 ms-2" onClick={handleSave}>
+          Save
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const EmployeeView = ({ role }) => {
   return (
