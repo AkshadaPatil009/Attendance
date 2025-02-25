@@ -8,11 +8,17 @@ const EmployeeDashboard = () => {
     <div>
       <Header role="employee" />
       <div className="container mt-4">
-        <div className="d-flex justify-content-end align-items-center gap-2">
+        {/* Top Right Buttons (Employee View & Report) */}
+        <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
           <button className="btn btn-primary">Employee View</button>
           <button className="btn btn-success">Report</button>
         </div>
-        <h2 className="mt-3">Employee Dashboard</h2>
+
+        {/* Bottom Left Buttons (Datewise & Monthwise) */}
+        <div className="d-flex justify-content-start align-items-center gap-2">
+          <button className="btn btn-info">Datewise</button>
+          <button className="btn btn-warning">Monthwise</button>
+        </div>
       </div>
       <Footer />
     </div>
