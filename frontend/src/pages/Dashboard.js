@@ -8,7 +8,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState("");
-  const [activeSection, setActiveSection] = useState("dashboard"); // Default view
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -16,6 +16,10 @@ const Dashboard = () => {
       navigate("/"); // Redirect to login if no user is found
     } else {
       setUser(storedUser);
+      // Set default section based on user role:
+      if (storedUser.role === "admin") {
+        setActiveSection("attendanceForm");
+      }
     }
   }, [navigate]);
 
@@ -24,7 +28,7 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  if (!user) return null; // Prevents rendering until user data is loaded
+  if (!user) return null; // Prevent rendering until user data is loaded
 
   return (
     <div>
@@ -53,39 +57,44 @@ const Dashboard = () => {
                 <Nav className="d-flex flex-wrap">
                   {user.role === "employee" ? (
                     <Button 
-                      variant="light" 
+                      variant={activeSection === "employeeView" ? "secondary" : "light"}
                       className="me-2 mb-2" 
                       onClick={() => setActiveSection("employeeView")}
+                      active={activeSection === "employeeView"}
                     >
                       Employee View
                     </Button>
                   ) : (
                     <>
                       <Button 
-                        variant="light" 
+                        variant={activeSection === "attendanceForm" ? "secondary" : "light"}
                         className="me-2 mb-2" 
                         onClick={() => setActiveSection("attendanceForm")}
+                        active={activeSection === "attendanceForm"}
                       >
                         Attendance Form
                       </Button>
                       <Button 
-                        variant="light" 
+                        variant={activeSection === "addHolidays" ? "secondary" : "light"}
                         className="me-2 mb-2" 
                         onClick={() => setActiveSection("addHolidays")}
+                        active={activeSection === "addHolidays"}
                       >
                         Add Holidays
                       </Button>
                       <Button 
-                        variant="light" 
+                        variant={activeSection === "employeeView" ? "secondary" : "light"}
                         className="me-2 mb-2" 
                         onClick={() => setActiveSection("employeeView")}
+                        active={activeSection === "employeeView"}
                       >
                         Employee View
                       </Button>
                       <Button 
-                        variant="light" 
+                        variant={activeSection === "report" ? "secondary" : "light"}
                         className="me-2 mb-2" 
                         onClick={() => setActiveSection("report")}
+                        active={activeSection === "report"}
                       >
                         Report
                       </Button>
