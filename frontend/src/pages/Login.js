@@ -13,11 +13,16 @@ const Login = ({ setUser }) => {
     e.preventDefault();
     try {
       const res = await axios.post("http://localhost:5000/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      setUser({ role: res.data.role, name: res.data.name });
-      navigate(res.data.role === "admin" ? "/admin" : "/employee");
+
+      // Store user info in localStorage
+      const userData = { role: res.data.role, name: res.data.name, token: res.data.token };
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      // Update state & redirect
+      setUser(userData);
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.response.data.error);
+      setError(err.response?.data?.error || "Login failed. Please try again.");
     }
   };
 
