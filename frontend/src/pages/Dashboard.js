@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col, Modal } from "react-bootstrap";
+import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap"; // Added 'Card' import
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -118,7 +118,7 @@ const Dashboard = () => {
         )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "addHolidays" && <AddHolidays />}
-        {activeSection === "employeeView" && <EmployeeView />}
+        {activeSection === "employeeView" && <EmployeeView role={user.role} />}
         {activeSection === "report" && <Report />}
       </Container>
 
@@ -158,7 +158,7 @@ const AttendanceForm = () => {
         <Form.Group controlId="attendanceTextarea">
           <Form.Control
             as="textarea"
-            rows={10}
+            rows={13}
             value={attendanceText}
             onChange={handleChange}
             placeholder="Paste your attendance data here..."
@@ -192,9 +192,40 @@ const AttendanceForm = () => {
 const AddHolidays = () => (
   <h3 className="text-center mt-4">🎉 Add Holidays</h3>
 );
-const EmployeeView = () => (
-  <h3 className="text-center mt-4">👨‍💼 Employee View</h3>
-);
+
+const EmployeeView = ({ role }) => {
+  return (
+    <div className="container mt-4">
+      <h3 className="text-center mt-4">
+        {role === "admin" ? "👨‍💼 Admin Employee View" : "👨‍💼 Employee View"}
+      </h3>
+
+      {/* Leave Section */}
+      <Card className="p-3 shadow-sm mt-3" style={{ maxWidth: "400px", margin: "auto" }}>
+        <h5><b>Used Leaves</b></h5>
+        <div className="d-flex justify-content-between align-items-center">
+          <span>Sick Leave</span>
+          <input type="text" className="form-control w-50" />
+        </div>
+        <div className="d-flex justify-content-between align-items-center mt-2">
+          <span>Planned Leaves</span>
+          <input type="text" className="form-control w-50" />
+        </div>
+
+        <h5 className="mt-3"><b>Remaining Leaves</b></h5>
+        <div className="d-flex justify-content-between align-items-center">
+          <span>Sick Leave</span>
+          <input type="text" className="form-control w-50" />
+        </div>
+        <div className="d-flex justify-content-between align-items-center mt-2">
+          <span>Planned Leaves</span>
+          <input type="text" className="form-control w-50" />
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 const Report = () => (
   <h3 className="text-center mt-4">📊 Report Section</h3>
 );
