@@ -1,9 +1,10 @@
 import React from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 const Footer = () => {
   return (
-    <footer style={{ background: "#333", color: "#fff", textAlign: "center", padding: "5px", fontSize: "14px" }}>
-      <p style={{ margin: 0 }}>© 2025 Attendance App</p>
+    <footer className="bg-dark text-light text-center py-2 mt-3">
+      <p className="mb-0">&copy; 2025 Attendance App</p>
     </footer>
   );
 };
