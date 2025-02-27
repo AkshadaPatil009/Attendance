@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap";
-import { Table } from "react-bootstrap";
-
+import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card, Table } from "react-bootstrap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -77,12 +75,12 @@ const Dashboard = () => {
                         Attendance Form
                       </Button>
                       <Button
-                        variant={activeSection === "addHolidays" ? "secondary" : "light"}
+                        variant={activeSection === "holidays" ? "secondary" : "light"}
                         className="me-2 mb-2"
-                        onClick={() => setActiveSection("addHolidays")}
-                        active={activeSection === "addHolidays"}
+                        onClick={() => setActiveSection("holidays")}
+                        active={activeSection === "holidays"}
                       >
-                         Holidays
+                        Holidays
                       </Button>
                       <Button
                         variant={activeSection === "report" ? "secondary" : "light"}
@@ -124,7 +122,7 @@ const Dashboard = () => {
           <h3 className="text-center mt-4"> Dashboard Overview</h3>
         )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
-        {activeSection === "addHolidays" && <AddHolidays />}
+        {activeSection === "holidays" && <Holidays />}
         {activeSection === "employeeView" && <EmployeeView role={user.role} />}
         {activeSection === "report" && <Report />}
       </Container>
@@ -196,44 +194,138 @@ const AttendanceForm = () => {
   );
 };
 
-const AddHolidays = () => {
-  const holidays = [
-    { date: "January 14, 2025", name: "Makar Sankranti" },
-    { date: "February 26, 2025", name: "Mahashivaratri" },
-    { date: "March 14, 2025", name: "Dhulivandan" },
-    { date: "May 1, 2025", name: "Maharashtra Day" },
-    { date: "June 7, 2025", name: "Eid al-Adha" },
-    { date: "August 9, 2025", name: "Raksha Bandhan" },
-    { date: "August 15, 2025", name: "Independence Day" },
-    { date: "August 27, 2025", name: "Shri Ganesh Chaturthi" },
-    { date: "September 2, 2025", name: "Gauri Visarjan" },
-    { date: "October 2, 2025", name: "Dassera" },
-    { date: "October 20, 2025", name: "Narak Chaturdashi" },
-    { date: "October 21, 2025", name: "Laxmi Pujan" },
-    { date: "October 23, 2025", name: "Bhaubij" },
-    { date: "December 25, 2025", name: "Christmas" },
-  ];
+const Holidays = () => {
+  const [holidays, setHolidays] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", location: "" });
+
+  // Fetch holiday list from the backend API on component mount
+  useEffect(() => {
+    fetch("http://localhost:5000/api/holidays")
+      .then((res) => res.json())
+      .then((data) => {
+        setHolidays(data);
+      })
+      .catch((error) => {
+        console.error("Error fetching holidays:", error);
+      });
+  }, []);
+
+  const handleAddHoliday = () => {
+    if (newHoliday.date && newHoliday.name && newHoliday.location) {
+      // Post new holiday to the backend
+      fetch("http://localhost:5000/api/holidays", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          holiday_date: newHoliday.date,
+          holiday_name: newHoliday.name,
+          location: newHoliday.location,
+        }),
+      })
+        .then((res) => res.json())
+        .then((addedHoliday) => {
+          // Update the local holidays list with the newly added holiday
+          setHolidays([...holidays, addedHoliday]);
+          setNewHoliday({ date: "", name: "", location: "" });
+          setShowModal(false);
+        })
+        .catch((error) => {
+          console.error("Error adding holiday:", error);
+        });
+    }
+  };
 
   return (
-    <Container className="mt-4">
-      <h3 className="text-center mb-4">Ratnagiri Office Holidays</h3>
-      <Table bordered striped hover>
-        <thead>
-          <tr className="table-primary text-center">
-            <th>Date</th>
-            <th>Holiday</th>
-          </tr>
-        </thead>
-        <tbody>
-          {holidays.map((holiday, index) => (
-            <tr key={index}>
-              <td className="text-center">{holiday.date}</td>
-              <td>{holiday.name}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-    </Container>
+    <div className="container mt-4">
+      <h3 className="text-center">Holidays</h3>
+
+      {/* Table of holidays (3 columns: Date, Holiday, Location) */}
+      <div className="border p-3 mt-3">
+        {holidays.length > 0 ? (
+          <Table bordered hover responsive>
+            <thead style={{ backgroundColor: "#f8d7da" }}>
+              <tr>
+                <th>Date</th>
+                <th>Holiday</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {holidays.map((holiday) => {
+                // Format the date to show only the date part (e.g. "January 14, 2025")
+                const formattedDate = new Date(holiday.holiday_date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                });
+                return (
+                  <tr key={holiday.id}>
+                    <td>{formattedDate}</td>
+                    <td>{holiday.holiday_name}</td>
+                    <td>{holiday.location}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        ) : (
+          <p className="text-center">No holidays found.</p>
+        )}
+      </div>
+
+      {/* Button to open "Add Holiday" modal */}
+      <Button className="mt-3" onClick={() => setShowModal(true)}>
+        Add Holiday
+      </Button>
+
+      {/* Modal for adding a new holiday */}
+      <Modal show={showModal} onHide={() => setShowModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Add Holiday</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label>Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={newHoliday.date}
+                onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mt-2">
+              <Form.Label>Holiday Name</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter holiday name"
+                value={newHoliday.name}
+                onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
+              />
+            </Form.Group>
+            <Form.Group className="mt-2">
+              <Form.Label>Location</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter location"
+                value={newHoliday.location}
+                onChange={(e) => setNewHoliday({ ...newHoliday, location: e.target.value })}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddHoliday}>
+            Add
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
   );
 };
 
