@@ -345,20 +345,21 @@ const Holidays = () => {
     }
   };
 
-  // Edit holiday functions
   const handleEdit = (holiday) => {
-    // Format the holiday date to YYYY-MM-DD for the input
-    const formattedDate = new Date(holiday.holiday_date)
-      .toISOString()
-      .split("T")[0];
+    // Adjust the date using timezone offset so that the correct date appears
+    const date = new Date(holiday.holiday_date);
+    // Subtract the timezone offset instead of adding it
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    const formattedDate = date.toISOString().split("T")[0];
     setEditingHoliday({ ...holiday, holiday_date: formattedDate });
     setShowEditModal(true);
   };
-
+  
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditingHoliday((prev) => ({ ...prev, [name]: value }));
   };
+  
 
   const handleUpdateHoliday = () => {
     fetch(`http://localhost:5000/api/holidays/${editingHoliday.id}`, {
