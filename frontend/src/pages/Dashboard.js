@@ -195,69 +195,7 @@ const AttendanceForm = () => {
 };
 
 const AddHolidays = () => {
-  const [holidays, setHolidays] = useState([{ date: "", name: "" }]);
 
-  const handleAddRow = () => {
-    setHolidays([...holidays, { date: "", name: "" }]);
-  };
-
-  const handleRemoveRow = (index) => {
-    const updatedHolidays = holidays.filter((_, i) => i !== index);
-    setHolidays(updatedHolidays);
-  };
-
-  const handleInputChange = (index, field, value) => {
-    const updatedHolidays = [...holidays];
-    updatedHolidays[index][field] = value;
-    setHolidays(updatedHolidays);
-  };
-
-  const handleSave = () => {
-    console.log("Saved Holidays:", holidays);
-    // You can add API logic here to save holidays to the database
-  };
-
-  return (
-    <div className="container mt-4">
-      <h3 className="text-center"> Add Holidays</h3>
-      <div className="border p-3 mt-3">
-        {holidays.map((holiday, index) => (
-          <div key={index} className="mb-3">
-            <h5>{index + 1} Date</h5>
-            <div className="d-flex gap-2">
-              <input
-                type="date"
-                className="form-control"
-                value={holiday.date}
-                onChange={(e) => handleInputChange(index, "date", e.target.value)}
-              />
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Holiday Name"
-                value={holiday.name}
-                onChange={(e) => handleInputChange(index, "name", e.target.value)}
-              />
-              {/* Remove Button */}
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => handleRemoveRow(index)}
-              >
-                -
-              </button>
-            </div>
-          </div>
-        ))}
-        <button className="btn btn-light mt-2" onClick={handleAddRow}>
-          ➕
-        </button>
-        <button className="btn btn-primary mt-2 ms-2" onClick={handleSave}>
-          Save
-        </button>
-      </div>
-    </div>
-  );
 };
 
 const EmployeeView = ({ role }) => {
