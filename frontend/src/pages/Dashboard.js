@@ -21,6 +21,10 @@ const Dashboard = () => {
         setActiveSection("attendanceForm");
       }
     }
+
+    // Set the current date for the date picker by default
+    const currentDate = new Date().toISOString().split("T")[0]; // Getting the current date in YYYY-MM-DD format
+    setSelectedDate(currentDate);
   }, [navigate]);
 
   const handleLogout = () => {
