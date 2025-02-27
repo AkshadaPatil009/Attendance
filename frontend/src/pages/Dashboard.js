@@ -80,7 +80,7 @@ const Dashboard = () => {
                         onClick={() => setActiveSection("addHolidays")}
                         active={activeSection === "addHolidays"}
                       >
-                        Add Holidays
+                         Holidays
                       </Button>
                       <Button
                         variant={activeSection === "report" ? "secondary" : "light"}
