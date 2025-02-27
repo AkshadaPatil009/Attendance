@@ -2,7 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import {Navbar,Nav,Container,Button,Form,Row,Col,Modal,Card,Table,} from "react-bootstrap";
+import {
+  Navbar,
+  Nav,
+  Container,
+  Button,
+  Form,
+  Row,
+  Col,
+  Modal,
+  Card,
+  Table,
+} from "react-bootstrap";
 
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
@@ -108,11 +119,7 @@ const Dashboard = () => {
             <Row className="w-100">
               {/* Left-aligned Date Picker (only for admin) */}
               {user.role === "admin" && (
-                <Col
-                  xs={12}
-                  md={4}
-                  className="d-flex align-items-center mt-2 mt-md-0"
-                >
+                <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
                   <Form className="w-100">
                     <Form.Control
                       type="date"
@@ -129,9 +136,7 @@ const Dashboard = () => {
                   {user.role === "admin" && (
                     <>
                       <Button
-                        variant={
-                          activeSection === "attendanceForm" ? "secondary" : "light"
-                        }
+                        variant={activeSection === "attendanceForm" ? "secondary" : "light"}
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("attendanceForm")}
                         active={activeSection === "attendanceForm"}
@@ -170,11 +175,7 @@ const Dashboard = () => {
                   )}
 
                   {/* Logout Button */}
-                  <Button
-                    variant="danger"
-                    className="ms-2 mb-2"
-                    onClick={handleLogout}
-                  >
+                  <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
                     Logout
                   </Button>
                 </Nav>
@@ -267,6 +268,9 @@ const Holidays = () => {
   const [showModal, setShowModal] = useState(false);
   // newHoliday now has "locations" as an array for multi-select
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
+  // State to filter holidays by location
+  const [filterLocation, setFilterLocation] = useState("All");
+  const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
 
   // Fetch holiday list from the backend API on component mount
   useEffect(() => {
@@ -279,6 +283,12 @@ const Holidays = () => {
         console.error("Error fetching holidays:", error);
       });
   }, []);
+
+  // Filter holidays based on selected location
+  const filteredHolidays =
+    filterLocation === "All"
+      ? holidays
+      : holidays.filter((holiday) => holiday.location === filterLocation);
 
   const handleAddHoliday = () => {
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
@@ -313,9 +323,28 @@ const Holidays = () => {
     <div className="container mt-4">
       <h3 className="text-center">Holidays</h3>
 
-      {/* Table of holidays (3 columns: Date, Holiday, Location) */}
+      {/* Filter Dropdown for Location */}
+      <div className="mb-3">
+        <Form.Group controlId="filterLocation">
+          <Form.Label>Filter by Location</Form.Label>
+          <Form.Control
+            as="select"
+            value={filterLocation}
+            onChange={(e) => setFilterLocation(e.target.value)}
+          >
+            <option value="All">All Locations</option>
+            {locationOptions.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </Form.Control>
+        </Form.Group>
+      </div>
+
+      {/* Table of holidays (Date, Holiday, Location) */}
       <div className="border p-3 mt-3">
-        {holidays.length > 0 ? (
+        {filteredHolidays.length > 0 ? (
           <Table bordered striped hover responsive>
             <thead className="bg-primary text-white text-center">
               <tr>
@@ -325,8 +354,7 @@ const Holidays = () => {
               </tr>
             </thead>
             <tbody>
-              {holidays.map((holiday) => {
-                // Format the date to show only the date part (e.g. "January 14, 2025")
+              {filteredHolidays.map((holiday) => {
                 const formattedDate = new Date(holiday.holiday_date).toLocaleDateString(
                   "en-US",
                   {
@@ -427,8 +455,8 @@ const EmployeeView = ({ role }) => {
     const employeeId = e.target.value;
     setSelectedEmployee(employeeId);
 
-    // In a real scenario, you would fetch employee leave data from an API
-    // For now, we are hardcoding the employee data
+    // In a real scenario, you would fetch employee leave data from an API.
+    // Here, we hardcode sample data.
     if (employeeId === "1") {
       setEmployeeLeaves({
         sickLeave: "3",
@@ -464,11 +492,7 @@ const EmployeeView = ({ role }) => {
         <div className="mb-4">
           <Form.Group controlId="employeeSelect">
             <Form.Label>Select Employee</Form.Label>
-            <Form.Control
-              as="select"
-              onChange={handleEmployeeSelect}
-              value={selectedEmployee}
-            >
+            <Form.Control as="select" onChange={handleEmployeeSelect} value={selectedEmployee}>
               <option value="">-- Select Employee --</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
@@ -481,10 +505,7 @@ const EmployeeView = ({ role }) => {
       )}
 
       {/* Leave Section */}
-      <Card
-        className="p-3 shadow-sm mt-3"
-        style={{ maxWidth: "400px", margin: "auto" }}
-      >
+      <Card className="p-3 shadow-sm mt-3" style={{ maxWidth: "400px", margin: "auto" }}>
         <h5>
           <b>Used Leaves</b>
         </h5>
@@ -533,8 +554,6 @@ const EmployeeView = ({ role }) => {
   );
 };
 
-const Report = () => (
-  <h3 className="text-center mt-4"> Report Section</h3>
-);
+const Report = () => <h3 className="text-center mt-4"> Report Section</h3>;
 
 export default Dashboard;
