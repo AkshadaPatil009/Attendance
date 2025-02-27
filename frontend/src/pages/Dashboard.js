@@ -2,7 +2,65 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card, Table } from "react-bootstrap";
+import {Navbar,Nav,Container,Button,Form,Row,Col,Modal,Card,Table,} from "react-bootstrap";
+
+// Custom component for multi-select location dropdown
+const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
+  const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
+  const [open, setOpen] = useState(false);
+
+  const toggleOption = (option) => {
+    if (selectedLocations.includes(option)) {
+      setSelectedLocations(selectedLocations.filter((loc) => loc !== option));
+    } else {
+      setSelectedLocations([...selectedLocations, option]);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLocations.length === locationOptions.length) {
+      setSelectedLocations([]);
+    } else {
+      setSelectedLocations([...locationOptions]);
+    }
+  };
+
+  return (
+    <div className="position-relative">
+      <Button
+        variant="outline-secondary"
+        onClick={() => setOpen(!open)}
+        className="w-100 text-start"
+      >
+        {selectedLocations.length > 0
+          ? selectedLocations.join(", ")
+          : "Select Locations"}
+      </Button>
+      {open && (
+        <div
+          className="border position-absolute bg-white p-2"
+          style={{ zIndex: 1000, width: "100%" }}
+        >
+          <Form.Check
+            type="checkbox"
+            label="Select All"
+            checked={selectedLocations.length === locationOptions.length}
+            onChange={toggleSelectAll}
+          />
+          {locationOptions.map((option) => (
+            <Form.Check
+              key={option}
+              type="checkbox"
+              label={option}
+              checked={selectedLocations.includes(option)}
+              onChange={() => toggleOption(option)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,7 +108,11 @@ const Dashboard = () => {
             <Row className="w-100">
               {/* Left-aligned Date Picker (only for admin) */}
               {user.role === "admin" && (
-                <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
+                <Col
+                  xs={12}
+                  md={4}
+                  className="d-flex align-items-center mt-2 mt-md-0"
+                >
                   <Form className="w-100">
                     <Form.Control
                       type="date"
@@ -67,7 +129,9 @@ const Dashboard = () => {
                   {user.role === "admin" && (
                     <>
                       <Button
-                        variant={activeSection === "attendanceForm" ? "secondary" : "light"}
+                        variant={
+                          activeSection === "attendanceForm" ? "secondary" : "light"
+                        }
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("attendanceForm")}
                         active={activeSection === "attendanceForm"}
@@ -106,7 +170,11 @@ const Dashboard = () => {
                   )}
 
                   {/* Logout Button */}
-                  <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
+                  <Button
+                    variant="danger"
+                    className="ms-2 mb-2"
+                    onClick={handleLogout}
+                  >
                     Logout
                   </Button>
                 </Nav>
@@ -197,7 +265,8 @@ const AttendanceForm = () => {
 const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", location: "" });
+  // newHoliday now has "locations" as an array for multi-select
+  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
 
   // Fetch holiday list from the backend API on component mount
   useEffect(() => {
@@ -212,28 +281,30 @@ const Holidays = () => {
   }, []);
 
   const handleAddHoliday = () => {
-    if (newHoliday.date && newHoliday.name && newHoliday.location) {
-      // Post new holiday to the backend
-      fetch("http://localhost:5000/api/holidays", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          holiday_date: newHoliday.date,
-          holiday_name: newHoliday.name,
-          location: newHoliday.location,
-        }),
-      })
-        .then((res) => res.json())
-        .then((addedHoliday) => {
-          // Update the local holidays list with the newly added holiday
-          setHolidays([...holidays, addedHoliday]);
-          setNewHoliday({ date: "", name: "", location: "" });
+    if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
+      // Create an array of promises to add a holiday for each selected location
+      const addHolidayPromises = newHoliday.locations.map((location) =>
+        fetch("http://localhost:5000/api/holidays", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            holiday_date: newHoliday.date,
+            holiday_name: newHoliday.name,
+            location,
+          }),
+        }).then((res) => res.json())
+      );
+
+      Promise.all(addHolidayPromises)
+        .then((addedHolidays) => {
+          setHolidays([...holidays, ...addedHolidays]);
+          setNewHoliday({ date: "", name: "", locations: [] });
           setShowModal(false);
         })
         .catch((error) => {
-          console.error("Error adding holiday:", error);
+          console.error("Error adding holiday(s):", error);
         });
     }
   };
@@ -245,8 +316,8 @@ const Holidays = () => {
       {/* Table of holidays (3 columns: Date, Holiday, Location) */}
       <div className="border p-3 mt-3">
         {holidays.length > 0 ? (
-          <Table bordered hover responsive>
-            <thead style={{ backgroundColor: "#f8d7da" }}>
+          <Table bordered striped hover responsive>
+            <thead className="bg-primary text-white text-center">
               <tr>
                 <th>Date</th>
                 <th>Holiday</th>
@@ -256,14 +327,17 @@ const Holidays = () => {
             <tbody>
               {holidays.map((holiday) => {
                 // Format the date to show only the date part (e.g. "January 14, 2025")
-                const formattedDate = new Date(holiday.holiday_date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                });
+                const formattedDate = new Date(holiday.holiday_date).toLocaleDateString(
+                  "en-US",
+                  {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }
+                );
                 return (
                   <tr key={holiday.id}>
-                    <td>{formattedDate}</td>
+                    <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
                     <td>{holiday.location}</td>
                   </tr>
@@ -293,7 +367,9 @@ const Holidays = () => {
               <Form.Control
                 type="date"
                 value={newHoliday.date}
-                onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
+                onChange={(e) =>
+                  setNewHoliday({ ...newHoliday, date: e.target.value })
+                }
               />
             </Form.Group>
             <Form.Group className="mt-2">
@@ -302,16 +378,19 @@ const Holidays = () => {
                 type="text"
                 placeholder="Enter holiday name"
                 value={newHoliday.name}
-                onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
+                onChange={(e) =>
+                  setNewHoliday({ ...newHoliday, name: e.target.value })
+                }
               />
             </Form.Group>
             <Form.Group className="mt-2">
-              <Form.Label>Location</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter location"
-                value={newHoliday.location}
-                onChange={(e) => setNewHoliday({ ...newHoliday, location: e.target.value })}
+              <Form.Label>Locations</Form.Label>
+              {/* Use our custom multi-select dropdown */}
+              <LocationMultiSelect
+                selectedLocations={newHoliday.locations}
+                setSelectedLocations={(locations) =>
+                  setNewHoliday({ ...newHoliday, locations })
+                }
               />
             </Form.Group>
           </Form>
@@ -385,7 +464,11 @@ const EmployeeView = ({ role }) => {
         <div className="mb-4">
           <Form.Group controlId="employeeSelect">
             <Form.Label>Select Employee</Form.Label>
-            <Form.Control as="select" onChange={handleEmployeeSelect} value={selectedEmployee}>
+            <Form.Control
+              as="select"
+              onChange={handleEmployeeSelect}
+              value={selectedEmployee}
+            >
               <option value="">-- Select Employee --</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
@@ -398,17 +481,30 @@ const EmployeeView = ({ role }) => {
       )}
 
       {/* Leave Section */}
-      <Card className="p-3 shadow-sm mt-3" style={{ maxWidth: "400px", margin: "auto" }}>
+      <Card
+        className="p-3 shadow-sm mt-3"
+        style={{ maxWidth: "400px", margin: "auto" }}
+      >
         <h5>
           <b>Used Leaves</b>
         </h5>
         <div className="d-flex justify-content-between align-items-center">
           <span>Sick Leave</span>
-          <input type="text" className="form-control w-50" value={employeeLeaves.sickLeave} readOnly />
+          <input
+            type="text"
+            className="form-control w-50"
+            value={employeeLeaves.sickLeave}
+            readOnly
+          />
         </div>
         <div className="d-flex justify-content-between align-items-center mt-2">
           <span>Planned Leaves</span>
-          <input type="text" className="form-control w-50" value={employeeLeaves.plannedLeave} readOnly />
+          <input
+            type="text"
+            className="form-control w-50"
+            value={employeeLeaves.plannedLeave}
+            readOnly
+          />
         </div>
 
         <h5 className="mt-3">
@@ -416,11 +512,21 @@ const EmployeeView = ({ role }) => {
         </h5>
         <div className="d-flex justify-content-between align-items-center">
           <span>Sick Leave</span>
-          <input type="text" className="form-control w-50" value={employeeLeaves.remainingSickLeave} readOnly />
+          <input
+            type="text"
+            className="form-control w-50"
+            value={employeeLeaves.remainingSickLeave}
+            readOnly
+          />
         </div>
         <div className="d-flex justify-content-between align-items-center mt-2">
           <span>Planned Leaves</span>
-          <input type="text" className="form-control w-50" value={employeeLeaves.remainingPlannedLeave} readOnly />
+          <input
+            type="text"
+            className="form-control w-50"
+            value={employeeLeaves.remainingPlannedLeave}
+            readOnly
+          />
         </div>
       </Card>
     </div>
