@@ -21,11 +21,14 @@ const Dashboard = () => {
         setActiveSection("attendanceForm");
       }
     }
-
-    // Set the current date for the date picker by default
-    const currentDate = new Date().toISOString().split("T")[0]; // Getting the current date in YYYY-MM-DD format
-    setSelectedDate(currentDate);
   }, [navigate]);
+
+  useEffect(() => {
+    // Set current date automatically when admin logs in
+    if (user && user.role === "admin") {
+      setSelectedDate(new Date().toISOString().split("T")[0]); // Format as YYYY-MM-DD
+    }
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -45,17 +48,19 @@ const Dashboard = () => {
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Row className="w-100">
-              {/* Left-aligned Date Picker */}
-              <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
-                <Form className="w-100">
-                  <Form.Control
-                    type="date"
-                    className="w-100"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                </Form>
-              </Col>
+              {/* Left-aligned Date Picker (only for admin) */}
+              {user.role === "admin" && (
+                <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
+                  <Form className="w-100">
+                    <Form.Control
+                      type="date"
+                      className="w-100"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </Form>
+                </Col>
+              )}
               {/* Right-aligned Buttons */}
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
