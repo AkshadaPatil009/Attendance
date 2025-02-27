@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap";
+import { Table } from "react-bootstrap";
+
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -195,7 +197,44 @@ const AttendanceForm = () => {
 };
 
 const AddHolidays = () => {
+  const holidays = [
+    { date: "January 14, 2025", name: "Makar Sankranti" },
+    { date: "February 26, 2025", name: "Mahashivaratri" },
+    { date: "March 14, 2025", name: "Dhulivandan" },
+    { date: "May 1, 2025", name: "Maharashtra Day" },
+    { date: "June 7, 2025", name: "Eid al-Adha" },
+    { date: "August 9, 2025", name: "Raksha Bandhan" },
+    { date: "August 15, 2025", name: "Independence Day" },
+    { date: "August 27, 2025", name: "Shri Ganesh Chaturthi" },
+    { date: "September 2, 2025", name: "Gauri Visarjan" },
+    { date: "October 2, 2025", name: "Dassera" },
+    { date: "October 20, 2025", name: "Narak Chaturdashi" },
+    { date: "October 21, 2025", name: "Laxmi Pujan" },
+    { date: "October 23, 2025", name: "Bhaubij" },
+    { date: "December 25, 2025", name: "Christmas" },
+  ];
 
+  return (
+    <Container className="mt-4">
+      <h3 className="text-center mb-4">Ratnagiri Office Holidays</h3>
+      <Table bordered striped hover>
+        <thead>
+          <tr className="table-primary text-center">
+            <th>Date</th>
+            <th>Holiday</th>
+          </tr>
+        </thead>
+        <tbody>
+          {holidays.map((holiday, index) => (
+            <tr key={index}>
+              <td className="text-center">{holiday.date}</td>
+              <td>{holiday.name}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </Container>
+  );
 };
 
 const EmployeeView = ({ role }) => {
