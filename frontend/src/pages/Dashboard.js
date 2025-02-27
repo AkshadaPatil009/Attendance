@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card, Dropdown } from "react-bootstrap";
+import { Navbar, Nav, Container, Button, Form, Row, Col, Modal, Card } from "react-bootstrap";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -192,6 +192,11 @@ const AddHolidays = () => {
     setHolidays([...holidays, { date: "", name: "" }]);
   };
 
+  const handleRemoveRow = (index) => {
+    const updatedHolidays = holidays.filter((_, i) => i !== index);
+    setHolidays(updatedHolidays);
+  };
+
   const handleInputChange = (index, field, value) => {
     const updatedHolidays = [...holidays];
     updatedHolidays[index][field] = value;
@@ -224,6 +229,14 @@ const AddHolidays = () => {
                 value={holiday.name}
                 onChange={(e) => handleInputChange(index, "name", e.target.value)}
               />
+              {/* Remove Button */}
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleRemoveRow(index)}
+              >
+                -
+              </button>
             </div>
           </div>
         ))}
@@ -337,7 +350,7 @@ const EmployeeView = ({ role }) => {
 };
 
 const Report = () => (
-  <h3 className="text-center mt-4">Report Section</h3>
+  <h3 className="text-center mt-4"> Report Section</h3>
 );
 
 export default Dashboard;
