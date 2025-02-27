@@ -42,13 +42,14 @@ app.post("/login", (req, res) => {
   });
 });
 
-// GET Holidays API - Fetch all holidays
+// GET Holidays API - Fetch all holidays sorted by date
 app.get("/api/holidays", (req, res) => {
-  db.query("SELECT * FROM holidays", (err, results) => {
+  db.query("SELECT * FROM holidays ORDER BY holiday_date ASC", (err, results) => {
     if (err) return res.status(500).json({ error: "Database error" });
     res.json(results);
   });
 });
+
 
 // POST Holiday API - Add a new holiday
 app.post("/api/holidays", (req, res) => {
