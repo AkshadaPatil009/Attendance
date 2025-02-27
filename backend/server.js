@@ -50,7 +50,6 @@ app.get("/api/holidays", (req, res) => {
   });
 });
 
-
 // POST Holiday API - Add a new holiday
 app.post("/api/holidays", (req, res) => {
   const { holiday_date, holiday_name, location } = req.body;

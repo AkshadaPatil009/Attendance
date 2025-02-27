@@ -15,6 +15,7 @@ import {
   Table,
 } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
+import "./Dashboard.css"; // Import the CSS that forces the background color
 
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
@@ -348,18 +349,16 @@ const Holidays = () => {
   const handleEdit = (holiday) => {
     // Adjust the date using timezone offset so that the correct date appears
     const date = new Date(holiday.holiday_date);
-    // Subtract the timezone offset instead of adding it
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     const formattedDate = date.toISOString().split("T")[0];
     setEditingHoliday({ ...holiday, holiday_date: formattedDate });
     setShowEditModal(true);
   };
-  
+
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditingHoliday((prev) => ({ ...prev, [name]: value }));
   };
-  
 
   const handleUpdateHoliday = () => {
     fetch(`http://localhost:5000/api/holidays/${editingHoliday.id}`, {
@@ -443,15 +442,21 @@ const Holidays = () => {
             </thead>
             <tbody>
               {filteredHolidays.map((holiday) => {
-                const formattedDate = new Date(
-                  holiday.holiday_date
-                ).toLocaleDateString("en-US", {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const holidayDate = new Date(holiday.holiday_date);
+                holidayDate.setHours(0, 0, 0, 0);
+                const isCompleted = holidayDate < today;
+                const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 });
                 return (
-                  <tr key={holiday.id}>
+                  <tr
+                    key={holiday.id}
+                    className={isCompleted ? "completedHoliday" : ""}
+                  >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
                     <td>{holiday.location}</td>
