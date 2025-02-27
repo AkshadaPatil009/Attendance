@@ -14,6 +14,7 @@ import {
   Card,
   Table,
 } from "react-bootstrap";
+import { FaPencilAlt, FaTrash } from "react-icons/fa";
 
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
@@ -119,7 +120,11 @@ const Dashboard = () => {
             <Row className="w-100">
               {/* Left-aligned Date Picker (only for admin) */}
               {user.role === "admin" && (
-                <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
+                <Col
+                  xs={12}
+                  md={4}
+                  className="d-flex align-items-center mt-2 mt-md-0"
+                >
                   <Form className="w-100">
                     <Form.Control
                       type="date"
@@ -136,7 +141,9 @@ const Dashboard = () => {
                   {user.role === "admin" && (
                     <>
                       <Button
-                        variant={activeSection === "attendanceForm" ? "secondary" : "light"}
+                        variant={
+                          activeSection === "attendanceForm" ? "secondary" : "light"
+                        }
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("attendanceForm")}
                         active={activeSection === "attendanceForm"}
@@ -175,7 +182,11 @@ const Dashboard = () => {
                   )}
 
                   {/* Logout Button */}
-                  <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
+                  <Button
+                    variant="danger"
+                    className="ms-2 mb-2"
+                    onClick={handleLogout}
+                  >
                     Logout
                   </Button>
                 </Nav>
@@ -265,15 +276,25 @@ const AttendanceForm = () => {
 
 const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  // newHoliday now has "locations" as an array for multi-select
-  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
-  // State to filter holidays by location
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newHoliday, setNewHoliday] = useState({
+    date: "",
+    name: "",
+    locations: [],
+  });
   const [filterLocation, setFilterLocation] = useState("All");
   const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
 
-  // Fetch holiday list from the backend API on component mount
-  useEffect(() => {
+  // For editing
+  const [editingHoliday, setEditingHoliday] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // For deletion
+  const [holidayToDelete, setHolidayToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Fetch holiday list from the backend API
+  const fetchHolidays = () => {
     fetch("http://localhost:5000/api/holidays")
       .then((res) => res.json())
       .then((data) => {
@@ -282,6 +303,10 @@ const Holidays = () => {
       .catch((error) => {
         console.error("Error fetching holidays:", error);
       });
+  };
+
+  useEffect(() => {
+    fetchHolidays();
   }, []);
 
   // Filter holidays based on selected location
@@ -308,15 +333,76 @@ const Holidays = () => {
       );
 
       Promise.all(addHolidayPromises)
-        .then((addedHolidays) => {
-          setHolidays([...holidays, ...addedHolidays]);
+        .then(() => {
+          // Re-fetch the holidays list after adding
+          fetchHolidays();
           setNewHoliday({ date: "", name: "", locations: [] });
-          setShowModal(false);
+          setShowAddModal(false);
         })
         .catch((error) => {
           console.error("Error adding holiday(s):", error);
         });
     }
+  };
+
+  // Edit holiday functions
+  const handleEdit = (holiday) => {
+    // Format the holiday date to YYYY-MM-DD for the input
+    const formattedDate = new Date(holiday.holiday_date)
+      .toISOString()
+      .split("T")[0];
+    setEditingHoliday({ ...holiday, holiday_date: formattedDate });
+    setShowEditModal(true);
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditingHoliday((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateHoliday = () => {
+    fetch(`http://localhost:5000/api/holidays/${editingHoliday.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        holiday_date: editingHoliday.holiday_date,
+        holiday_name: editingHoliday.holiday_name,
+        location: editingHoliday.location,
+      }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        // Re-fetch the updated holidays list
+        fetchHolidays();
+        setShowEditModal(false);
+        setEditingHoliday(null);
+      })
+      .catch((error) => {
+        console.error("Error updating holiday:", error);
+      });
+  };
+
+  // Delete holiday functions
+  const handleDelete = (holiday) => {
+    setHolidayToDelete(holiday);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    fetch(`http://localhost:5000/api/holidays/${holidayToDelete.id}`, {
+      method: "DELETE",
+    })
+      .then(() => {
+        // Re-fetch holidays after deletion
+        fetchHolidays();
+        setShowDeleteModal(false);
+        setHolidayToDelete(null);
+      })
+      .catch((error) => {
+        console.error("Error deleting holiday:", error);
+      });
   };
 
   return (
@@ -342,7 +428,7 @@ const Holidays = () => {
         </Form.Group>
       </div>
 
-      {/* Table of holidays (Date, Holiday, Location) */}
+      {/* Table of Holidays */}
       <div className="border p-3 mt-3">
         {filteredHolidays.length > 0 ? (
           <Table bordered striped hover responsive>
@@ -351,23 +437,33 @@ const Holidays = () => {
                 <th>Date</th>
                 <th>Holiday</th>
                 <th>Location</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredHolidays.map((holiday) => {
-                const formattedDate = new Date(holiday.holiday_date).toLocaleDateString(
-                  "en-US",
-                  {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }
-                );
+                const formattedDate = new Date(
+                  holiday.holiday_date
+                ).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                });
                 return (
                   <tr key={holiday.id}>
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
                     <td>{holiday.location}</td>
+                    <td className="text-center">
+                      <FaPencilAlt
+                        onClick={() => handleEdit(holiday)}
+                        style={{ cursor: "pointer", marginRight: "10px" }}
+                      />
+                      <FaTrash
+                        onClick={() => handleDelete(holiday)}
+                        style={{ cursor: "pointer", color: "red" }}
+                      />
+                    </td>
                   </tr>
                 );
               })}
@@ -379,12 +475,12 @@ const Holidays = () => {
       </div>
 
       {/* Button to open "Add Holiday" modal */}
-      <Button className="mt-3" onClick={() => setShowModal(true)}>
+      <Button className="mt-3" onClick={() => setShowAddModal(true)}>
         Add Holiday
       </Button>
 
-      {/* Modal for adding a new holiday */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
+      {/* Add Holiday Modal */}
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Add Holiday</Modal.Title>
         </Modal.Header>
@@ -413,7 +509,6 @@ const Holidays = () => {
             </Form.Group>
             <Form.Group className="mt-2">
               <Form.Label>Locations</Form.Label>
-              {/* Use our custom multi-select dropdown */}
               <LocationMultiSelect
                 selectedLocations={newHoliday.locations}
                 setSelectedLocations={(locations) =>
@@ -424,11 +519,84 @@ const Holidays = () => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleAddHoliday}>
             Add
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit Holiday Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Holiday</Modal.Title>
+        </Modal.Header>
+        {editingHoliday && (
+          <Modal.Body>
+            <Form>
+              <Form.Group>
+                <Form.Label>Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  name="holiday_date"
+                  value={editingHoliday.holiday_date}
+                  onChange={handleEditChange}
+                />
+              </Form.Group>
+              <Form.Group className="mt-2">
+                <Form.Label>Holiday Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="holiday_name"
+                  value={editingHoliday.holiday_name}
+                  onChange={handleEditChange}
+                />
+              </Form.Group>
+              <Form.Group className="mt-2">
+                <Form.Label>Location</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="location"
+                  value={editingHoliday.location}
+                  onChange={handleEditChange}
+                >
+                  {locationOptions.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+        )}
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleUpdateHoliday}>
+            Update
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Delete Holiday</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to delete the holiday "
+          {holidayToDelete && holidayToDelete.holiday_name}"?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDelete}>
+            Delete
           </Button>
         </Modal.Footer>
       </Modal>
@@ -455,7 +623,7 @@ const EmployeeView = ({ role }) => {
     const employeeId = e.target.value;
     setSelectedEmployee(employeeId);
 
-    // In a real scenario, you would fetch employee leave data from an API.
+    // In a real scenario, fetch employee leave data from an API.
     // Here, we hardcode sample data.
     if (employeeId === "1") {
       setEmployeeLeaves({
@@ -484,7 +652,7 @@ const EmployeeView = ({ role }) => {
   return (
     <div className="container mt-4">
       <h3 className="text-center mt-4">
-        {role === "admin" ? "Admin Employee View" : " Employee View"}
+        {role === "admin" ? "Admin Employee View" : "Employee View"}
       </h3>
 
       {/* Employee Selection Dropdown */}
@@ -492,7 +660,11 @@ const EmployeeView = ({ role }) => {
         <div className="mb-4">
           <Form.Group controlId="employeeSelect">
             <Form.Label>Select Employee</Form.Label>
-            <Form.Control as="select" onChange={handleEmployeeSelect} value={selectedEmployee}>
+            <Form.Control
+              as="select"
+              onChange={handleEmployeeSelect}
+              value={selectedEmployee}
+            >
               <option value="">-- Select Employee --</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
