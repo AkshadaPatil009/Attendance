@@ -110,7 +110,7 @@ const Dashboard = () => {
       {/* Dynamic Section Rendering Based on Active State */}
       <Container>
         {activeSection === "dashboard" && (
-          <h3 className="text-center mt-4">🏠 Dashboard Overview</h3>
+          <h3 className="text-center mt-4"> Dashboard Overview</h3>
         )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "addHolidays" && <AddHolidays />}
@@ -149,7 +149,7 @@ const AttendanceForm = () => {
 
   return (
     <div className="mt-4">
-      <h3 className="text-center">📋 Attendance Form</h3>
+      <h3 className="text-center"> Attendance Form</h3>
       <Form onSubmit={handleSubmit} className="mt-3">
         <Form.Group controlId="attendanceTextarea">
           <Form.Control
@@ -157,7 +157,7 @@ const AttendanceForm = () => {
             rows={13}
             value={attendanceText}
             onChange={handleChange}
-            placeholder="Paste your attendance data here..."
+            placeholder="Attendance data here..."
           />
         </Form.Group>
         <div className="d-flex justify-content-end mt-2">
@@ -205,7 +205,7 @@ const AddHolidays = () => {
 
   return (
     <div className="container mt-4">
-      <h3 className="text-center">🎉 Add Holidays</h3>
+      <h3 className="text-center"> Add Holidays</h3>
       <div className="border p-3 mt-3">
         {holidays.map((holiday, index) => (
           <div key={index} className="mb-3">
@@ -286,7 +286,7 @@ const EmployeeView = ({ role }) => {
   return (
     <div className="container mt-4">
       <h3 className="text-center mt-4">
-        {role === "admin" ? "👨‍💼 Admin Employee View" : "👨‍💼 Employee View"}
+        {role === "admin" ? "Admin Employee View" : " Employee View"}
       </h3>
 
       {/* Employee Selection Dropdown */}
@@ -337,7 +337,7 @@ const EmployeeView = ({ role }) => {
 };
 
 const Report = () => (
-  <h3 className="text-center mt-4">📊 Report Section</h3>
+  <h3 className="text-center mt-4">Report Section</h3>
 );
 
 export default Dashboard;
