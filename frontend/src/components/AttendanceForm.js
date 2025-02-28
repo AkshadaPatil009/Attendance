@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
 
 const AttendanceForm = () => {
   const [hangoutMessages, setHangoutMessages] = useState("");
   const [attendanceMessages, setAttendanceMessages] = useState("");
   const [otherMessages, setOtherMessages] = useState("");
+  const [tableData, setTableData] = useState([]);
 
   // Textarea style with horizontal & vertical scrollbars
   const textareaStyle = {
@@ -17,6 +18,52 @@ const AttendanceForm = () => {
     resize: "none", // Prevents manual resizing
     whiteSpace: "pre", // Maintains formatting and forces horizontal scrolling
     wordWrap: "normal", // Ensures horizontal scroll instead of wrapping text
+  };
+
+  // Handler to parse raw data and update tableData
+  const handleFilter = () => {
+    // Split the raw text into non-empty lines
+    const lines = hangoutMessages.split("\n").filter(line => line.trim() !== "");
+    const records = [];
+
+    // Process every two lines as one record
+    for (let i = 0; i < lines.length; i += 2) {
+      // Ensure there is a detail line
+      if (i + 1 >= lines.length) break;
+
+      const headerLine = lines[i];
+      const detailLine = lines[i + 1];
+
+      // Parse header line: expected format "EmpName, Day Time"
+      const headerParts = headerLine.split(",");
+      const empName = headerParts[0].trim();
+      let messageDate = "";
+      let messageTime = "";
+      if (headerParts.length > 1) {
+        // Example header: "Thu 9:59?AM" – we remove the "?" if present
+        const dateTimeStr = headerParts[1].trim();
+        const dateTimeParts = dateTimeStr.split(" ");
+        messageDate = dateTimeParts[0] || "";
+        messageTime = (dateTimeParts[1] || "").replace("?", "");
+      }
+
+      // Parse detail line: expected format "CI RO" or "CO TECHNICO"
+      const detailParts = detailLine.trim().split(" ").filter(part => part !== "");
+      const recordType = detailParts[0] || "";
+      const location = detailParts[1] || "";
+      const inTime = recordType === "CI" ? messageTime : "";
+      const outTime = recordType === "CO" ? messageTime : "";
+
+      records.push({
+        empName,
+        inTime,
+        outTime,
+        location,
+        messageTime,
+        messageDate,
+      });
+    }
+    setTableData(records);
   };
 
   return (
@@ -59,18 +106,41 @@ const AttendanceForm = () => {
           />
         </Col>
 
-        {/* Attendance Table Placeholder */}
+        {/* Attendance Table */}
         <Col>
           <div
             style={{
               height: "300px",
-              overflowX: "scroll", // Enables horizontal scroll
-              overflowY: "scroll", // Enables vertical scroll
+              overflowX: "scroll",
+              overflowY: "scroll",
               border: "1px solid #ccc",
-              whiteSpace: "nowrap", // Ensures table content scrolls horizontally
+              whiteSpace: "nowrap",
             }}
           >
-            {/* Placeholder for future table content */}
+            <Table striped bordered hover size="sm">
+              <thead>
+                <tr>
+                  <th>EmpName</th>
+                  <th>InTime</th>
+                  <th>OutTime</th>
+                  <th>Location</th>
+                  <th>MessageTime</th>
+                  <th>MessageDate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableData.map((record, index) => (
+                  <tr key={index}>
+                    <td>{record.empName}</td>
+                    <td>{record.inTime}</td>
+                    <td>{record.outTime}</td>
+                    <td>{record.location}</td>
+                    <td>{record.messageTime}</td>
+                    <td>{record.messageDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           </div>
         </Col>
       </Row>
@@ -78,7 +148,9 @@ const AttendanceForm = () => {
       {/* Buttons Section */}
       <Row className="mt-3 text-center">
         <Col>
-          <Button variant="primary" className="me-3">Filter</Button>
+          <Button variant="primary" className="me-3" onClick={handleFilter}>
+            Filter
+          </Button>
           <Button variant="success">Save</Button>
         </Col>
       </Row>
