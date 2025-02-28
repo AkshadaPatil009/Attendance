@@ -1,65 +1,80 @@
 import React, { useState } from "react";
-import { Button, Form, Modal } from "react-bootstrap";
+import { Container, Row, Col, Form } from "react-bootstrap";
 
 const AttendanceForm = () => {
-  const [attendanceText, setAttendanceText] = useState("");
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [hangoutMessages, setHangoutMessages] = useState("");
+  const [attendanceMessages, setAttendanceMessages] = useState("");
+  const [otherMessages, setOtherMessages] = useState("");
 
-  const handleChange = (e) => {
-    setAttendanceText(e.target.value);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Open the confirmation popup instead of submitting immediately
-    setShowConfirmation(true);
-  };
-
-  const handleConfirm = () => {
-    // Place your actual submission logic here
-    console.log("Submitted Attendance Data:", attendanceText);
-    setShowConfirmation(false);
-  };
-
-  const handleCancel = () => {
-    setShowConfirmation(false);
+  // Textarea style with horizontal & vertical scrollbars
+  const textareaStyle = {
+    height: "300px",
+    width: "100%",
+    overflowX: "scroll", //  horizontal scroll
+    overflowY: "scroll", //  vertical scroll
+    border: "1px solid #ccc",
+    padding: "8px",
+    resize: "none", // Prevents manual resizing
+    whiteSpace: "pre", // Maintains formatting and forces horizontal scrolling
+    wordWrap: "normal", // Ensures horizontal scroll instead of wrapping text
   };
 
   return (
-    <div className="mt-4">
-      <h3 className="text-center"> Attendance Form</h3>
-      <Form onSubmit={handleSubmit} className="mt-3">
-        <Form.Group controlId="attendanceTextarea">
+    <Container fluid className="p-4">
+      <Row className="mb-3 text-center fw-bold">
+        <Col><h5>Hangout Messages</h5></Col>
+        <Col><h5>Attendance Messages</h5></Col>
+        <Col><h5>Other Messages</h5></Col>
+        <Col><h5>Attendance to Save in Database</h5></Col>
+      </Row>
+
+      <Row>
+        {/* Hangout Messages */}
+        <Col>
           <Form.Control
             as="textarea"
-            rows={13}
-            value={attendanceText}
-            onChange={handleChange}
-            placeholder="Attendance data here..."
+            value={hangoutMessages}
+            onChange={(e) => setHangoutMessages(e.target.value)}
+            style={textareaStyle}
           />
-        </Form.Group>
-        <div className="d-flex justify-content-end mt-2">
-          <Button type="submit" variant="primary">
-            Submit
-          </Button>
-        </div>
-      </Form>
+        </Col>
 
-      <Modal show={showConfirmation} onHide={handleCancel}>
-        <Modal.Header closeButton>
-          <Modal.Title>Confirm Submission</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>Are you sure want to submit?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCancel}>
-            No
-          </Button>
-          <Button variant="primary" onClick={handleConfirm}>
-            Yes
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </div>
+        {/* Attendance Messages */}
+        <Col>
+          <Form.Control
+            as="textarea"
+            value={attendanceMessages}
+            onChange={(e) => setAttendanceMessages(e.target.value)}
+            style={textareaStyle}
+          />
+        </Col>
+
+        {/* Other Messages */}
+        <Col>
+          <Form.Control
+            as="textarea"
+            value={otherMessages}
+            onChange={(e) => setOtherMessages(e.target.value)}
+            style={textareaStyle}
+          />
+        </Col>
+
+        {/* Attendance Table Placeholder */}
+        <Col>
+          <div
+            style={{
+              height: "300px",
+              overflowX: "scroll", // Enables horizontal scroll
+              overflowY: "scroll", // Enables vertical scroll
+              border: "1px solid #ccc",
+              whiteSpace: "nowrap", // Ensures table content scrolls horizontally
+            }}
+          >
+            {/* Placeholder for future table content */}
+          </div>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 
