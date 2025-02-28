@@ -1,5 +1,5 @@
 /* Force completed rows to use a light gray background */
 tr.completedHoliday td {
-    background-color: rgb(94, 86, 86) !important;
+    background-color: rgb(212, 205, 205) !important;
   }
   
