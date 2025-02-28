@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Container, Row, Col, Form } from "react-bootstrap";
+import { Container, Row, Col, Form, Button } from "react-bootstrap";
 
 const AttendanceForm = () => {
   const [hangoutMessages, setHangoutMessages] = useState("");
@@ -10,8 +10,8 @@ const AttendanceForm = () => {
   const textareaStyle = {
     height: "300px",
     width: "100%",
-    overflowX: "scroll", //  horizontal scroll
-    overflowY: "scroll", //  vertical scroll
+    overflowX: "scroll", // Horizontal scroll
+    overflowY: "scroll", // Vertical scroll
     border: "1px solid #ccc",
     padding: "8px",
     resize: "none", // Prevents manual resizing
@@ -72,6 +72,14 @@ const AttendanceForm = () => {
           >
             {/* Placeholder for future table content */}
           </div>
+        </Col>
+      </Row>
+
+      {/* Buttons Section */}
+      <Row className="mt-3 text-center">
+        <Col>
+          <Button variant="primary" className="me-3">Filter</Button>
+          <Button variant="success">Save</Button>
         </Col>
       </Row>
     </Container>
