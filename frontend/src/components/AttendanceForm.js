@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import moment from "moment";
 import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
 
 const AttendanceForm = () => {
@@ -44,8 +45,21 @@ const AttendanceForm = () => {
       return;
     }
 
-    // First line is assumed to be the common date for all messages
-    const commonDate = lines[0];
+    // Convert the first line (date) into YYYY-MM-DD format using Moment.js.
+    // Define the possible formats that the input date might be in.
+    const formats = [
+      "D MMM, YYYY",
+      "MMM D,YYYY",
+      "D MMM YYYY",
+      "MMM D YYYY",
+      "MMMM D, YYYY",
+      "D MMMM, YYYY",
+      "YYYY-MM-DD",
+    ];
+    const rawDate = lines[0].trim();
+    const mDate = moment(rawDate, formats, true);
+    const commonDate = mDate.isValid() ? mDate.format("YYYY-MM-DD") : rawDate;
+
     const attendanceRecords = [];
     const otherMessagesData = [];
 
