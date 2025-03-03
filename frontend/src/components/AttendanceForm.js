@@ -4,10 +4,10 @@ import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
 const AttendanceForm = () => {
   const [hangoutMessages, setHangoutMessages] = useState("");
   const [attendanceTableData, setAttendanceTableData] = useState([]);
-  const [otherMessagesText, setOtherMessagesText] = useState("");
-  const [attendanceToSave, setAttendanceToSave] = useState(""); // New state for attendance to save
+  const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
+  const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
 
-  // Fixed-size textarea style
+  // Fixed-size textarea style for the input
   const hangoutTextareaStyle = {
     height: "300px",
     width: "100%",
@@ -31,6 +31,7 @@ const AttendanceForm = () => {
   };
 
   const handleFilter = () => {
+    // Split input into non-empty lines
     const lines = hangoutMessages
       .split("\n")
       .map((line) => line.trim())
@@ -38,19 +39,23 @@ const AttendanceForm = () => {
 
     if (lines.length === 0) {
       setAttendanceTableData([]);
-      setOtherMessagesText("");
-      setAttendanceToSave(""); // Clear the attendance to save
+      setOtherMessagesTableData([]);
+      setAttendanceToSave([]);
       return;
     }
 
+    // First line is assumed to be the common date for all messages
     const commonDate = lines[0];
     const attendanceRecords = [];
-    const otherMessagesArr = [];
-    const attendanceToSaveArr = []; // For storing attendance data to save
+    const otherMessagesData = [];
 
-    let i = 1; 
+    let i = 1;
     while (i < lines.length) {
-      if (i < lines.length - 1 && (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))) {
+      // If next line exists and starts with CI or CO, treat these two lines as an attendance record
+      if (
+        i < lines.length - 1 &&
+        (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))
+      ) {
         const headerLine = lines[i];
         const detailLine = lines[i + 1];
         i += 2;
@@ -78,6 +83,7 @@ const AttendanceForm = () => {
           });
         } else if (recordType === "CO") {
           let updated = false;
+          // Try to match with a previous record that has CI but no CO
           for (let j = attendanceRecords.length - 1; j >= 0; j--) {
             if (
               attendanceRecords[j].empName === empName &&
@@ -102,32 +108,72 @@ const AttendanceForm = () => {
           }
         }
       } else {
-        const line = lines[i];
-        i++;
-        otherMessagesArr.push(line);
+        // Process as an "other message"
+        // Check if we can pair the current line with the next line:
+        // If the current line contains a comma (assumed sender info)
+        // and the next line does NOT start with CI/CO, we treat the next line as the message text.
+        if (
+          i < lines.length - 1 &&
+          lines[i].includes(",") &&
+          !lines[i + 1].startsWith("CI") &&
+          !lines[i + 1].startsWith("CO")
+        ) {
+          const senderInfoParts = lines[i].split(",");
+          const senderName = senderInfoParts[0].trim();
+          const messageTime =
+            senderInfoParts.length > 1
+              ? senderInfoParts[1].trim().replace("?", "")
+              : "";
+          const message = lines[i + 1];
+          otherMessagesData.push({
+            senderName,
+            message,
+            messageTime,
+            messageDate: commonDate,
+          });
+          i += 2;
+        } else {
+          // If there is no pairing, try to extract what you can from the single line.
+          let senderName = "";
+          let messageTime = "";
+          if (lines[i].includes(",")) {
+            const parts = lines[i].split(",");
+            senderName = parts[0].trim();
+            messageTime = parts[1] ? parts[1].trim().replace("?", "") : "";
+          }
+          otherMessagesData.push({
+            senderName,
+            message: "",
+            messageTime,
+            messageDate: commonDate,
+          });
+          i++;
+        }
       }
     }
 
-    // Update attendanceTableData and otherMessagesText
+    // Update state with parsed data
     setAttendanceTableData(attendanceRecords);
-    setOtherMessagesText(otherMessagesArr.join("\n"));
-
-    // Generate the string for attendance to save in the database
-    const attendanceToSaveText = attendanceRecords.map((record) => {
-      return `${record.empName}, ${record.inTime}, ${record.outTime}, ${record.location}, ${record.date}`;
-    }).join("\n");
-
-    setAttendanceToSave(attendanceToSaveText); // Update the new textarea with formatted attendance data
+    setOtherMessagesTableData(otherMessagesData);
+    setAttendanceToSave(attendanceRecords);
   };
 
   return (
     <Container fluid className="p-3">
       {/* Header row */}
       <Row className="mb-2 text-center fw-bold">
-        <Col md={3}><h5>Hangout Messages</h5></Col>
-        <Col md={3}><h5>Attendance Messages</h5></Col>
-        <Col md={3}><h5>Other Messages</h5></Col>
-        <Col md={3}><h5>Attendance to Save</h5></Col>
+        <Col md={3}>
+          <h5>Hangout Messages</h5>
+        </Col>
+        <Col md={3}>
+          <h5>Attendance Messages</h5>
+        </Col>
+        <Col md={3}>
+          <h5>Other Messages</h5>
+        </Col>
+        <Col md={3}>
+          <h5>Attendance to Save</h5>
+        </Col>
       </Row>
 
       {/* Main content row */}
@@ -139,7 +185,10 @@ const AttendanceForm = () => {
             value={hangoutMessages}
             onChange={(e) => setHangoutMessages(e.target.value)}
             style={hangoutTextareaStyle}
-            placeholder={`Paste your data here.\n\nFirst line => Common date\nPairs => Attendance\nSingle line => Other message`}
+            placeholder={`Paste your data here.
+First line => Common date
+Pairs with "CI" or "CO" => Attendance
+Pair (sender info then message) => Other Message`}
           />
         </Col>
 
@@ -171,26 +220,58 @@ const AttendanceForm = () => {
           </div>
         </Col>
 
-        {/* Right Column: Other Messages (textarea) */}
+        {/* Next Column: Other Messages Table */}
         <Col md={3}>
-          <Form.Control
-            as="textarea"
-            value={otherMessagesText}
-            readOnly
-            style={hangoutTextareaStyle}
-            placeholder="All non-attendance lines appear here"
-          />
+          <div style={tableContainerStyle}>
+            <Table striped bordered hover size="sm">
+              <thead>
+                <tr>
+                  <th>SenderName</th>
+                  <th>Message</th>
+                  <th>MessageTime</th>
+                  <th>MessageDate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {otherMessagesTableData.map((msg, index) => (
+                  <tr key={index}>
+                    <td>{msg.senderName}</td>
+                    <td>{msg.message}</td>
+                    <td>{msg.messageTime}</td>
+                    <td>{msg.messageDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
         </Col>
 
-        {/* Right Column: Attendance to Save (textarea) */}
+        {/* Last Column: Attendance to Save */}
         <Col md={3}>
-          <Form.Control
-            as="textarea"
-            value={attendanceToSave}
-            readOnly
-            style={hangoutTextareaStyle}
-            placeholder="Formatted attendance data to save in database"
-          />
+          <div style={tableContainerStyle}>
+            <Table striped bordered hover size="sm">
+              <thead>
+                <tr>
+                  <th>EmpName</th>
+                  <th>InTime</th>
+                  <th>OutTime</th>
+                  <th>Location</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceToSave.map((record, index) => (
+                  <tr key={index}>
+                    <td>{record.empName}</td>
+                    <td>{record.inTime}</td>
+                    <td>{record.outTime}</td>
+                    <td>{record.location}</td>
+                    <td>{record.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
         </Col>
       </Row>
 
