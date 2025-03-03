@@ -185,10 +185,7 @@ const AttendanceForm = () => {
             value={hangoutMessages}
             onChange={(e) => setHangoutMessages(e.target.value)}
             style={hangoutTextareaStyle}
-            placeholder={`Paste your data here.
-First line => Common date
-Pairs with "CI" or "CO" => Attendance
-Pair (sender info then message) => Other Message`}
+            placeholder={`Paste your data here.`}
           />
         </Col>
 
