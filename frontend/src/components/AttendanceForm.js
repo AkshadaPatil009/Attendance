@@ -3,11 +3,12 @@ import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
 
 const AttendanceForm = () => {
   const [hangoutMessages, setHangoutMessages] = useState("");
-  const [otherMessages, setOtherMessages] = useState("");
-  const [tableData, setTableData] = useState([]);
+  const [attendanceTableData, setAttendanceTableData] = useState([]);
+  const [otherMessagesText, setOtherMessagesText] = useState("");
+  const [attendanceToSave, setAttendanceToSave] = useState(""); // New state for attendance to save
 
-  // Common style for textareas
-  const textareaStyle = {
+  // Fixed-size textarea style
+  const hangoutTextareaStyle = {
     height: "300px",
     width: "100%",
     overflowX: "scroll",
@@ -19,135 +20,132 @@ const AttendanceForm = () => {
     wordWrap: "normal",
   };
 
-  // Handler to parse raw data and update tableData
+  // Fixed-size table container style
+  const tableContainerStyle = {
+    height: "300px",
+    overflowX: "scroll",
+    overflowY: "scroll",
+    border: "1px solid #ccc",
+    whiteSpace: "nowrap",
+    padding: "8px",
+  };
+
   const handleFilter = () => {
-    // Split raw data into trimmed, non-empty lines
     const lines = hangoutMessages
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line !== "");
-      
+
     if (lines.length === 0) {
-      setTableData([]);
+      setAttendanceTableData([]);
+      setOtherMessagesText("");
+      setAttendanceToSave(""); // Clear the attendance to save
       return;
     }
 
-    // The very first line is the common date for all records.
     const commonDate = lines[0];
-    const records = [];
-    let i = 1;
+    const attendanceRecords = [];
+    const otherMessagesArr = [];
+    const attendanceToSaveArr = []; // For storing attendance data to save
 
-    // Helper function to detect a date header in case one is accidentally inserted later.
-    const isDateHeader = (line) =>
-      /^[A-Za-z]+\s\d{1,2},\d{4}$/i.test(line);
-
+    let i = 1; 
     while (i < lines.length) {
-      // If a line looks like a date header (and it's not the first line), skip it.
-      if (isDateHeader(lines[i])) {
-        i++;
-        continue;
-      }
+      if (i < lines.length - 1 && (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))) {
+        const headerLine = lines[i];
+        const detailLine = lines[i + 1];
+        i += 2;
 
-      const headerLine = lines[i];
-      if (i + 1 >= lines.length) break; // Ensure there is a detail line.
-      const detailLine = lines[i + 1];
-      i += 2;
-
-      // Parse header line: expected format "EmpName, Day Time"
-      const headerParts = headerLine.split(",");
-      const empName = headerParts[0].trim();
-      let timeStr = "";
-      if (headerParts.length > 1) {
-        // Remove stray characters (like "?") and extract time
-        const timeInfo = headerParts[1].trim().replace("?", "");
-        const timeParts = timeInfo.split(" ");
-        timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
-      }
-
-      // Parse detail line: expected format "CI Location" or "CO Location"
-      const detailParts = detailLine.split(" ").filter((p) => p !== "");
-      const recordType = detailParts[0] || "";
-      const location = detailParts[1] || "";
-
-      if (recordType === "CI") {
-        // For a check‑in, always add a new record.
-        records.push({
-          empName,
-          inTime: timeStr,
-          outTime: "",
-          location,
-          date: commonDate,
-        });
-      } else if (recordType === "CO") {
-        // For a check‑out, update the latest record for this employee (on the common date) that lacks an outTime.
-        let updated = false;
-        for (let j = records.length - 1; j >= 0; j--) {
-          if (
-            records[j].empName === empName &&
-            records[j].date === commonDate &&
-            records[j].inTime &&
-            !records[j].outTime
-          ) {
-            records[j].outTime = timeStr;
-            // Optionally, update location with the CO location.
-            records[j].location = location;
-            updated = true;
-            break;
-          }
+        const headerParts = headerLine.split(",");
+        const empName = headerParts[0].trim();
+        let timeStr = "";
+        if (headerParts.length > 1) {
+          const timeInfo = headerParts[1].trim().replace("?", "");
+          const timeParts = timeInfo.split(" ");
+          timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
         }
-        if (!updated) {
-          // No matching record found, so add a new one.
-          records.push({
+
+        const detailParts = detailLine.split(" ").filter((p) => p !== "");
+        const recordType = detailParts[0] || "";
+        const location = detailParts[1] || "";
+
+        if (recordType === "CI") {
+          attendanceRecords.push({
             empName,
-            inTime: "",
-            outTime: timeStr,
+            inTime: timeStr,
+            outTime: "",
             location,
             date: commonDate,
           });
+        } else if (recordType === "CO") {
+          let updated = false;
+          for (let j = attendanceRecords.length - 1; j >= 0; j--) {
+            if (
+              attendanceRecords[j].empName === empName &&
+              attendanceRecords[j].date === commonDate &&
+              attendanceRecords[j].inTime &&
+              !attendanceRecords[j].outTime
+            ) {
+              attendanceRecords[j].outTime = timeStr;
+              attendanceRecords[j].location = location;
+              updated = true;
+              break;
+            }
+          }
+          if (!updated) {
+            attendanceRecords.push({
+              empName,
+              inTime: "",
+              outTime: timeStr,
+              location,
+              date: commonDate,
+            });
+          }
         }
+      } else {
+        const line = lines[i];
+        i++;
+        otherMessagesArr.push(line);
       }
     }
-    setTableData(records);
+
+    // Update attendanceTableData and otherMessagesText
+    setAttendanceTableData(attendanceRecords);
+    setOtherMessagesText(otherMessagesArr.join("\n"));
+
+    // Generate the string for attendance to save in the database
+    const attendanceToSaveText = attendanceRecords.map((record) => {
+      return `${record.empName}, ${record.inTime}, ${record.outTime}, ${record.location}, ${record.date}`;
+    }).join("\n");
+
+    setAttendanceToSave(attendanceToSaveText); // Update the new textarea with formatted attendance data
   };
 
   return (
-    <Container fluid className="p-4">
-      <Row className="mb-3 text-center fw-bold">
-        <Col>
-          <h5>Hangout Messages (Raw Data)</h5>
-        </Col>
-        <Col>
-          <h5>Attendance Messages (Parsed Table)</h5>
-        </Col>
-        <Col>
-          <h5>Other Messages</h5>
-        </Col>
+    <Container fluid className="p-3">
+      {/* Header row */}
+      <Row className="mb-2 text-center fw-bold">
+        <Col md={3}><h5>Hangout Messages</h5></Col>
+        <Col md={3}><h5>Attendance Messages</h5></Col>
+        <Col md={3}><h5>Other Messages</h5></Col>
+        <Col md={3}><h5>Attendance to Save</h5></Col>
       </Row>
 
+      {/* Main content row */}
       <Row>
-        {/* Hangout Messages */}
-        <Col>
+        {/* Left Column: Hangout Messages (input) */}
+        <Col md={3}>
           <Form.Control
             as="textarea"
             value={hangoutMessages}
             onChange={(e) => setHangoutMessages(e.target.value)}
-            style={textareaStyle}
-            placeholder={`Paste raw data here.`}
+            style={hangoutTextareaStyle}
+            placeholder={`Paste your data here.\n\nFirst line => Common date\nPairs => Attendance\nSingle line => Other message`}
           />
         </Col>
 
-        {/* Attendance Messages */}
-        <Col>
-          <div
-            style={{
-              height: "300px",
-              overflowX: "scroll",
-              overflowY: "scroll",
-              border: "1px solid #ccc",
-              whiteSpace: "nowrap",
-              padding: "8px",
-            }}
-          >
+        {/* Middle Column: Attendance Table */}
+        <Col md={3}>
+          <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
               <thead>
                 <tr>
@@ -159,7 +157,7 @@ const AttendanceForm = () => {
                 </tr>
               </thead>
               <tbody>
-                {tableData.map((record, index) => (
+                {attendanceTableData.map((record, index) => (
                   <tr key={index}>
                     <td>{record.empName}</td>
                     <td>{record.inTime}</td>
@@ -173,18 +171,30 @@ const AttendanceForm = () => {
           </div>
         </Col>
 
-        {/* Other Messages */}
-        <Col>
+        {/* Right Column: Other Messages (textarea) */}
+        <Col md={3}>
           <Form.Control
             as="textarea"
-            value={otherMessages}
-            onChange={(e) => setOtherMessages(e.target.value)}
-            style={textareaStyle}
+            value={otherMessagesText}
+            readOnly
+            style={hangoutTextareaStyle}
+            placeholder="All non-attendance lines appear here"
+          />
+        </Col>
+
+        {/* Right Column: Attendance to Save (textarea) */}
+        <Col md={3}>
+          <Form.Control
+            as="textarea"
+            value={attendanceToSave}
+            readOnly
+            style={hangoutTextareaStyle}
+            placeholder="Formatted attendance data to save in database"
           />
         </Col>
       </Row>
 
-      {/* Buttons Section */}
+      {/* Bottom row for buttons */}
       <Row className="mt-3 text-center">
         <Col>
           <Button variant="primary" className="me-3" onClick={handleFilter}>
