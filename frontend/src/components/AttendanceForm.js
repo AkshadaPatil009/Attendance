@@ -16,8 +16,9 @@ const AttendanceForm = () => {
   const [attendanceTableData, setAttendanceTableData] = useState([]);
   const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
   const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
-  const [errorMessage, setErrorMessage] = useState(""); // To display error messages
-  const [successMessage, setSuccessMessage] = useState(""); // To display success messages
+
+  // Tracks which view is selected in "View Attendance" tab
+  const [viewMode, setViewMode] = useState("employee"); // "employee" | "monthwise" | "datewise"
 
   // Fixed-size textarea style for the input
   const hangoutTextareaStyle = {
@@ -72,12 +73,10 @@ const AttendanceForm = () => {
 
     const attendanceRecords = [];
     const otherMessagesData = [];
-    const allowedLocations = ["RO", "RSO", "MO", "DO", "WFH"];
 
     let i = 1;
     while (i < lines.length) {
-      // Only process as an attendance block if the next line exists AND
-      // the detail line starts exactly with "CI" or "CO"
+      // If next line exists and starts with CI or CO, treat these two lines as an attendance record
       if (
         i < lines.length - 1 &&
         (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))
@@ -86,7 +85,6 @@ const AttendanceForm = () => {
         const detailLine = lines[i + 1];
         i += 2;
 
-        // Parse header for employee name and time
         const headerParts = headerLine.split(",");
         const empName = headerParts[0].trim();
         let timeStr = "";
@@ -96,63 +94,49 @@ const AttendanceForm = () => {
           timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
         }
 
-        // Parse detail line for record type and location
         const detailParts = detailLine.split(" ").filter((p) => p !== "");
         const recordType = detailParts[0] || "";
         const location = detailParts[1] || "";
 
-        // Process only if the location is allowed
-        if (allowedLocations.includes(location)) {
-          if (recordType === "CI") {
+        if (recordType === "CI") {
+          attendanceRecords.push({
+            empName,
+            inTime: timeStr,
+            outTime: "",
+            location,
+            date: commonDate,
+          });
+        } else if (recordType === "CO") {
+          let updated = false;
+          // Try to match with a previous record that has CI but no CO
+          for (let j = attendanceRecords.length - 1; j >= 0; j--) {
+            if (
+              attendanceRecords[j].empName === empName &&
+              attendanceRecords[j].date === commonDate &&
+              attendanceRecords[j].inTime &&
+              !attendanceRecords[j].outTime
+            ) {
+              attendanceRecords[j].outTime = timeStr;
+              attendanceRecords[j].location = location;
+              updated = true;
+              break;
+            }
+          }
+          if (!updated) {
             attendanceRecords.push({
               empName,
-              inTime: timeStr,
-              outTime: "",
+              inTime: "",
+              outTime: timeStr,
               location,
               date: commonDate,
             });
-          } else if (recordType === "CO") {
-            let updated = false;
-            // Try to match with a previous record that has CI but no CO
-            for (let j = attendanceRecords.length - 1; j >= 0; j--) {
-              if (
-                attendanceRecords[j].empName === empName &&
-                attendanceRecords[j].date === commonDate &&
-                attendanceRecords[j].inTime &&
-                !attendanceRecords[j].outTime
-              ) {
-                attendanceRecords[j].outTime = timeStr;
-                attendanceRecords[j].location = location;
-                updated = true;
-                break;
-              }
-            }
-            if (!updated) {
-              attendanceRecords.push({
-                empName,
-                inTime: "",
-                outTime: timeStr,
-                location,
-                date: commonDate,
-              });
-            }
           }
-        } else {
-          // If the detail line's location is not one of the allowed ones,
-          // treat the block as an "other message"
-          const senderInfoParts = headerLine.split(",");
-          const senderName = senderInfoParts[0].trim();
-          otherMessagesData.push({
-            senderName,
-            message: detailLine,
-            messageTime: timeStr,
-            messageDate: commonDate,
-          });
         }
       } else {
-        // For any block that doesn't have a proper two-line attendance format
-        // (e.g. if the detail line starts with "C" but not "CI" or "CO"),
-        // treat it as an other message.
+        // Process as an "other message"
+        // Check if we can pair the current line with the next line:
+        // If the current line contains a comma (assumed sender info)
+        // and the next line does NOT start with CI/CO, we treat the next line as the message text.
         if (
           i < lines.length - 1 &&
           lines[i].includes(",") &&
@@ -174,6 +158,7 @@ const AttendanceForm = () => {
           });
           i += 2;
         } else {
+          // If there is no pairing, try to extract what you can from the single line.
           let senderName = "";
           let messageTime = "";
           if (lines[i].includes(",")) {
@@ -192,45 +177,19 @@ const AttendanceForm = () => {
       }
     }
 
-    // Update state with parsed data and also set the attendanceToSave
+    // Update state with parsed data
     setAttendanceTableData(attendanceRecords);
     setOtherMessagesTableData(otherMessagesData);
     setAttendanceToSave(attendanceRecords);
   };
 
-  // When the Save button is clicked, send attendanceToSave data to the backend.
-  const handleSave = async () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-    try {
-      const response = await fetch("http://localhost:5000/api/attendance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ attendanceRecords: attendanceToSave }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        setErrorMessage(data.error || "Error saving attendance records");
-        window.alert("Error: " + (data.error || "Error saving attendance records"));
-      } else {
-        const data = await response.json();
-        setSuccessMessage(data.message || "Attendance records saved successfully");
-        window.alert(data.message || "Attendance records saved successfully");
-      }
-    } catch (error) {
-      setErrorMessage(error.message);
-      window.alert("Error: " + error.message);
-    }
-  };
-
   return (
     <Container fluid className="p-3">
-      {/* Tabs on top */}
+      {/* Tabs on top side */}
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
-        {/* 1) Attendance Entry Tab */}
+        {/* 1) Attendance Entry tab */}
         <Tab eventKey="entry" title="Attendance Entry">
+          {/* This tab contains your existing Attendance Entry page */}
           <Row className="mb-2 text-center fw-bold">
             <Col md={3}>
               <h5>Hangout Messages</h5>
@@ -247,14 +206,14 @@ const AttendanceForm = () => {
           </Row>
 
           <Row>
-            {/* Left Column: Hangout Messages */}
+            {/* Left Column: Hangout Messages (input) */}
             <Col md={3}>
               <Form.Control
                 as="textarea"
                 value={hangoutMessages}
                 onChange={(e) => setHangoutMessages(e.target.value)}
                 style={hangoutTextareaStyle}
-                placeholder="Paste your data here."
+                placeholder={`Paste your data here.`}
               />
             </Col>
 
@@ -347,33 +306,16 @@ const AttendanceForm = () => {
               <Button variant="primary" className="me-3" onClick={handleFilter}>
                 Filter
               </Button>
-              <Button variant="success" onClick={handleSave}>
-                Save
-              </Button>
+              <Button variant="success">Save</Button>
             </Col>
           </Row>
-          {/* Display error or success messages */}
-          {errorMessage && (
-            <Row className="mt-2">
-              <Col>
-                <div style={{ color: "red" }}>{errorMessage}</div>
-              </Col>
-            </Row>
-          )}
-          {successMessage && (
-            <Row className="mt-2">
-              <Col>
-                <div style={{ color: "green" }}>{successMessage}</div>
-              </Col>
-            </Row>
-          )}
         </Tab>
 
-        {/* 2) Update Attendance Tab */}
+        {/* 2) Update Attendance tab */}
         <Tab eventKey="update" title="Update Attendance">
           <Container fluid>
             <Row>
-              {/* Left Side: Update Form */}
+              {/* Left side: Update form */}
               <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
                 <h5>Update Attendance</h5>
                 <Form>
@@ -424,7 +366,7 @@ const AttendanceForm = () => {
                 </Form>
               </Col>
 
-              {/* Right Side: Two Tables (Top and Bottom) */}
+              {/* Right side: Two tables (top and bottom) */}
               <Col md={8}>
                 {/* Top Table */}
                 <Table bordered hover size="sm" className="mb-3">
@@ -467,14 +409,230 @@ const AttendanceForm = () => {
           </Container>
         </Tab>
 
-        {/* 3) View Attendance Tab (Placeholder) */}
+        {/* 3) View Attendance tab */}
         <Tab eventKey="view" title="View Attendance">
-          <p>This tab is for viewing your saved attendance records. Add your view logic here.</p>
+          <Container fluid>
+            {/* Filters Section */}
+            <Row
+              style={{
+                backgroundColor: "#20B2AA",
+                padding: "10px",
+                color: "#fff",
+                borderRadius: "4px",
+              }}
+              className="g-3"
+            >
+              {/* View By (radio buttons) */}
+              <Col md={3}>
+                <Form.Label className="fw-bold me-2">View By :</Form.Label>
+                <div>
+                  <Form.Check
+                    type="radio"
+                    label="Employee Name"
+                    name="viewBy"
+                    value="employee"
+                    checked={viewMode === "employee"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label="Monthwise"
+                    name="viewBy"
+                    value="monthwise"
+                    checked={viewMode === "monthwise"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label="Datewise"
+                    name="viewBy"
+                    value="datewise"
+                    checked={viewMode === "datewise"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                </div>
+              </Col>
+
+              {/* Employee, Month, Year, Date */}
+              <Col md={4}>
+                <Row>
+                  <Col md={12}>
+                    <Form.Label>Employee Name</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>All Employees</option>
+                      {/* Add more employees here */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Month</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>January</option>
+                      <option>February</option>
+                      <option>March</option>
+                      {/* ... */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Year</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>2025</option>
+                      <option>2026</option>
+                      {/* ... */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={12}>
+                    <Form.Label>Date</Form.Label>
+                    <Form.Control type="date" className="mb-2" />
+                  </Col>
+                </Row>
+              </Col>
+
+              {/* Legend (Color-coded, no checkboxes) */}
+              <Col md={5}>
+                <Form.Label className="fw-bold d-block mb-2">Legend:</Form.Label>
+                <div className="d-flex flex-wrap align-items-center">
+                  {/* Half Day */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#B0E0E6",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Half day</span>
+                  </div>
+                  {/* Full Day */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#90EE90",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Full Day (8.5 Hrs)</span>
+                  </div>
+                  {/* Absent */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFC0CB",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Absent</span>
+                  </div>
+                  {/* Sunday */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: " #ff9900",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Sunday</span>
+                  </div>
+                  {/* Late Mark */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFD700",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Late Mark</span>
+                  </div>
+                  {/* Site Visit */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFFF00",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Site Visit</span>
+                  </div>
+                  {/* Holiday */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#ff0000",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Holiday</span>
+                  </div>
+                  {/* Working < 5 Hrs */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FF69B4",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Working &lt; 5 Hrs</span>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+
+            {/* If user selected "employee" (placeholder) */}
+            {viewMode === "employee" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Employee-Wise Attendance</h5>
+                  <p>Replace this placeholder with your Employee-wise data/table.</p>
+                </Col>
+              </Row>
+            )}
+
+            {/* If user selected "datewise" */}
+            {viewMode === "datewise" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Datewise Attendance</h5>
+                  <div style={{ overflowX: "auto" }}>
+                    <Table bordered hover size="sm">
+                      {/* Your datewise table data */}
+                    </Table>
+                  </div>
+                </Col>
+              </Row>
+            )}
+
+            {/* If user selected "monthwise" */}
+            {viewMode === "monthwise" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Monthwise Attendance</h5>
+                  <div style={{ overflowX: "auto" }}>
+                    <Table bordered hover size="sm">
+                      {/* Your monthwise table data */}
+                    </Table>
+                  </div>
+                </Col>
+              </Row>
+            )}
+          </Container>
         </Tab>
       </Tabs>
     </Container>
   );
 };
+
 export default AttendanceForm;
-
-
