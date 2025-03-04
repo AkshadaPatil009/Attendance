@@ -382,29 +382,11 @@ const AttendanceForm = () => {
                       <th>EmployeeName</th>
                       <th>ApprovedBy</th>
                       <th>Reason</th>
-                      <th>inTime</th>
-                      <th>outTime</th>
-                      <th>location</th>
-                      <th>A_Date</th>
-                      <th>FullDay</th>
-                      <th>Field1</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Add rows as needed */}
-                  </tbody>
-                </Table>
-
-                {/* Bottom Table */}
-                <Table bordered hover size="sm">
-                  <thead>
-                    <tr>
-                      <th>senderName</th>
-                      <th>ATTENDANCE_DATE</th>
-                      <th>INTIME</th>
-                      <th>OUTTIME</th>
-                      <th>LOCATION</th>
-                      <th>WorkHour</th>
+                      <th>InTime</th>
+                      <th>OutTime</th>
+                      <th>Location</th>
+                      <th>Date</th>
+                      <th>Work Hour</th>
                     </tr>
                   </thead>
                   <tbody>
