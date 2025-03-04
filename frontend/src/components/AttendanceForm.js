@@ -150,12 +150,15 @@ const AttendanceForm = () => {
               ? senderInfoParts[1].trim().replace("?", "")
               : "";
           const message = lines[i + 1];
-          otherMessagesData.push({
-            senderName,
-            message,
-            messageTime,
-            messageDate: commonDate,
-          });
+          // Only add the message if it contains the letter "C"
+          if (message.includes("C")) {
+            otherMessagesData.push({
+              senderName,
+              message,
+              messageTime,
+              messageDate: commonDate,
+            });
+          }
           i += 2;
         } else {
           // If there is no pairing, try to extract what you can from the single line.
@@ -166,12 +169,16 @@ const AttendanceForm = () => {
             senderName = parts[0].trim();
             messageTime = parts[1] ? parts[1].trim().replace("?", "") : "";
           }
-          otherMessagesData.push({
-            senderName,
-            message: "",
-            messageTime,
-            messageDate: commonDate,
-          });
+          const message = lines[i];
+          // Only add if the line itself (used as message text) contains the letter "C"
+          if (message.includes("C")) {
+            otherMessagesData.push({
+              senderName,
+              message,
+              messageTime,
+              messageDate: commonDate,
+            });
+          }
           i++;
         }
       }
