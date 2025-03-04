@@ -8,12 +8,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Database connection
+// Database connection using your provided database name
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "",
-  database: "indiscpx_taskdb_2", // Updated database name
+  database: "indiscpx_taskdb_2", // Using the provided database name
 });
 
 // Login Route (No Encryption)
@@ -118,7 +118,7 @@ app.post("/api/attendance", (req, res) => {
     record.date,
   ]);
 
-  // Ensure you have an `attendance` table with columns: id (auto_increment), empName, inTime, outTime, location, date.
+  // Insert into the attendance table (make sure you have created this table)
   db.query(
     "INSERT INTO attendance (empName, inTime, outTime, location, date) VALUES ?",
     [values],
