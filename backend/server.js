@@ -99,4 +99,39 @@ app.delete("/api/holidays/:id", (req, res) => {
   });
 });
 
+// POST Attendance API - Save attendance records to the database
+app.post("/api/attendance", (req, res) => {
+  const attendanceRecords = req.body.attendanceRecords;
+  if (
+    !attendanceRecords ||
+    !Array.isArray(attendanceRecords) ||
+    attendanceRecords.length === 0
+  ) {
+    return res.status(400).json({ error: "No attendance records provided" });
+  }
+  // Map attendanceRecords to values array: [empName, inTime, outTime, location, date]
+  const values = attendanceRecords.map((record) => [
+    record.empName,
+    record.inTime,
+    record.outTime,
+    record.location,
+    record.date,
+  ]);
+
+  // Ensure you have an `attendance` table with columns: id (auto_increment), empName, inTime, outTime, location, date.
+  db.query(
+    "INSERT INTO attendance (empName, inTime, outTime, location, date) VALUES ?",
+    [values],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res
+          .status(500)
+          .json({ error: "Database error while saving attendance records" });
+      }
+      res.json({ message: "Attendance records saved successfully" });
+    }
+  );
+});
+
 app.listen(5000, () => console.log("Server running on port 5000"));

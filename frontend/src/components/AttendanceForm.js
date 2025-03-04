@@ -16,6 +16,8 @@ const AttendanceForm = () => {
   const [attendanceTableData, setAttendanceTableData] = useState([]);
   const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
   const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
+  const [errorMessage, setErrorMessage] = useState(""); // To display error messages
+  const [successMessage, setSuccessMessage] = useState(""); // To display success messages
 
   // Fixed-size textarea style for the input
   const hangoutTextareaStyle = {
@@ -55,7 +57,6 @@ const AttendanceForm = () => {
     }
 
     // Convert the first line (date) into YYYY-MM-DD format using Moment.js.
-    // Define the possible formats that the input date might be in.
     const formats = [
       "D MMM, YYYY",
       "MMM D,YYYY",
@@ -71,10 +72,12 @@ const AttendanceForm = () => {
 
     const attendanceRecords = [];
     const otherMessagesData = [];
+    const allowedLocations = ["RO", "RSO", "MO", "DO", "WFH"];
 
     let i = 1;
     while (i < lines.length) {
-      // If next line exists and starts with CI or CO, treat these two lines as an attendance record
+      // Only process as an attendance block if the next line exists AND
+      // the detail line starts exactly with "CI" or "CO"
       if (
         i < lines.length - 1 &&
         (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))
@@ -83,6 +86,7 @@ const AttendanceForm = () => {
         const detailLine = lines[i + 1];
         i += 2;
 
+        // Parse header for employee name and time
         const headerParts = headerLine.split(",");
         const empName = headerParts[0].trim();
         let timeStr = "";
@@ -92,49 +96,63 @@ const AttendanceForm = () => {
           timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
         }
 
+        // Parse detail line for record type and location
         const detailParts = detailLine.split(" ").filter((p) => p !== "");
         const recordType = detailParts[0] || "";
         const location = detailParts[1] || "";
 
-        if (recordType === "CI") {
-          attendanceRecords.push({
-            empName,
-            inTime: timeStr,
-            outTime: "",
-            location,
-            date: commonDate,
-          });
-        } else if (recordType === "CO") {
-          let updated = false;
-          // Try to match with a previous record that has CI but no CO
-          for (let j = attendanceRecords.length - 1; j >= 0; j--) {
-            if (
-              attendanceRecords[j].empName === empName &&
-              attendanceRecords[j].date === commonDate &&
-              attendanceRecords[j].inTime &&
-              !attendanceRecords[j].outTime
-            ) {
-              attendanceRecords[j].outTime = timeStr;
-              attendanceRecords[j].location = location;
-              updated = true;
-              break;
-            }
-          }
-          if (!updated) {
+        // Process only if the location is allowed
+        if (allowedLocations.includes(location)) {
+          if (recordType === "CI") {
             attendanceRecords.push({
               empName,
-              inTime: "",
-              outTime: timeStr,
+              inTime: timeStr,
+              outTime: "",
               location,
               date: commonDate,
             });
+          } else if (recordType === "CO") {
+            let updated = false;
+            // Try to match with a previous record that has CI but no CO
+            for (let j = attendanceRecords.length - 1; j >= 0; j--) {
+              if (
+                attendanceRecords[j].empName === empName &&
+                attendanceRecords[j].date === commonDate &&
+                attendanceRecords[j].inTime &&
+                !attendanceRecords[j].outTime
+              ) {
+                attendanceRecords[j].outTime = timeStr;
+                attendanceRecords[j].location = location;
+                updated = true;
+                break;
+              }
+            }
+            if (!updated) {
+              attendanceRecords.push({
+                empName,
+                inTime: "",
+                outTime: timeStr,
+                location,
+                date: commonDate,
+              });
+            }
           }
+        } else {
+          // If the detail line's location is not one of the allowed ones,
+          // treat the block as an "other message"
+          const senderInfoParts = headerLine.split(",");
+          const senderName = senderInfoParts[0].trim();
+          otherMessagesData.push({
+            senderName,
+            message: detailLine,
+            messageTime: timeStr,
+            messageDate: commonDate,
+          });
         }
       } else {
-        // Process as an "other message"
-        // Check if we can pair the current line with the next line:
-        // If the current line contains a comma (assumed sender info)
-        // and the next line does NOT start with CI/CO, we treat the next line as the message text.
+        // For any block that doesn't have a proper two-line attendance format
+        // (e.g. if the detail line starts with "C" but not "CI" or "CO"),
+        // treat it as an other message.
         if (
           i < lines.length - 1 &&
           lines[i].includes(",") &&
@@ -156,7 +174,6 @@ const AttendanceForm = () => {
           });
           i += 2;
         } else {
-          // If there is no pairing, try to extract what you can from the single line.
           let senderName = "";
           let messageTime = "";
           if (lines[i].includes(",")) {
@@ -175,19 +192,45 @@ const AttendanceForm = () => {
       }
     }
 
-    // Update state with parsed data
+    // Update state with parsed data and also set the attendanceToSave
     setAttendanceTableData(attendanceRecords);
     setOtherMessagesTableData(otherMessagesData);
     setAttendanceToSave(attendanceRecords);
   };
 
+  // When the Save button is clicked, send attendanceToSave data to the backend.
+  const handleSave = async () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch("http://localhost:5000/api/attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ attendanceRecords: attendanceToSave }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        setErrorMessage(data.error || "Error saving attendance records");
+        window.alert("Error: " + (data.error || "Error saving attendance records"));
+      } else {
+        const data = await response.json();
+        setSuccessMessage(data.message || "Attendance records saved successfully");
+        window.alert(data.message || "Attendance records saved successfully");
+      }
+    } catch (error) {
+      setErrorMessage(error.message);
+      window.alert("Error: " + error.message);
+    }
+  };
+
   return (
     <Container fluid className="p-3">
-      {/* Tabs on top side */}
+      {/* Tabs on top */}
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
-        {/* 1) Attendance Entry tab (your current page / logic) */}
+        {/* 1) Attendance Entry Tab */}
         <Tab eventKey="entry" title="Attendance Entry">
-          {/* This tab contains your existing Attendance Entry page */}
           <Row className="mb-2 text-center fw-bold">
             <Col md={3}>
               <h5>Hangout Messages</h5>
@@ -204,14 +247,14 @@ const AttendanceForm = () => {
           </Row>
 
           <Row>
-            {/* Left Column: Hangout Messages (input) */}
+            {/* Left Column: Hangout Messages */}
             <Col md={3}>
               <Form.Control
                 as="textarea"
                 value={hangoutMessages}
                 onChange={(e) => setHangoutMessages(e.target.value)}
                 style={hangoutTextareaStyle}
-                placeholder={`Paste your data here.`}
+                placeholder="Paste your data here."
               />
             </Col>
 
@@ -304,20 +347,36 @@ const AttendanceForm = () => {
               <Button variant="primary" className="me-3" onClick={handleFilter}>
                 Filter
               </Button>
-              <Button variant="success">Save</Button>
+              <Button variant="success" onClick={handleSave}>
+                Save
+              </Button>
             </Col>
           </Row>
+          {/* Display error or success messages */}
+          {errorMessage && (
+            <Row className="mt-2">
+              <Col>
+                <div style={{ color: "red" }}>{errorMessage}</div>
+              </Col>
+            </Row>
+          )}
+          {successMessage && (
+            <Row className="mt-2">
+              <Col>
+                <div style={{ color: "green" }}>{successMessage}</div>
+              </Col>
+            </Row>
+          )}
         </Tab>
 
-        {/* 2) Update Attendance tab (based on your screenshot reference) */}
+        {/* 2) Update Attendance Tab */}
         <Tab eventKey="update" title="Update Attendance">
           <Container fluid>
             <Row>
-              {/* Left side: Update form */}
+              {/* Left Side: Update Form */}
               <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
                 <h5>Update Attendance</h5>
                 <Form>
-                  {/* Employee Name (Dropdown) */}
                   <Form.Group controlId="employeeName" className="mb-2">
                     <Form.Label>Employee Name:</Form.Label>
                     <Form.Select>
@@ -329,37 +388,31 @@ const AttendanceForm = () => {
                     </Form.Select>
                   </Form.Group>
 
-                  {/* Approved by */}
                   <Form.Group controlId="approvedBy" className="mb-2">
                     <Form.Label>Approved by:</Form.Label>
                     <Form.Control type="text" placeholder="Enter name" />
                   </Form.Group>
 
-                  {/* Reason */}
                   <Form.Group controlId="reason" className="mb-2">
                     <Form.Label>Reason:</Form.Label>
                     <Form.Control as="textarea" rows={2} placeholder="Enter reason" />
                   </Form.Group>
 
-                  {/* Location */}
                   <Form.Group controlId="location" className="mb-2">
                     <Form.Label>Location:</Form.Label>
                     <Form.Control type="text" placeholder="Location" />
                   </Form.Group>
 
-                  {/* Clock In */}
                   <Form.Group controlId="clockIn" className="mb-2">
                     <Form.Check type="checkbox" label="Clock In" />
                     <Form.Control type="datetime-local" />
                   </Form.Group>
 
-                  {/* Clock Out */}
                   <Form.Group controlId="clockOut" className="mb-2">
                     <Form.Check type="checkbox" label="Clock Out" />
                     <Form.Control type="datetime-local" />
                   </Form.Group>
 
-                  {/* Display Full day in Monthly Attendance */}
                   <Form.Group controlId="fullDay" className="mb-3">
                     <Form.Check
                       type="checkbox"
@@ -371,7 +424,7 @@ const AttendanceForm = () => {
                 </Form>
               </Col>
 
-              {/* Right side: Two tables (top and bottom) */}
+              {/* Right Side: Two Tables (Top and Bottom) */}
               <Col md={8}>
                 {/* Top Table */}
                 <Table bordered hover size="sm" className="mb-3">
@@ -389,8 +442,7 @@ const AttendanceForm = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    
-                    {/* Add more rows as needed */}
+                    {/* Add rows as needed */}
                   </tbody>
                 </Table>
 
@@ -407,8 +459,7 @@ const AttendanceForm = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    
-                    {/* Add more rows as needed */}
+                    {/* Add rows as needed */}
                   </tbody>
                 </Table>
               </Col>
@@ -416,7 +467,7 @@ const AttendanceForm = () => {
           </Container>
         </Tab>
 
-        {/* 3) View Attendance tab (placeholder) */}
+        {/* 3) View Attendance Tab (Placeholder) */}
         <Tab eventKey="view" title="View Attendance">
           <p>This tab is for viewing your saved attendance records. Add your view logic here.</p>
         </Tab>
