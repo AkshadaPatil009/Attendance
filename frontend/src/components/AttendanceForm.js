@@ -17,6 +17,9 @@ const AttendanceForm = () => {
   const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
   const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
 
+  // Tracks which view is selected in "View Attendance" tab
+  const [viewMode, setViewMode] = useState("employee"); // "employee" | "monthwise" | "datewise"
+
   // Fixed-size textarea style for the input
   const hangoutTextareaStyle = {
     height: "300px",
@@ -55,7 +58,6 @@ const AttendanceForm = () => {
     }
 
     // Convert the first line (date) into YYYY-MM-DD format using Moment.js.
-    // Define the possible formats that the input date might be in.
     const formats = [
       "D MMM, YYYY",
       "MMM D,YYYY",
@@ -185,7 +187,7 @@ const AttendanceForm = () => {
     <Container fluid className="p-3">
       {/* Tabs on top side */}
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
-        {/* 1) Attendance Entry tab (your current page / logic) */}
+        {/* 1) Attendance Entry tab */}
         <Tab eventKey="entry" title="Attendance Entry">
           {/* This tab contains your existing Attendance Entry page */}
           <Row className="mb-2 text-center fw-bold">
@@ -309,7 +311,7 @@ const AttendanceForm = () => {
           </Row>
         </Tab>
 
-        {/* 2) Update Attendance tab (based on your screenshot reference) */}
+        {/* 2) Update Attendance tab */}
         <Tab eventKey="update" title="Update Attendance">
           <Container fluid>
             <Row>
@@ -317,7 +319,6 @@ const AttendanceForm = () => {
               <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
                 <h5>Update Attendance</h5>
                 <Form>
-                  {/* Employee Name (Dropdown) */}
                   <Form.Group controlId="employeeName" className="mb-2">
                     <Form.Label>Employee Name:</Form.Label>
                     <Form.Select>
@@ -329,37 +330,31 @@ const AttendanceForm = () => {
                     </Form.Select>
                   </Form.Group>
 
-                  {/* Approved by */}
                   <Form.Group controlId="approvedBy" className="mb-2">
                     <Form.Label>Approved by:</Form.Label>
                     <Form.Control type="text" placeholder="Enter name" />
                   </Form.Group>
 
-                  {/* Reason */}
                   <Form.Group controlId="reason" className="mb-2">
                     <Form.Label>Reason:</Form.Label>
                     <Form.Control as="textarea" rows={2} placeholder="Enter reason" />
                   </Form.Group>
 
-                  {/* Location */}
                   <Form.Group controlId="location" className="mb-2">
                     <Form.Label>Location:</Form.Label>
                     <Form.Control type="text" placeholder="Location" />
                   </Form.Group>
 
-                  {/* Clock In */}
                   <Form.Group controlId="clockIn" className="mb-2">
                     <Form.Check type="checkbox" label="Clock In" />
                     <Form.Control type="datetime-local" />
                   </Form.Group>
 
-                  {/* Clock Out */}
                   <Form.Group controlId="clockOut" className="mb-2">
                     <Form.Check type="checkbox" label="Clock Out" />
                     <Form.Control type="datetime-local" />
                   </Form.Group>
 
-                  {/* Display Full day in Monthly Attendance */}
                   <Form.Group controlId="fullDay" className="mb-3">
                     <Form.Check
                       type="checkbox"
@@ -389,8 +384,7 @@ const AttendanceForm = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    
-                    {/* Add more rows as needed */}
+                    {/* Add rows as needed */}
                   </tbody>
                 </Table>
 
@@ -407,8 +401,7 @@ const AttendanceForm = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    
-                    {/* Add more rows as needed */}
+                    {/* Add rows as needed */}
                   </tbody>
                 </Table>
               </Col>
@@ -416,9 +409,226 @@ const AttendanceForm = () => {
           </Container>
         </Tab>
 
-        {/* 3) View Attendance tab (placeholder) */}
+        {/* 3) View Attendance tab */}
         <Tab eventKey="view" title="View Attendance">
-          <p>This tab is for viewing your saved attendance records. Add your view logic here.</p>
+          <Container fluid>
+            {/* Filters Section */}
+            <Row
+              style={{
+                backgroundColor: "#20B2AA",
+                padding: "10px",
+                color: "#fff",
+                borderRadius: "4px",
+              }}
+              className="g-3"
+            >
+              {/* View By (radio buttons) */}
+              <Col md={3}>
+                <Form.Label className="fw-bold me-2">View By :</Form.Label>
+                <div>
+                  <Form.Check
+                    type="radio"
+                    label="Employee Name"
+                    name="viewBy"
+                    value="employee"
+                    checked={viewMode === "employee"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label="Monthwise"
+                    name="viewBy"
+                    value="monthwise"
+                    checked={viewMode === "monthwise"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                  <Form.Check
+                    type="radio"
+                    label="Datewise"
+                    name="viewBy"
+                    value="datewise"
+                    checked={viewMode === "datewise"}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  />
+                </div>
+              </Col>
+
+              {/* Employee, Month, Year, Date */}
+              <Col md={4}>
+                <Row>
+                  <Col md={12}>
+                    <Form.Label>Employee Name</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>All Employees</option>
+                      {/* Add more employees here */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Month</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>January</option>
+                      <option>February</option>
+                      <option>March</option>
+                      {/* ... */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label>Year</Form.Label>
+                    <Form.Select className="mb-2">
+                      <option>2025</option>
+                      <option>2026</option>
+                      {/* ... */}
+                    </Form.Select>
+                  </Col>
+                  <Col md={12}>
+                    <Form.Label>Date</Form.Label>
+                    <Form.Control type="date" className="mb-2" />
+                  </Col>
+                </Row>
+              </Col>
+
+              {/* Legend (Color-coded, no checkboxes) */}
+              <Col md={5}>
+                <Form.Label className="fw-bold d-block mb-2">Legend:</Form.Label>
+                <div className="d-flex flex-wrap align-items-center">
+                  {/* Half Day */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#B0E0E6",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Half day</span>
+                  </div>
+                  {/* Full Day */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#90EE90",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Full Day (8.5 Hrs)</span>
+                  </div>
+                  {/* Absent */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFC0CB",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Absent</span>
+                  </div>
+                  {/* Sunday */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: " #ff9900",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Sunday</span>
+                  </div>
+                  {/* Late Mark */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFD700",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Late Mark</span>
+                  </div>
+                  {/* Site Visit */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FFFF00",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Site Visit</span>
+                  </div>
+                  {/* Holiday */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#ff0000",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Holiday</span>
+                  </div>
+                  {/* Working < 5 Hrs */}
+                  <div className="legend-item d-flex align-items-center me-3 mb-2">
+                    <div
+                      style={{
+                        backgroundColor: "#FF69B4",
+                        width: "20px",
+                        height: "20px",
+                        marginRight: "5px",
+                      }}
+                    ></div>
+                    <span>Working &lt; 5 Hrs</span>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+
+            {/* If user selected "employee" (placeholder) */}
+            {viewMode === "employee" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Employee-Wise Attendance</h5>
+                  <p>Replace this placeholder with your Employee-wise data/table.</p>
+                </Col>
+              </Row>
+            )}
+
+            {/* If user selected "datewise" */}
+            {viewMode === "datewise" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Datewise Attendance</h5>
+                  <div style={{ overflowX: "auto" }}>
+                    <Table bordered hover size="sm">
+                      {/* Your datewise table data */}
+                    </Table>
+                  </div>
+                </Col>
+              </Row>
+            )}
+
+            {/* If user selected "monthwise" */}
+            {viewMode === "monthwise" && (
+              <Row className="mt-3">
+                <Col>
+                  <h5>Monthwise Attendance</h5>
+                  <div style={{ overflowX: "auto" }}>
+                    <Table bordered hover size="sm">
+                      {/* Your monthwise table data */}
+                    </Table>
+                  </div>
+                </Col>
+              </Row>
+            )}
+          </Container>
         </Tab>
       </Tabs>
     </Container>

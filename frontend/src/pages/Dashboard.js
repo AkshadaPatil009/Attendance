@@ -9,7 +9,6 @@ import Report from "../components/Report";
 import { Navbar, Nav, Container, Button, Form, Row, Col } from "react-bootstrap";
 import "./Dashboard.css"; // Import the CSS that forces the background color
 
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -122,14 +121,16 @@ const Dashboard = () => {
         </Container>
       </Navbar>
 
-      {/* Dynamic Section Rendering Based on Active State */}
-      <Container>
-        {activeSection === "dashboard" && <h3 className="text-center mt-4"> Dashboard Overview</h3>}
+      {/* Dynamic Section Rendering - Full Screen (No Container) */}
+      <div className="w-100">
+        {activeSection === "dashboard" && (
+          <h3 className="text-center mt-4">Dashboard Overview</h3>
+        )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "holidays" && <Holidays />}
         {activeSection === "employeeView" && <EmployeeView role={user.role} />}
         {activeSection === "report" && <Report />}
-      </Container>
+      </div>
 
       <Footer />
     </div>
