@@ -6,7 +6,7 @@ const AttendanceForm = () => {
   const [hangoutMessages, setHangoutMessages] = useState("");
   const [attendanceTableData, setAttendanceTableData] = useState([]);
   const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
-  const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
+  const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records to be saved
 
   // Fixed-size textarea style for the input
   const hangoutTextareaStyle = {
@@ -41,12 +41,10 @@ const AttendanceForm = () => {
     if (lines.length === 0) {
       setAttendanceTableData([]);
       setOtherMessagesTableData([]);
-      setAttendanceToSave([]);
       return;
     }
 
     // Convert the first line (date) into YYYY-MM-DD format using Moment.js.
-    // Define the possible formats that the input date might be in.
     const formats = [
       "D MMM, YYYY",
       "MMM D,YYYY",
@@ -65,7 +63,7 @@ const AttendanceForm = () => {
 
     let i = 1;
     while (i < lines.length) {
-      // If next line exists and starts with CI or CO, treat these two lines as an attendance record
+      // Check for paired attendance record lines (CI/CO)
       if (
         i < lines.length - 1 &&
         (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))
@@ -97,7 +95,7 @@ const AttendanceForm = () => {
           });
         } else if (recordType === "CO") {
           let updated = false;
-          // Try to match with a previous record that has CI but no CO
+          // Look for a matching CI record that has no CO yet.
           for (let j = attendanceRecords.length - 1; j >= 0; j--) {
             if (
               attendanceRecords[j].empName === empName &&
@@ -123,9 +121,6 @@ const AttendanceForm = () => {
         }
       } else {
         // Process as an "other message"
-        // Check if we can pair the current line with the next line:
-        // If the current line contains a comma (assumed sender info)
-        // and the next line does NOT start with CI/CO, we treat the next line as the message text.
         if (
           i < lines.length - 1 &&
           lines[i].includes(",") &&
@@ -147,7 +142,6 @@ const AttendanceForm = () => {
           });
           i += 2;
         } else {
-          // If there is no pairing, try to extract what you can from the single line.
           let senderName = "";
           let messageTime = "";
           if (lines[i].includes(",")) {
@@ -166,10 +160,15 @@ const AttendanceForm = () => {
       }
     }
 
-    // Update state with parsed data
+    // Update the filtered data states (but do not update attendanceToSave yet)
     setAttendanceTableData(attendanceRecords);
     setOtherMessagesTableData(otherMessagesData);
-    setAttendanceToSave(attendanceRecords);
+  };
+
+  // This function will be triggered on clicking the Save button.
+  // It copies the current attendance records to the "Attendance to Save" table.
+  const handleSave = () => {
+    setAttendanceToSave([...attendanceTableData]);
   };
 
   return (
@@ -192,14 +191,14 @@ const AttendanceForm = () => {
 
       {/* Main content row */}
       <Row>
-        {/* Left Column: Hangout Messages (input) */}
+        {/* Left Column: Hangout Messages input */}
         <Col md={3}>
           <Form.Control
             as="textarea"
             value={hangoutMessages}
             onChange={(e) => setHangoutMessages(e.target.value)}
             style={hangoutTextareaStyle}
-            placeholder={`Paste your data here.`}
+            placeholder="Paste your data here."
           />
         </Col>
 
@@ -292,7 +291,9 @@ const AttendanceForm = () => {
           <Button variant="primary" className="me-3" onClick={handleFilter}>
             Filter
           </Button>
-          <Button variant="success">Save</Button>
+          <Button variant="success" onClick={handleSave}>
+            Save
+          </Button>
         </Col>
       </Row>
     </Container>
