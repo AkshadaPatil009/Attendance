@@ -1,7 +1,9 @@
+// server.js
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const moment = require("moment");
 require("dotenv").config();
 
 const app = express();
@@ -107,7 +109,36 @@ app.get("/api/employees", (req, res) => {
   });
 });
 
-// POST Attendance API - Save attendance records to the database
+const calculateWorkHoursAndDay = (inTime, outTime) => {
+  let work_hour = 0;
+  if (inTime && outTime) {
+    // Use a format that includes the meridiem (AM/PM)
+    let inMoment = moment(inTime, "h:mmA");
+    let outMoment = moment(outTime, "h:mmA");
+    if (inMoment.isValid() && outMoment.isValid()) {
+      // If the out time is before the in time, assume it crossed midnight and add one day.
+      if (outMoment.isBefore(inMoment)) {
+        outMoment.add(1, "day");
+      }
+      // Calculate the difference in hours with a floating point result.
+      work_hour = outMoment.diff(inMoment, "hours", true);
+    }
+  }
+  
+  let dayStatus = "";
+  if (work_hour >= 8.5) {
+    dayStatus = "Full Day";
+  } else if (work_hour >= 4.5) {
+    dayStatus = "Half Day";
+  } else {
+    dayStatus = "Absent";
+  }
+  
+  return { work_hour, dayStatus };
+};
+
+
+// POST Attendance API - Save attendance records with automatic work hours calculation
 app.post("/api/attendance", (req, res) => {
   const attendanceRecords = req.body.attendanceRecords;
   if (
@@ -118,17 +149,25 @@ app.post("/api/attendance", (req, res) => {
     return res.status(400).json({ error: "No attendance records provided" });
   }
 
-  // Map attendanceRecords to values array: [emp_name, in_time, out_time, location, date]
-  const values = attendanceRecords.map((record) => [
-    record.empName, // value from record.empName
-    record.inTime,
-    record.outTime,
-    record.location,
-    record.date,
-  ]);
+  // Map attendanceRecords to a values array including calculated work_hour and day status
+  const values = attendanceRecords.map((record) => {
+    const { work_hour, dayStatus } = calculateWorkHoursAndDay(
+      record.inTime,
+      record.outTime
+    );
+    return [
+      record.empName,
+      record.inTime,
+      record.outTime,
+      record.location,
+      record.date,
+      work_hour,
+      dayStatus,
+    ];
+  });
 
   db.query(
-    "INSERT INTO attendance (emp_name, in_time, out_time, location, date) VALUES ?",
+    "INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day) VALUES ?",
     [values],
     (err, result) => {
       if (err) {
@@ -142,11 +181,12 @@ app.post("/api/attendance", (req, res) => {
   );
 });
 
-// PUT Attendance API - Update an existing attendance record
+// PUT Attendance API - Update an existing attendance record with automatic work hours calculation
 app.put("/api/attendance/:id", (req, res) => {
   const { id } = req.params;
-  // Accept additional fields: inTime, outTime, location, date, approved_by, reason, work_hour, day
-  const { inTime, outTime, location, date, approved_by, reason, work_hour, day } = req.body;
+  const { inTime, outTime, location, date, approved_by, reason } = req.body;
+  const { work_hour, dayStatus } = calculateWorkHoursAndDay(inTime, outTime);
+
   const query = `
     UPDATE attendance
     SET in_time = ?, out_time = ?, location = ?, date = ?, approved_by = ?, reason = ?, work_hour = ?, day = ?
@@ -154,7 +194,7 @@ app.put("/api/attendance/:id", (req, res) => {
   `;
   db.query(
     query,
-    [inTime, outTime, location, date, approved_by, reason, work_hour, day, id],
+    [inTime, outTime, location, date, approved_by, reason, work_hour, dayStatus, id],
     (err, result) => {
       if (err) {
         console.error(err);
@@ -173,7 +213,7 @@ app.put("/api/attendance/:id", (req, res) => {
 app.get("/api/attendance", (req, res) => {
   let query = "SELECT * FROM attendance";
   const params = [];
-  // Example filter by employee name if provided: /api/attendance?empName=Vaibhav%20Patel
+  // Filter by employee name if provided: /api/attendance?empName=EmployeeName
   if (req.query.empName) {
     query += " WHERE emp_name = ?";
     params.push(req.query.empName);

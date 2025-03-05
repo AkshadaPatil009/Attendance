@@ -31,7 +31,6 @@ const AttendanceForm = () => {
   const [location, setLocation] = useState("");
   const [clockIn, setClockIn] = useState("");
   const [clockOut, setClockOut] = useState("");
-  const [fullDay, setFullDay] = useState(false);
 
   // -----------------------
   // State for "View Attendance"
@@ -262,7 +261,6 @@ const AttendanceForm = () => {
     setLocation(record.location || "");
     setClockIn(record.in_time || "");
     setClockOut(record.out_time || "");
-    setFullDay(record.work_hour ? record.work_hour >= 8 : false);
   };
 
   const handleUpdate = async () => {
@@ -271,6 +269,7 @@ const AttendanceForm = () => {
       return;
     }
     try {
+      // Send only the necessary fields; work_hour and day will be calculated on the server.
       const requestBody = {
         inTime: clockIn,
         outTime: clockOut,
@@ -278,8 +277,6 @@ const AttendanceForm = () => {
         date: selectedRecord.date,
         approved_by: approvedBy,
         reason,
-        work_hour: fullDay ? 8.5 : null,
-        day: "", // Optionally set day
       };
 
       await axios.put(
@@ -338,8 +335,6 @@ const AttendanceForm = () => {
             setClockIn={setClockIn}
             clockOut={clockOut}
             setClockOut={setClockOut}
-            fullDay={fullDay}
-            setFullDay={setFullDay}
           />
         </Tab>
 
