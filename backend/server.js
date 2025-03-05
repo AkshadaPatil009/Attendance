@@ -16,8 +16,7 @@ const db = mysql.createConnection({
   database: "indiscpx_taskdb_2", // Using the provided database name
 });
 
-// Login Route (No Encryption)
-// Note: In production, implement proper password hashing.
+// Login Route (No Encryption - remember to hash passwords in production)
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
   db.query("SELECT * FROM logincrd WHERE Email = ?", [email], (err, results) => {
@@ -26,8 +25,6 @@ app.post("/login", (req, res) => {
       return res.status(400).json({ error: "User not found" });
 
     const user = results[0];
-
-    // Check plain-text password (ensure to hash passwords in production)
     if (password !== user.Password) {
       return res.status(400).json({ error: "Invalid password" });
     }
@@ -99,6 +96,17 @@ app.delete("/api/holidays/:id", (req, res) => {
   });
 });
 
+// GET Employees API - Fetch distinct employee names from attendance table
+app.get("/api/employees", (req, res) => {
+  db.query("SELECT DISTINCT emp_name FROM attendance", (err, results) => {
+    if (err)
+      return res
+        .status(500)
+        .json({ error: "Database error while fetching employee list" });
+    res.json(results);
+  });
+});
+
 // POST Attendance API - Save attendance records to the database
 app.post("/api/attendance", (req, res) => {
   const attendanceRecords = req.body.attendanceRecords;
@@ -109,18 +117,18 @@ app.post("/api/attendance", (req, res) => {
   ) {
     return res.status(400).json({ error: "No attendance records provided" });
   }
-  // Map attendanceRecords to values array: [empName, inTime, outTime, location, date]
+
+  // Map attendanceRecords to values array: [emp_name, in_time, out_time, location, date]
   const values = attendanceRecords.map((record) => [
-    record.empName,
+    record.empName, // value from record.empName
     record.inTime,
     record.outTime,
     record.location,
     record.date,
   ]);
 
-  // Insert into the attendance table (make sure you have created this table)
   db.query(
-    "INSERT INTO attendance (empName, inTime, outTime, location, date) VALUES ?",
+    "INSERT INTO attendance (emp_name, in_time, out_time, location, date) VALUES ?",
     [values],
     (err, result) => {
       if (err) {
@@ -132,6 +140,51 @@ app.post("/api/attendance", (req, res) => {
       res.json({ message: "Attendance records saved successfully" });
     }
   );
+});
+
+// PUT Attendance API - Update an existing attendance record
+app.put("/api/attendance/:id", (req, res) => {
+  const { id } = req.params;
+  // Accept additional fields: inTime, outTime, location, date, approved_by, reason, work_hour, day
+  const { inTime, outTime, location, date, approved_by, reason, work_hour, day } = req.body;
+  const query = `
+    UPDATE attendance
+    SET in_time = ?, out_time = ?, location = ?, date = ?, approved_by = ?, reason = ?, work_hour = ?, day = ?
+    WHERE id = ?
+  `;
+  db.query(
+    query,
+    [inTime, outTime, location, date, approved_by, reason, work_hour, day, id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res
+          .status(500)
+          .json({ error: "Database error while updating attendance record" });
+      }
+      if (result.affectedRows === 0)
+        return res.status(404).json({ error: "Attendance record not found" });
+      res.json({ message: "Attendance updated successfully", id });
+    }
+  );
+});
+
+// GET Attendance API - Fetch all attendance records (optional filtering via query parameters)
+app.get("/api/attendance", (req, res) => {
+  let query = "SELECT * FROM attendance";
+  const params = [];
+  // Example filter by employee name if provided: /api/attendance?empName=Vaibhav%20Patel
+  if (req.query.empName) {
+    query += " WHERE emp_name = ?";
+    params.push(req.query.empName);
+  }
+  db.query(query, params, (err, results) => {
+    if (err)
+      return res
+        .status(500)
+        .json({ error: "Database error while fetching attendance records" });
+    res.json(results);
+  });
 });
 
 app.listen(5000, () => console.log("Server running on port 5000"));

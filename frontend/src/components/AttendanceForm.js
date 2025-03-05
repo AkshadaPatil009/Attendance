@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import moment from "moment";
 import {
   Container,
@@ -16,6 +17,8 @@ const AttendanceForm = () => {
   const [attendanceTableData, setAttendanceTableData] = useState([]);
   const [otherMessagesTableData, setOtherMessagesTableData] = useState([]);
   const [attendanceToSave, setAttendanceToSave] = useState([]); // For attendance records
+  const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState([]);
 
   // Tracks which view is selected in "View Attendance" tab
   const [viewMode, setViewMode] = useState("employee"); // "employee" | "monthwise" | "datewise"
@@ -43,8 +46,21 @@ const AttendanceForm = () => {
     padding: "8px",
   };
 
+  // Fetch distinct employee names from the backend
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/api/employees");
+        setEmployees(response.data);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  // Parse the Hangout messages into attendance data
   const handleFilter = () => {
-    // Split input into non-empty lines
     const lines = hangoutMessages
       .split("\n")
       .map((line) => line.trim())
@@ -57,7 +73,6 @@ const AttendanceForm = () => {
       return;
     }
 
-    // Convert the first line (date) into YYYY-MM-DD format using Moment.js.
     const formats = [
       "D MMM, YYYY",
       "MMM D,YYYY",
@@ -76,7 +91,6 @@ const AttendanceForm = () => {
 
     let i = 1;
     while (i < lines.length) {
-      // If next line exists and starts with CI or CO, treat these two lines as an attendance record
       if (
         i < lines.length - 1 &&
         (lines[i + 1].startsWith("CI") || lines[i + 1].startsWith("CO"))
@@ -108,7 +122,6 @@ const AttendanceForm = () => {
           });
         } else if (recordType === "CO") {
           let updated = false;
-          // Try to match with a previous record that has CI but no CO
           for (let j = attendanceRecords.length - 1; j >= 0; j--) {
             if (
               attendanceRecords[j].empName === empName &&
@@ -133,10 +146,6 @@ const AttendanceForm = () => {
           }
         }
       } else {
-        // Process as an "other message"
-        // Check if we can pair the current line with the next line:
-        // If the current line contains a comma (assumed sender info)
-        // and the next line does NOT start with CI/CO, we treat the next line as the message text.
         if (
           i < lines.length - 1 &&
           lines[i].includes(",") &&
@@ -150,7 +159,6 @@ const AttendanceForm = () => {
               ? senderInfoParts[1].trim().replace("?", "")
               : "";
           const message = lines[i + 1];
-          // Only add the message if it contains the letter "C"
           if (message.includes("C")) {
             otherMessagesData.push({
               senderName,
@@ -161,7 +169,6 @@ const AttendanceForm = () => {
           }
           i += 2;
         } else {
-          // If there is no pairing, try to extract what you can from the single line.
           let senderName = "";
           let messageTime = "";
           if (lines[i].includes(",")) {
@@ -170,7 +177,6 @@ const AttendanceForm = () => {
             messageTime = parts[1] ? parts[1].trim().replace("?", "") : "";
           }
           const message = lines[i];
-          // Only add if the line itself (used as message text) contains the letter "C"
           if (message.includes("C")) {
             otherMessagesData.push({
               senderName,
@@ -184,19 +190,35 @@ const AttendanceForm = () => {
       }
     }
 
-    // Update state with parsed data
     setAttendanceTableData(attendanceRecords);
     setOtherMessagesTableData(otherMessagesData);
     setAttendanceToSave(attendanceRecords);
   };
 
+  // Save attendance records to the backend API
+  const handleSave = async () => {
+    if (attendanceToSave.length === 0) {
+      alert("No attendance records to save. Please filter your data first.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await axios.post("http://localhost:5000/api/attendance", {
+        attendanceRecords: attendanceToSave,
+      });
+      alert(response.data.message);
+    } catch (error) {
+      console.error("Error saving records:", error);
+      alert("Failed to save attendance records.");
+    }
+    setLoading(false);
+  };
+
   return (
     <Container fluid className="p-3">
-      {/* Tabs on top side */}
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
         {/* 1) Attendance Entry tab */}
         <Tab eventKey="entry" title="Attendance Entry">
-          {/* This tab contains your existing Attendance Entry page */}
           <Row className="mb-2 text-center fw-bold">
             <Col md={3}>
               <h5>Hangout Messages</h5>
@@ -213,14 +235,14 @@ const AttendanceForm = () => {
           </Row>
 
           <Row>
-            {/* Left Column: Hangout Messages (input) */}
+            {/* Left Column: Hangout Messages */}
             <Col md={3}>
               <Form.Control
                 as="textarea"
                 value={hangoutMessages}
                 onChange={(e) => setHangoutMessages(e.target.value)}
                 style={hangoutTextareaStyle}
-                placeholder={`Paste your data here.`}
+                placeholder="Paste your data here."
               />
             </Col>
 
@@ -307,13 +329,14 @@ const AttendanceForm = () => {
             </Col>
           </Row>
 
-          {/* Bottom row for buttons */}
           <Row className="mt-3 text-center">
             <Col>
               <Button variant="primary" className="me-3" onClick={handleFilter}>
                 Filter
               </Button>
-              <Button variant="success">Save</Button>
+              <Button variant="success" onClick={handleSave} disabled={loading}>
+                {loading ? "Saving..." : "Save"}
+              </Button>
             </Col>
           </Row>
         </Tab>
@@ -322,18 +345,19 @@ const AttendanceForm = () => {
         <Tab eventKey="update" title="Update Attendance">
           <Container fluid>
             <Row>
-              {/* Left side: Update form */}
               <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
                 <h5>Update Attendance</h5>
                 <Form>
                   <Form.Group controlId="employeeName" className="mb-2">
                     <Form.Label>Employee Name:</Form.Label>
+                    {/* Dynamic employee dropdown */}
                     <Form.Select>
-                      <option>-- Select Employee --</option>
-                      <option>Vaibhav Patel</option>
-                      <option>Shubham Shinde</option>
-                      <option>Sumit Plankar</option>
-                      {/* ...add more if needed */}
+                      <option value="">-- Select Employee --</option>
+                      {employees.map((emp, index) => (
+                        <option key={index} value={emp.emp_name}>
+                          {emp.emp_name}
+                        </option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
 
@@ -373,9 +397,7 @@ const AttendanceForm = () => {
                 </Form>
               </Col>
 
-              {/* Right side: Two tables (top and bottom) */}
               <Col md={8}>
-                {/* Top Table */}
                 <Table bordered hover size="sm" className="mb-3">
                   <thead>
                     <tr>
@@ -387,10 +409,11 @@ const AttendanceForm = () => {
                       <th>Location</th>
                       <th>Date</th>
                       <th>Work Hour</th>
+                      <th>Day</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Add rows as needed */}
+                    {/* Rows for updated attendance records */}
                   </tbody>
                 </Table>
               </Col>
@@ -401,7 +424,6 @@ const AttendanceForm = () => {
         {/* 3) View Attendance tab */}
         <Tab eventKey="view" title="View Attendance">
           <Container fluid>
-            {/* Filters Section */}
             <Row
               style={{
                 backgroundColor: "#20B2AA",
@@ -411,7 +433,6 @@ const AttendanceForm = () => {
               }}
               className="g-3"
             >
-              {/* View By (radio buttons) */}
               <Col md={3}>
                 <Form.Label className="fw-bold me-2">View By :</Form.Label>
                 <div>
@@ -442,14 +463,12 @@ const AttendanceForm = () => {
                 </div>
               </Col>
 
-              {/* Employee, Month, Year, Date */}
               <Col md={4}>
                 <Row>
                   <Col md={12}>
                     <Form.Label>Employee Name</Form.Label>
                     <Form.Select className="mb-2">
                       <option>All Employees</option>
-                      {/* Add more employees here */}
                     </Form.Select>
                   </Col>
                   <Col md={6}>
@@ -458,7 +477,6 @@ const AttendanceForm = () => {
                       <option>January</option>
                       <option>February</option>
                       <option>March</option>
-                      {/* ... */}
                     </Form.Select>
                   </Col>
                   <Col md={6}>
@@ -466,7 +484,6 @@ const AttendanceForm = () => {
                     <Form.Select className="mb-2">
                       <option>2025</option>
                       <option>2026</option>
-                      {/* ... */}
                     </Form.Select>
                   </Col>
                   <Col md={12}>
@@ -476,11 +493,9 @@ const AttendanceForm = () => {
                 </Row>
               </Col>
 
-              {/* Legend (Color-coded, no checkboxes) */}
               <Col md={5}>
                 <Form.Label className="fw-bold d-block mb-2">Legend:</Form.Label>
                 <div className="d-flex flex-wrap align-items-center">
-                  {/* Half Day */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -492,7 +507,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Half day</span>
                   </div>
-                  {/* Full Day */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -504,7 +518,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Full Day (8.5 Hrs)</span>
                   </div>
-                  {/* Absent */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -516,11 +529,10 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Absent</span>
                   </div>
-                  {/* Sunday */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
-                        backgroundColor: " #ff9900",
+                        backgroundColor: "#ff9900",
                         width: "20px",
                         height: "20px",
                         marginRight: "5px",
@@ -528,7 +540,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Sunday</span>
                   </div>
-                  {/* Late Mark */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -540,7 +551,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Late Mark</span>
                   </div>
-                  {/* Site Visit */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -552,7 +562,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Site Visit</span>
                   </div>
-                  {/* Holiday */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -564,7 +573,6 @@ const AttendanceForm = () => {
                     ></div>
                     <span>Holiday</span>
                   </div>
-                  {/* Working < 5 Hrs */}
                   <div className="legend-item d-flex align-items-center me-3 mb-2">
                     <div
                       style={{
@@ -580,7 +588,6 @@ const AttendanceForm = () => {
               </Col>
             </Row>
 
-            {/* If user selected "employee" (placeholder) */}
             {viewMode === "employee" && (
               <Row className="mt-3">
                 <Col>
@@ -590,7 +597,6 @@ const AttendanceForm = () => {
               </Row>
             )}
 
-            {/* If user selected "datewise" */}
             {viewMode === "datewise" && (
               <Row className="mt-3">
                 <Col>
@@ -604,7 +610,6 @@ const AttendanceForm = () => {
               </Row>
             )}
 
-            {/* If user selected "monthwise" */}
             {viewMode === "monthwise" && (
               <Row className="mt-3">
                 <Col>
