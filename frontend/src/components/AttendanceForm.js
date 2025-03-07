@@ -1,17 +1,16 @@
-// AttendanceForm.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Tabs, Tab } from "react-bootstrap";
 
-// Import our separated components
+// Import your custom components
 import AttendanceEntry from "./AttendanceEntry";
 import UpdateAttendance from "./UpdateAttendance";
 import ViewAttendance from "./ViewAttendance";
 
 const AttendanceForm = () => {
   // -----------------------
-  // States for "Attendance Entry"
+  // 1) Attendance Entry
   // -----------------------
   const [hangoutMessages, setHangoutMessages] = useState("");
   const [attendanceTableData, setAttendanceTableData] = useState([]);
@@ -20,7 +19,7 @@ const AttendanceForm = () => {
   const [loading, setLoading] = useState(false);
 
   // -----------------------
-  // States for "Update Attendance"
+  // 2) Update Attendance
   // -----------------------
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -33,13 +32,12 @@ const AttendanceForm = () => {
   const [clockOut, setClockOut] = useState("");
 
   // -----------------------
-  // State for "View Attendance"
+  // 3) View Attendance
   // -----------------------
-  const [viewMode, setViewMode] = useState("employee");
+  const [viewMode, setViewMode] = useState("monthwise"); 
+  // or "datewise" if you want that as the default
 
-  // -----------------------
-  // Styles
-  // -----------------------
+  // For styling textareas/tables in the Entry tab
   const hangoutTextareaStyle = {
     height: "300px",
     width: "100%",
@@ -62,7 +60,7 @@ const AttendanceForm = () => {
   };
 
   // -----------------------
-  // 1) Fetch employees on mount
+  // Fetch employees on mount
   // -----------------------
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -127,6 +125,9 @@ const AttendanceForm = () => {
           timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
         }
 
+        // Append date to time
+        const dateTime = `${commonDate} ${timeStr}`;
+
         const detailParts = detailLine.split(" ").filter((p) => p !== "");
         const recordType = detailParts[0] || "";
         const loc = detailParts[1] || "";
@@ -134,7 +135,7 @@ const AttendanceForm = () => {
         if (recordType === "CI") {
           attendanceRecords.push({
             empName,
-            inTime: timeStr,
+            inTime: dateTime,
             outTime: "",
             location: loc,
             date: commonDate,
@@ -148,7 +149,7 @@ const AttendanceForm = () => {
               attendanceRecords[j].inTime &&
               !attendanceRecords[j].outTime
             ) {
-              attendanceRecords[j].outTime = timeStr;
+              attendanceRecords[j].outTime = dateTime;
               attendanceRecords[j].location = loc;
               updated = true;
               break;
@@ -158,7 +159,7 @@ const AttendanceForm = () => {
             attendanceRecords.push({
               empName,
               inTime: "",
-              outTime: timeStr,
+              outTime: dateTime,
               location: loc,
               date: commonDate,
             });
@@ -294,13 +295,12 @@ const AttendanceForm = () => {
   };
 
   // -----------------------
-  // 4) View Attendance Logic (unchanged)
+  // Render
   // -----------------------
-
   return (
     <Container fluid className="p-3">
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
-        {/* Attendance Entry Tab */}
+        {/* 1) Attendance Entry Tab */}
         <Tab eventKey="entry" title="Attendance Entry">
           <AttendanceEntry
             hangoutMessages={hangoutMessages}
@@ -316,7 +316,7 @@ const AttendanceForm = () => {
           />
         </Tab>
 
-        {/* Update Attendance Tab */}
+        {/* 2) Update Attendance Tab */}
         <Tab eventKey="update" title="Update Attendance">
           <UpdateAttendance
             employees={employees}
@@ -338,7 +338,7 @@ const AttendanceForm = () => {
           />
         </Tab>
 
-        {/* View Attendance Tab */}
+        {/* 3) View Attendance Tab */}
         <Tab eventKey="view" title="View Attendance">
           <ViewAttendance viewMode={viewMode} setViewMode={setViewMode} />
         </Tab>

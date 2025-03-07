@@ -1,6 +1,6 @@
 // AttendanceEntry.js
-import React from "react";
-import { Row, Col, Form, Button, Table } from "react-bootstrap";
+import React, { useState } from "react";
+import { Row, Col, Form, Button, Table, Alert } from "react-bootstrap";
 
 const AttendanceEntry = ({
   hangoutMessages,
@@ -14,8 +14,38 @@ const AttendanceEntry = ({
   hangoutTextareaStyle,
   tableContainerStyle,
 }) => {
+  const [errorMessage, setErrorMessage] = useState(""); // State for error message
+
+  const handleSaveAttendance = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ attendanceRecords: attendanceToSave }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setErrorMessage(errorData.error || "Failed to save attendance records");
+      } else {
+        setErrorMessage(""); // Clear any previous errors
+        alert("Attendance records saved successfully!");
+      }
+    } catch (error) {
+      setErrorMessage("An unexpected error occurred: " + error.message);
+    }
+  };
+
   return (
     <>
+      {errorMessage && (
+        <Alert variant="danger" onClose={() => setErrorMessage("")} dismissible>
+          {errorMessage}
+        </Alert>
+      )}
+
       <Row className="mb-2 text-center fw-bold">
         <Col md={3}>
           <h5>Hangout Messages</h5>
@@ -32,7 +62,6 @@ const AttendanceEntry = ({
       </Row>
 
       <Row>
-        {/* Left Column: Hangout Messages */}
         <Col md={3}>
           <Form.Control
             as="textarea"
@@ -43,7 +72,6 @@ const AttendanceEntry = ({
           />
         </Col>
 
-        {/* Middle Column: Attendance Table */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
@@ -71,7 +99,6 @@ const AttendanceEntry = ({
           </div>
         </Col>
 
-        {/* Next Column: Other Messages Table */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
@@ -97,7 +124,6 @@ const AttendanceEntry = ({
           </div>
         </Col>
 
-        {/* Last Column: Attendance to Save */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
@@ -131,7 +157,7 @@ const AttendanceEntry = ({
           <Button variant="primary" className="me-3" onClick={handleFilter}>
             Filter
           </Button>
-          <Button variant="success" onClick={handleSave} disabled={loading}>
+          <Button variant="success" onClick={handleSaveAttendance} disabled={loading}>
             {loading ? "Saving..." : "Save"}
           </Button>
         </Col>
