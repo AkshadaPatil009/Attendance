@@ -12,9 +12,10 @@ const UpdateAttendance = () => {
   const [approvedBy, setApprovedBy] = useState("");
   const [reason, setReason] = useState("");
   const [location, setLocation] = useState("");
+  // clockIn and clockOut hold the datetime-local input values.
   const [clockIn, setClockIn] = useState("");
   const [clockOut, setClockOut] = useState("");
-  // These checkboxes indicate whether to update the clock times.
+  // Checkboxes indicate whether to update the corresponding clock field.
   const [updateClockIn, setUpdateClockIn] = useState(false);
   const [updateClockOut, setUpdateClockOut] = useState(false);
   const [fullDay, setFullDay] = useState(false);
@@ -43,32 +44,37 @@ const UpdateAttendance = () => {
     }
   };
 
-  // Helper: Convert full datetime (stored in in_time or out_time) in 12-hour format with date 
-  // (e.g. "2023-03-25 8:30AM") into datetime-local input format ("YYYY-MM-DDTHH:mm") in 24-hour time.
+  // Helper: Convert stored full datetime (e.g. "2025-03-06 9:07AM") 
+  // into HTML datetime-local format ("YYYY-MM-DDTHH:mm")
   const convertToDatetimeLocal = (fullDateTime) => {
     if (!fullDateTime) return "";
     return moment(fullDateTime, "YYYY-MM-DD h:mmA").format("YYYY-MM-DDTHH:mm");
   };
 
-  // When an employee is selected, fetch their attendance records and populate the form with the latest record.
+  // When an employee is selected from the dropdown, fetch their attendance records 
+  // and populate the form with the latest record.
   useEffect(() => {
     if (selectedEmployee) {
       axios
-        .get(`http://localhost:5000/api/attendance?empName=${encodeURIComponent(selectedEmployee)}`)
+        .get(
+          `http://localhost:5000/api/attendance?empName=${encodeURIComponent(
+            selectedEmployee
+          )}`
+        )
         .then((response) => {
           const empRecords = response.data;
           if (empRecords.length > 0) {
-            // Sort by date descending and pick the latest record.
-            const sortedRecords = empRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Sort records by date descending and pick the latest record.
+            const sortedRecords = empRecords.sort(
+              (a, b) => new Date(b.date) - new Date(a.date)
+            );
             const latestRecord = sortedRecords[0];
             setSelectedRecord(latestRecord);
             setApprovedBy(latestRecord.approved_by || "");
             setReason(latestRecord.reason || "");
             setLocation(latestRecord.location || "");
-            // Fetch the full date from in_time/out_time instead of combining with record.date.
             setClockIn(convertToDatetimeLocal(latestRecord.in_time));
             setClockOut(convertToDatetimeLocal(latestRecord.out_time));
-            // Automatically check the clock update boxes if times exist.
             setUpdateClockIn(!!latestRecord.in_time);
             setUpdateClockOut(!!latestRecord.out_time);
           } else {
@@ -99,9 +105,10 @@ const UpdateAttendance = () => {
     }
   }, [selectedEmployee]);
 
-  // When a row in the table is clicked, manually populate the form.
+  // When a row in the table is clicked, populate the form and update the dropdown.
   const handleRowClick = (record) => {
     setSelectedRecord(record);
+    setSelectedEmployee(record.emp_name);
     setApprovedBy(record.approved_by || "");
     setReason(record.reason || "");
     setLocation(record.location || "");
@@ -111,27 +118,29 @@ const UpdateAttendance = () => {
     setUpdateClockOut(!!record.out_time);
   };
 
-  // When updating, if a clock checkbox is checked, convert the input (which is in datetime-local format)
-  // to 12-hour format (e.g. "8:30AM"); otherwise use the original value.
+  // On update, if a clock checkbox is checked, extract only the time portion 
+  // from the datetime-local input and combine it with the original date.
   const handleUpdate = async () => {
     if (!selectedRecord) {
       alert("No record selected for update!");
       return;
     }
+    // Force the original date into "YYYY-MM-DD" format.
+    const recordDate = moment(selectedRecord.date).format("YYYY-MM-DD");
     const formattedClockIn =
       updateClockIn && clockIn
-        ? moment(clockIn, "YYYY-MM-DDTHH:mm").format("h:mmA")
+        ? `${recordDate} ${moment(clockIn).format("h:mmA")}`
         : selectedRecord.in_time || "";
     const formattedClockOut =
       updateClockOut && clockOut
-        ? moment(clockOut, "YYYY-MM-DDTHH:mm").format("h:mmA")
+        ? `${recordDate} ${moment(clockOut).format("h:mmA")}`
         : selectedRecord.out_time || "";
 
     const requestBody = {
       inTime: formattedClockIn,
       outTime: formattedClockOut,
       location,
-      date: selectedRecord.date,
+      date: recordDate,
       approved_by: approvedBy,
       reason,
     };
@@ -156,7 +165,10 @@ const UpdateAttendance = () => {
             {/* Employee Dropdown */}
             <Form.Group controlId="employeeName" className="mb-2">
               <Form.Label>Employee Name:</Form.Label>
-              <Form.Select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)}>
+              <Form.Select
+                value={selectedEmployee}
+                onChange={(e) => setSelectedEmployee(e.target.value)}
+              >
                 <option value="">-- Select Employee --</option>
                 {employees.map((emp, index) => (
                   <option key={index} value={emp.emp_name}>
@@ -169,24 +181,45 @@ const UpdateAttendance = () => {
             {/* Approved by */}
             <Form.Group controlId="approvedBy" className="mb-2">
               <Form.Label>Approved by:</Form.Label>
-              <Form.Control type="text" placeholder="Enter name" value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} />
+              <Form.Control
+                type="text"
+                placeholder="Enter name"
+                value={approvedBy}
+                onChange={(e) => setApprovedBy(e.target.value)}
+              />
             </Form.Group>
 
             {/* Reason */}
             <Form.Group controlId="reason" className="mb-2">
               <Form.Label>Reason:</Form.Label>
-              <Form.Control as="textarea" rows={2} placeholder="Enter reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Form.Control
+                as="textarea"
+                rows={2}
+                placeholder="Enter reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
             </Form.Group>
 
             {/* Location */}
             <Form.Group controlId="location" className="mb-2">
               <Form.Label>Location:</Form.Label>
-              <Form.Control type="text" placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
+              <Form.Control
+                type="text"
+                placeholder="Location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
             </Form.Group>
 
             {/* Clock In */}
             <Form.Group controlId="clockIn" className="mb-2">
-              <Form.Check type="checkbox" label="Update Clock In" checked={updateClockIn} onChange={(e) => setUpdateClockIn(e.target.checked)} />
+              <Form.Check
+                type="checkbox"
+                label="Update Clock In"
+                checked={updateClockIn}
+                onChange={(e) => setUpdateClockIn(e.target.checked)}
+              />
               <Form.Control
                 type="datetime-local"
                 value={clockIn}
@@ -197,7 +230,12 @@ const UpdateAttendance = () => {
 
             {/* Clock Out */}
             <Form.Group controlId="clockOut" className="mb-2">
-              <Form.Check type="checkbox" label="Update Clock Out" checked={updateClockOut} onChange={(e) => setUpdateClockOut(e.target.checked)} />
+              <Form.Check
+                type="checkbox"
+                label="Update Clock Out"
+                checked={updateClockOut}
+                onChange={(e) => setUpdateClockOut(e.target.checked)}
+              />
               <Form.Control
                 type="datetime-local"
                 value={clockOut}
@@ -208,7 +246,12 @@ const UpdateAttendance = () => {
 
             {/* Full Day */}
             <Form.Group controlId="fullDay" className="mb-3">
-              <Form.Check type="checkbox" label="Display Full day in Monthly Attendance" checked={fullDay} onChange={(e) => setFullDay(e.target.checked)} />
+              <Form.Check
+                type="checkbox"
+                label="Display Full day in Monthly Attendance"
+                checked={fullDay}
+                onChange={(e) => setFullDay(e.target.checked)}
+              />
             </Form.Group>
 
             {/* Update Button */}
@@ -220,7 +263,10 @@ const UpdateAttendance = () => {
 
         {/* Right Column: Attendance Records Table */}
         <Col md={8}>
-          <Container className="p-3" style={{ maxHeight: "400px", overflowY: "auto", border: "1px solid #ccc" }}>
+          <Container
+            className="p-3"
+            style={{ maxHeight: "400px", overflowY: "auto", border: "1px solid #ccc" }}
+          >
             <h3 className="mb-3">Attendance Records</h3>
             <Table bordered hover responsive size="sm">
               <thead>
@@ -245,7 +291,6 @@ const UpdateAttendance = () => {
                     <td>{record.in_time}</td>
                     <td>{record.out_time}</td>
                     <td>{record.location}</td>
-                    {/* Format the date column to show only "YYYY-MM-DD" */}
                     <td>{moment(record.date).format("YYYY-MM-DD")}</td>
                     <td>{record.work_hour}</td>
                     <td>{record.day}</td>
