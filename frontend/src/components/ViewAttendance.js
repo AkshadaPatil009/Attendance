@@ -3,21 +3,26 @@ import { Container, Row, Col, Form, Table } from "react-bootstrap";
 import axios from "axios";
 
 /**
- * Return the text code and style (background color, text color) for each record
- * based on its "day" or "location."
+ * Return the text code and style for each record based on its work_hour and day.
  */
 function getDisplayForRecord(record) {
-  // If location includes "sv" => site visit
+  // Site visit check: always show "sv" with yellow background.
   if (record.location && record.location.toLowerCase().includes("sv")) {
-    return { text: "sv", style: { backgroundColor: "#FFFF00" } }; // Yellow
+    return { text: "sv", style: { backgroundColor: "#FFFF00" } };
   }
+  // If the record is not absent and the work_hour is defined and less than 4.5,
+  // show "AB" in a white box with bold black text.
+  if (record.day !== "Absent" && record.work_hour !== undefined && record.work_hour < 4.5) {
+    return { text: "AB", style: { backgroundColor: "#ffffff", color: "#000000", fontWeight: "bold" } };
+  }
+  // Otherwise, check based on the day value.
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } }; // Light Green
     case "Half Day":
       return { text: "H", style: { backgroundColor: "#B0E0E6" } }; // Light Blue
     case "Absent":
-      return { text: "", style: { backgroundColor: "#FFC0CB" } }; // Pink (no text)
+      return { text: "", style: { backgroundColor: "#FFC0CB" } }; // Pink
     case "Sunday":
       return { text: "SUN", style: { backgroundColor: "#ff9900" } }; // Orange
     case "Late Mark":
@@ -26,12 +31,19 @@ function getDisplayForRecord(record) {
         style: { backgroundColor: "#FFD700" },
       }; // Gold
     case "Holiday":
-      return { text: "HOL", style: { backgroundColor: "#ff0000", color: "#fff" } }; // Red/white text
-    case "Working < 4.5 Hrs":
-      return { text: "AB", style: { backgroundColor: "#FF69B4" } }; // Hot Pink for records
+      return { style: { backgroundColor: "#ff0000", color: "#fff" } }; // Red/white
     default:
       return { text: "", style: {} };
   }
+}
+
+// Helper function to compare dates (ignoring time)
+function areSameDate(date1, date2) {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
 }
 
 const ViewAttendance = ({ viewMode, setViewMode }) => {
@@ -44,8 +56,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Attendance data from server
+  // Attendance and holidays data from server
   const [attendanceData, setAttendanceData] = useState([]);
+  const [holidays, setHolidays] = useState([]);
 
   // Fetch employee list on mount
   useEffect(() => {
@@ -56,6 +69,18 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       })
       .catch((error) => {
         console.error("Error fetching employee list:", error);
+      });
+  }, []);
+
+  // Fetch holidays list on mount
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/holidays")
+      .then((response) => {
+        setHolidays(response.data);
+      })
+      .catch((error) => {
+        console.error("Error fetching holidays:", error);
       });
   }, []);
 
@@ -73,8 +98,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       params.date = selectedDate;
     }
     if (viewMode === "monthwise") {
-      params.month = selectedMonth; // e.g., "3"
-      params.year = selectedYear;   // e.g., "2025"
+      params.month = selectedMonth;
+      params.year = selectedYear;
     }
     // Using "/api/attendanceview" endpoint for filtering.
     axios
@@ -101,12 +126,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       const d = new Date(rec.date);
       const dayNum = d.getDate();
       pivotData[emp].days[dayNum] = rec;
-      // Tally stats if the record indicates presence
+      // Tally stats if the record indicates presence (including work_hour check is handled in getDisplayForRecord)
       if (
         rec.day === "Full Day" ||
         rec.day === "Half Day" ||
         rec.day === "Late Mark" ||
-        rec.day === "Working < 4.5 Hrs"
+        rec.day === "Working < 4.5 Hrs" ||
+        (rec.day !== "Absent" && rec.work_hour !== undefined && rec.work_hour < 4.5)
       ) {
         pivotData[emp].presentDays++;
         pivotData[emp].daysWorked++;
@@ -126,7 +152,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <th style={{ width: "80px", textAlign: "center" }}>Present Days</th>
               <th style={{ width: "80px", textAlign: "center" }}>Late Mark</th>
               <th style={{ width: "80px", textAlign: "center" }}>Avg Hours</th>
-              {/* Create a header column for each day in the month */}
+              {/* Header for each day in the month */}
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
                 <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
                   {dayNum}
@@ -149,24 +175,40 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <td style={{ width: "80px", textAlign: "center" }}>{avgHours}</td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const dayNumber = i + 1;
-                    // Create a Date object for this cell based on the selected month/year
+                    // Create a Date object for the cell based on selected month/year
                     const cellDate = new Date(selectedYear, parseInt(selectedMonth, 10) - 1, dayNumber);
                     const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                    const rec = rowData.days[dayNumber];
-                    // If it's Sunday and no record exists, render a blank cell with orange background
-                    if (dayOfWeek === 0 && !rec) {
+                    // Check if a holiday exists for this date (holiday takes precedence)
+                    const holidayFound = holidays.find(holiday =>
+                      areSameDate(new Date(holiday.holiday_date), cellDate)
+                    );
+                    if (holidayFound) {
                       return (
                         <td
                           key={dayNumber}
-                          style={{ width: "40px", textAlign: "center", backgroundColor: "#ff9900" }}
-                        ></td>
+                          style={{
+                            width: "40px",
+                            textAlign: "center",
+                            backgroundColor: "#ff0000",
+                            color: "#fff",
+                          }}
+                        />
                       );
-                    } else if (rec) {
+                    }
+                    const rec = rowData.days[dayNumber];
+                    if (rec) {
                       const { text, style } = getDisplayForRecord(rec);
                       return (
                         <td key={dayNumber} style={{ width: "40px", textAlign: "center", ...style }}>
                           {text}
                         </td>
+                      );
+                    } else if (dayOfWeek === 0) {
+                      return (
+                        <td
+                          key={dayNumber}
+                          style={{ width: "40px", textAlign: "center", backgroundColor: "#ff9900" }}
+                        ></td>
                       );
                     } else {
                       return <td key={dayNumber} style={{ width: "40px", textAlign: "center" }} />;
@@ -181,7 +223,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
-  // Simple table for Datewise view remains unchanged
+  // Simple table for Datewise view remains unchanged.
   const renderDatewiseTable = () => {
     return (
       <div style={{ overflowX: "auto" }}>
@@ -312,87 +354,38 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         <Col md={5}>
           <div className="d-flex flex-wrap align-items-center">
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#90EE90",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#90EE90", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>P (Full Day)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#B0E0E6",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#B0E0E6", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>H (Half Day)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#FFC0CB",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#FFC0CB", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>AB (Absent)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#ff9900",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#ff9900", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>Sunday</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#FFD700",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#FFD700", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>P (Late Mark)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#FFFF00",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>SV (Site Visit)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div
-                style={{
-                  backgroundColor: "#ff0000",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "5px",
-                }}
-              ></div>
+              <div style={{ backgroundColor: "#ff0000", width: "20px", height: "20px", marginRight: "5px" }}></div>
               <span>Holiday</span>
             </div>
-            {/* Updated legend item for Working < 4.5 Hrs */}
+            {/* Legend for working less than 4.5 hours */}
             <div className="legend-item d-flex align-items-center me-3 mb-2">
               <div
                 style={{
-                  backgroundColor: "#ffffff", // white box
+                  backgroundColor: "#ffffff",
                   width: "20px",
                   height: "20px",
                   marginRight: "5px",
@@ -400,7 +393,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: "bold",
-                  color: "#000000", // black text
+                  color: "#000000",
                 }}
               >
                 AB
