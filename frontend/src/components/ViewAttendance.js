@@ -261,7 +261,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   };
 
   return (
-    <Container fluid className="p-1">
+    <Container fluid className="p-1" style={{ backgroundColor: "#20B2AA" }}>
       <Row style={{ backgroundColor: "#20B2AA", padding: "5px", color: "#fff", borderRadius: "4px" }} className="g-1">
         <Col md={3}>
           <Form.Label className="fw-bold me-1">View By :</Form.Label>
