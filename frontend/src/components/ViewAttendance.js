@@ -87,7 +87,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+  }, );
 
   const fetchAttendance = () => {
     const params = { viewMode };
@@ -241,7 +241,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           </thead>
           <tbody>
             {attendanceData.map((rec, idx) => {
-              const { text, style } = getDisplayForRecord(rec);
+              const {  style } = getDisplayForRecord(rec);
               return (
                 <tr key={idx} style={style}>
                   <td>{rec.emp_name}</td>
