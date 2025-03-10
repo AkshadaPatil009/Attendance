@@ -298,8 +298,8 @@ const AttendanceForm = () => {
   // Render
   // -----------------------
   return (
-    <Container fluid className="p-3">
-      <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-3">
+    <Container fluid className="p-1">
+      <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-1">
         {/* 1) Attendance Entry Tab */}
         <Tab eventKey="entry" title="Attendance Entry">
           <AttendanceEntry
