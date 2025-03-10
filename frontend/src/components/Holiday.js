@@ -227,11 +227,7 @@ const Holidays = () => {
             </thead>
             <tbody>
               {filteredHolidays.map((holiday) => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
                 const holidayDate = new Date(holiday.holiday_date);
-                holidayDate.setHours(0, 0, 0, 0);
-                const isCompleted = holidayDate < today;
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
@@ -240,7 +236,7 @@ const Holidays = () => {
                 return (
                   <tr
                     key={holiday.id}
-                    className={isCompleted ? "completedHoliday" : ""}
+                    style={{ backgroundColor: "#ff0000", color: "#fff" }}
                   >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
