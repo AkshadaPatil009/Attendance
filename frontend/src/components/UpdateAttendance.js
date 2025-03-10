@@ -31,7 +31,11 @@ const UpdateAttendance = () => {
   const fetchAttendanceRecords = async () => {
     try {
       const response = await axios.get("http://localhost:5000/api/attendance");
-      setAttendanceRecords(response.data);
+      // CHANGED: Sort records by date in descending order (latest first)
+      const sortedRecords = response.data.sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+      setAttendanceRecords(sortedRecords);
     } catch (error) {
       console.error("Error fetching attendance records:", error);
     }
