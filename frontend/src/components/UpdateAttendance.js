@@ -19,6 +19,8 @@ const UpdateAttendance = () => {
   const [updateClockIn, setUpdateClockIn] = useState(false);
   const [updateClockOut, setUpdateClockOut] = useState(false);
   const [fullDay, setFullDay] = useState(false);
+  // This flag tracks if a record was manually selected from the table.
+  const [manualSelection, setManualSelection] = useState(false);
 
   // Fetch attendance records and employee list on mount
   useEffect(() => {
@@ -52,9 +54,9 @@ const UpdateAttendance = () => {
   };
 
   // When an employee is selected from the dropdown, fetch their attendance records 
-  // and populate the form with the latest record.
+  // and populate the form with the latest record (only if not manually selected).
   useEffect(() => {
-    if (selectedEmployee) {
+    if (selectedEmployee && !manualSelection) {
       axios
         .get(
           `http://localhost:5000/api/attendance?empName=${encodeURIComponent(
@@ -92,21 +94,12 @@ const UpdateAttendance = () => {
         .catch((error) => {
           console.error("Error fetching attendance for selected employee:", error);
         });
-    } else {
-      // Clear form if no employee is selected.
-      setSelectedRecord(null);
-      setApprovedBy("");
-      setReason("");
-      setLocation("");
-      setClockIn("");
-      setClockOut("");
-      setUpdateClockIn(false);
-      setUpdateClockOut(false);
     }
-  }, [selectedEmployee]);
+  }, [selectedEmployee, manualSelection]);
 
   // When a row in the table is clicked, populate the form and update the dropdown.
   const handleRowClick = (record) => {
+    setManualSelection(true);
     setSelectedRecord(record);
     setSelectedEmployee(record.emp_name);
     setApprovedBy(record.approved_by || "");
@@ -167,7 +160,10 @@ const UpdateAttendance = () => {
               <Form.Label>Employee Name:</Form.Label>
               <Form.Select
                 value={selectedEmployee}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
+                onChange={(e) => {
+                  setSelectedEmployee(e.target.value);
+                  setManualSelection(false);
+                }}
               >
                 <option value="">-- Select Employee --</option>
                 {employees.map((emp, index) => (
