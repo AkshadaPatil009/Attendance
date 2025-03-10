@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button, Form, Modal, Table } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
+import "../pages/Dashboard.css"; // Ensure this file is imported so the CSS applies
 
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
@@ -228,15 +229,34 @@ const Holidays = () => {
             <tbody>
               {filteredHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
+                const today = new Date();
+                // Compare only the date parts by zeroing out the time
+                const holidayDateOnly = new Date(
+                  holidayDate.getFullYear(),
+                  holidayDate.getMonth(),
+                  holidayDate.getDate()
+                );
+                const todayOnly = new Date(
+                  today.getFullYear(),
+                  today.getMonth(),
+                  today.getDate()
+                );
+                const isPast = holidayDateOnly < todayOnly;
+
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 });
+
                 return (
                   <tr
                     key={holiday.id}
-                    style={{ backgroundColor: "#ff0000", color: "#fff" }}
+                    className={isPast ? "completedHoliday" : ""}
+                    style={{
+                      backgroundColor: !isPast ? "#ff0000" : undefined,
+                      color: "#fff",
+                    }}
                   >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>

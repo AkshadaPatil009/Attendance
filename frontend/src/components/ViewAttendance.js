@@ -87,7 +87,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
-  }, );
+  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
 
   const fetchAttendance = () => {
     const params = { viewMode };
@@ -144,7 +144,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     });
     return (
       <div style={{ overflowX: "auto" }}>
-        <Table bordered hover size="sm" style={{ tableLayout: "fixed" }}>
+        <Table bordered hover size="sm" style={{ tableLayout: "fixed", fontSize: "0.85rem" }}>
           <thead>
             <tr>
               {/* Fixed widths for summary columns */}
@@ -227,7 +227,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const renderDatewiseTable = () => {
     return (
       <div style={{ overflowX: "auto" }}>
-        <Table bordered hover size="sm">
+        <Table bordered hover size="sm" style={{ fontSize: "0.85rem" }}>
           <thead>
             <tr>
               <th>Employee Name</th>
@@ -241,7 +241,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           </thead>
           <tbody>
             {attendanceData.map((rec, idx) => {
-              const {  style } = getDisplayForRecord(rec);
+              const { style } = getDisplayForRecord(rec);
               return (
                 <tr key={idx} style={style}>
                   <td>{rec.emp_name}</td>
@@ -261,10 +261,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   };
 
   return (
-    <Container fluid>
-      <Row style={{ backgroundColor: "#20B2AA", padding: "10px", color: "#fff", borderRadius: "4px" }} className="g-3">
+    <Container fluid className="p-1">
+      <Row style={{ backgroundColor: "#20B2AA", padding: "5px", color: "#fff", borderRadius: "4px" }} className="g-1">
         <Col md={3}>
-          <Form.Label className="fw-bold me-2">View By :</Form.Label>
+          <Form.Label className="fw-bold me-1">View By :</Form.Label>
           <div>
             <Form.Check
               type="radio"
@@ -273,6 +273,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               value="monthwise"
               checked={viewMode === "monthwise"}
               onChange={(e) => setViewMode(e.target.value)}
+              className="me-1"
             />
             <Form.Check
               type="radio"
@@ -281,6 +282,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               value="datewise"
               checked={viewMode === "datewise"}
               onChange={(e) => setViewMode(e.target.value)}
+              className="me-1"
             />
           </div>
         </Col>
@@ -289,7 +291,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             <Col md={12}>
               <Form.Label>Employee Name</Form.Label>
               <Form.Select
-                className="mb-2"
+                className="mb-1"
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
               >
@@ -306,7 +308,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <Col md={6}>
                   <Form.Label>Month</Form.Label>
                   <Form.Select
-                    className="mb-2"
+                    className="mb-1"
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                   >
@@ -328,7 +330,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <Form.Label>Year</Form.Label>
                   <Form.Control
                     type="number"
-                    className="mb-2"
+                    className="mb-1"
                     placeholder="Enter Year"
                     value={selectedYear}
                     min="1900"
@@ -343,7 +345,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <Form.Label>Date</Form.Label>
                 <Form.Control
                   type="date"
-                  className="mb-2"
+                  className="mb-1"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
@@ -353,42 +355,42 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         </Col>
         <Col md={5}>
           <div className="d-flex flex-wrap align-items-center">
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#90EE90", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#90EE90", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>P (Full Day)</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#B0E0E6", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#B0E0E6", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>H (Half Day)</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#FFC0CB", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#FFC0CB", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>AB (Absent)</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#ff9900", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#ff9900", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>Sunday</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#FFD700", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#FFD700", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>P (Late Mark)</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>SV (Site Visit)</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
-              <div style={{ backgroundColor: "#ff0000", width: "20px", height: "20px", marginRight: "5px" }}></div>
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
+              <div style={{ backgroundColor: "#ff0000", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>Holiday</span>
             </div>
             {/* Legend for working less than 4.5 hours */}
-            <div className="legend-item d-flex align-items-center me-3 mb-2">
+            <div className="legend-item d-flex align-items-center me-1 mb-1">
               <div
                 style={{
                   backgroundColor: "#ffffff",
                   width: "20px",
                   height: "20px",
-                  marginRight: "5px",
+                  marginRight: "3px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -403,17 +405,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           </div>
         </Col>
       </Row>
-      <Row className="mt-3">
+      <Row className="mt-1">
         <Col>
           {viewMode === "datewise" && (
             <>
-              <h5>Datewise Attendance</h5>
+              <h5 className="mb-1">Datewise Attendance</h5>
               {renderDatewiseTable()}
             </>
           )}
           {viewMode === "monthwise" && (
             <>
-              <h5>Monthwise Attendance</h5>
+              <h5 className="mb-1">Monthwise Attendance</h5>
               {renderMonthwiseTable()}
             </>
           )}
