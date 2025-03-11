@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import moment from "moment";
 import { Container, Row, Col, Form, Table } from "react-bootstrap";
 import axios from "axios";
-import { io } from "socket.io-client";
+import { io } from "socket.io-client"; // CHANGED: Import socket.io-client
 
 /**
  * Return the text code and style for each record based on its work_hour and day.
@@ -88,7 +88,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedMonth, setSelectedMonth] = useState(
+    (new Date().getMonth() + 1).toString()
+  );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Attendance and holidays data from server
@@ -131,10 +133,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Fetch attendance whenever filters change
+  // CHANGED: Fetch attendance whenever filters change.
   useEffect(() => {
     fetchAttendance();
-  }, );
+  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
 
   const fetchAttendance = () => {
     const params = { viewMode };
@@ -160,7 +162,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
 
   // Build a pivot-like table for Monthwise view
   const renderMonthwiseTable = () => {
-    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
+    const daysInMonth = new Date(
+      selectedYear,
+      parseInt(selectedMonth, 10),
+      0
+    ).getDate();
     const pivotData = {};
     attendanceData.forEach((rec) => {
       const emp = rec.emp_name;
@@ -426,7 +432,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               </div>
               <span>P (Late Mark Full)</span>
             </div>
-            {/* Removed Half Day late mark legend */}
             <div className="legend-item d-flex align-items-center me-1 mb-1">
               <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>SV (Site Visit)</span>
