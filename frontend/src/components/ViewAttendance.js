@@ -225,43 +225,32 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                     const dayNumber = i + 1;
                     const cellDate = new Date(selectedYear, parseInt(selectedMonth, 10) - 1, dayNumber);
                     const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                    // First check if there is an attendance record for this day.
+                    // Check for holiday and Sunday first.
+                    const holidayFound = holidays.find((holiday) =>
+                      areSameDate(new Date(holiday.holiday_date), cellDate)
+                    );
+                    let forcedStyle = {};
+                    if (holidayFound) {
+                      forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
+                    } else if (dayOfWeek === 0) {
+                      forcedStyle = { backgroundColor: "#ff9900" };
+                    }
+                    // Get attendance record details if exists.
+                    let cellText = "";
                     const rec = rowData.days[dayNumber];
                     if (rec) {
-                      const { text, style } = getDisplayForRecord(rec);
-                      return (
-                        <td key={dayNumber} style={{ width: "40px", textAlign: "center", ...style }}>
-                          {text}
-                        </td>
-                      );
-                    } else {
-                      // If no record, then check if it’s a holiday.
-                      const holidayFound = holidays.find((holiday) =>
-                        areSameDate(new Date(holiday.holiday_date), cellDate)
-                      );
-                      if (holidayFound) {
-                        return (
-                          <td
-                            key={dayNumber}
-                            style={{
-                              width: "40px",
-                              textAlign: "center",
-                              backgroundColor: "#ff0000",
-                              color: "#fff",
-                            }}
-                          />
-                        );
-                      } else if (dayOfWeek === 0) {
-                        return (
-                          <td
-                            key={dayNumber}
-                            style={{ width: "40px", textAlign: "center", backgroundColor: "#ff9900" }}
-                          ></td>
-                        );
-                      } else {
-                        return <td key={dayNumber} style={{ width: "40px", textAlign: "center" }} />;
+                      const display = getDisplayForRecord(rec);
+                      cellText = display.text;
+                      // If no forced style is applied, use the record's style.
+                      if (!holidayFound && dayOfWeek !== 0) {
+                        forcedStyle = { ...display.style };
                       }
                     }
+                    return (
+                      <td key={dayNumber} style={{ width: "40px", textAlign: "center", ...forcedStyle }}>
+                        {cellText}
+                      </td>
+                    );
                   })}
                 </tr>
               );
