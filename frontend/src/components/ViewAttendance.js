@@ -409,7 +409,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   color: "#000",
                 }}
               >
-                P
+                _
               </div>
               <span>P (Late Mark Full)</span>
             </div>
