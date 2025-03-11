@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import moment from "moment";
 import { Container, Row, Col, Form, Table } from "react-bootstrap";
 import axios from "axios";
@@ -136,12 +136,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Fetch attendance whenever filters change
-  useEffect(() => {
-    fetchAttendance();
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
-
-  const fetchAttendance = () => {
+  // Memoize the fetchAttendance function so that it only changes when its dependencies change.
+  const fetchAttendance = useCallback(() => {
     const params = { viewMode };
     if (selectedEmployee) {
       params.empName = selectedEmployee;
@@ -161,16 +157,31 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       .catch((error) => {
         console.error("Error fetching attendance:", error);
       });
-  };
+  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+
+  // Fetch attendance whenever filters change
+  useEffect(() => {
+    fetchAttendance();
+  }, [fetchAttendance]);
 
   // Build a pivot-like table for Monthwise view
   const renderMonthwiseTable = () => {
-    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
+    const daysInMonth = new Date(
+      selectedYear,
+      parseInt(selectedMonth, 10),
+      0
+    ).getDate();
     const pivotData = {};
     attendanceData.forEach((rec) => {
       const emp = rec.emp_name;
       if (!pivotData[emp]) {
-        pivotData[emp] = { days: {}, presentDays: 0, lateMarkCount: 0, totalHours: 0, daysWorked: 0 };
+        pivotData[emp] = {
+          days: {},
+          presentDays: 0,
+          lateMarkCount: 0,
+          totalHours: 0,
+          daysWorked: 0,
+        };
       }
       const d = new Date(rec.date);
       const dayNum = d.getDate();
@@ -194,18 +205,27 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     });
     return (
       <div style={{ overflowX: "auto" }}>
-        <Table bordered hover size="sm" style={{ tableLayout: "fixed", fontSize: "0.85rem" }}>
+        <Table
+          bordered
+          hover
+          size="sm"
+          style={{ tableLayout: "fixed", fontSize: "0.85rem" }}
+        >
           <thead>
             <tr>
               <th style={{ width: "180px" }}>Employee Name</th>
-              <th style={{ width: "80px", textAlign: "center" }}>Present Days</th>
+              <th style={{ width: "80px", textAlign: "center" }}>
+                Present Days
+              </th>
               <th style={{ width: "80px", textAlign: "center" }}>Late Mark</th>
               <th style={{ width: "80px", textAlign: "center" }}>Avg Hours</th>
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
-                <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
-                  {dayNum}
-                </th>
-              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                (dayNum) => (
+                  <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
+                    {dayNum}
+                  </th>
+                )
+              )}
             </tr>
           </thead>
           <tbody>
@@ -218,12 +238,22 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               return (
                 <tr key={emp}>
                   <td style={{ width: "180px" }}>{emp}</td>
-                  <td style={{ width: "80px", textAlign: "center" }}>{rowData.presentDays}</td>
-                  <td style={{ width: "80px", textAlign: "center" }}>{rowData.lateMarkCount}</td>
-                  <td style={{ width: "80px", textAlign: "center" }}>{avgHours}</td>
+                  <td style={{ width: "80px", textAlign: "center" }}>
+                    {rowData.presentDays}
+                  </td>
+                  <td style={{ width: "80px", textAlign: "center" }}>
+                    {rowData.lateMarkCount}
+                  </td>
+                  <td style={{ width: "80px", textAlign: "center" }}>
+                    {avgHours}
+                  </td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const dayNumber = i + 1;
-                    const cellDate = new Date(selectedYear, parseInt(selectedMonth, 10) - 1, dayNumber);
+                    const cellDate = new Date(
+                      selectedYear,
+                      parseInt(selectedMonth, 10) - 1,
+                      dayNumber
+                    );
                     const dayOfWeek = cellDate.getDay(); // 0 is Sunday
                     // Check for holiday and Sunday first.
                     const holidayFound = holidays.find((holiday) =>
@@ -247,7 +277,14 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       }
                     }
                     return (
-                      <td key={dayNumber} style={{ width: "40px", textAlign: "center", ...forcedStyle }}>
+                      <td
+                        key={dayNumber}
+                        style={{
+                          width: "40px",
+                          textAlign: "center",
+                          ...forcedStyle,
+                        }}
+                      >
                         {cellText}
                       </td>
                     );
@@ -298,7 +335,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   };
 
   return (
-    <Container fluid className="p-1" style={{ backgroundColor: "#20B2AA" }}>
+    <Container
+      fluid
+      className="p-1"
+      style={{ backgroundColor: "#20B2AA" }}
+    >
       <Row
         style={{
           backgroundColor: "#20B2AA",
