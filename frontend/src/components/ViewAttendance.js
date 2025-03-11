@@ -136,8 +136,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
+<<<<<<< HEAD
   // Memoize the fetchAttendance function so that it only changes when its dependencies change.
   const fetchAttendance = useCallback(() => {
+=======
+  // Fetch attendance whenever filters change
+  useEffect(() => {
+    fetchAttendance();
+  }, );
+
+  const fetchAttendance = () => {
+>>>>>>> 1b9c7ceb8856280f87bfa169dd1b2eb793726cb8
     const params = { viewMode };
     if (selectedEmployee) {
       params.empName = selectedEmployee;
