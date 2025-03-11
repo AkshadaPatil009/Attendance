@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import moment from "moment";
 import { Container, Row, Col, Form, Table } from "react-bootstrap";
 import axios from "axios";
+import { io } from "socket.io-client";
 
 /**
  * Return the text code and style for each record based on its work_hour and day.
@@ -93,6 +94,18 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Attendance and holidays data from server
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
+
+  // CHANGED: Set up a Socket.IO connection
+  useEffect(() => {
+    const socket = io("http://localhost:5000");
+    socket.on("attendanceChanged", () => {
+      fetchAttendance();
+    });
+    return () => {
+      socket.off("attendanceChanged");
+      socket.disconnect();
+    };
+  }, []);
 
   // Fetch employee list on mount
   useEffect(() => {
