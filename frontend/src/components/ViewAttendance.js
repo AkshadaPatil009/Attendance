@@ -1,37 +1,73 @@
 import React, { useState, useEffect } from "react";
+import moment from "moment";
 import { Container, Row, Col, Form, Table } from "react-bootstrap";
 import axios from "axios";
 
 /**
  * Return the text code and style for each record based on its work_hour and day.
+ * Late Mark Logic: If an employee’s CI time is after 10:00 AM and day is "Full Day"
+ * (and if the record is not for a Sunday or a site visit), then change the day to "Late Mark".
  */
 function getDisplayForRecord(record) {
-  // Site visit check: always show "sv" with yellow background.
-  if (record.location && record.location.toLowerCase().includes("sv")) {
-    return { text: "sv", style: { backgroundColor: "#FFFF00" } };
+  // Apply late mark logic only if the record is "Full Day" and not a Sunday or a site visit.
+  if (
+    record.in_time &&
+    record.day === "Full Day" &&
+    !(record.location && record.location.toLowerCase().includes("sv"))
+  ) {
+    const recordDate = new Date(record.date);
+    // Only apply late mark if the record's date is not Sunday.
+    if (recordDate.getDay() !== 0) {
+      const checkIn = moment(record.in_time, "YYYY-MM-DD HH:mm:ss");
+      // Build a threshold moment for 10:00 AM of the same day.
+      const threshold = moment(record.in_time, "YYYY-MM-DD").set({
+        hour: 10,
+        minute: 0,
+        second: 0,
+      });
+      if (checkIn.isAfter(threshold)) {
+        record.day = "Late Mark";
+      }
+    }
   }
-  // If the record is not absent and the work_hour is defined and less than 4.5,
+  // New Site Visit Logic:
+  // Only apply site visit logic if the record's day is NOT Holiday (or Sunday) so that those are not overwritten.
+  if (
+    record.day !== "Holiday" &&
+    record.day !== "Sunday" &&
+    record.location
+  ) {
+    const loc = record.location.toLowerCase();
+    if (!(loc.includes("ro") || loc.includes("mo") || loc.includes("rso") || loc.includes("do") || loc.includes("wfh"))) {
+      return { text: "SV", style: { backgroundColor: "#FFFF00" } };
+    }
+  }
+  // If the record is not absent and work_hour is defined and less than 4.5,
   // show "AB" in a white box with bold black text.
   if (record.day !== "Absent" && record.work_hour !== undefined && record.work_hour < 4.5) {
-    return { text: "AB", style: { backgroundColor: "#ffffff", color: "#000000", fontWeight: "bold" } };
+    return {
+      text: "AB",
+      style: { backgroundColor: "#ffffff", color: "#000000", fontWeight: "bold" },
+    };
   }
-  // Otherwise, check based on the day value.
+  // Determine display based on the (possibly updated) day value.
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } }; // Light Green
     case "Half Day":
       return { text: "H", style: { backgroundColor: "#B0E0E6" } }; // Light Blue
+    case "Late Mark":
+      return {
+        text: <span style={{ textDecoration: "underline" }}>P</span>,
+        style: { backgroundColor: "#90EE90" },
+      }; // Underlined P in full-day green
     case "Absent":
       return { text: "", style: { backgroundColor: "#FFC0CB" } }; // Pink
     case "Sunday":
       return { text: "SUN", style: { backgroundColor: "#ff9900" } }; // Orange
-    case "Late Mark":
-      return {
-        text: <span style={{ textDecoration: "underline" }}>P</span>,
-        style: { backgroundColor: "#FFD700" },
-      }; // Gold
     case "Holiday":
-      return { style: { backgroundColor: "#ff0000", color: "#fff" } }; // Red/white
+      // Show P for holiday working employees.
+      return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
     default:
       return { text: "", style: {} };
   }
@@ -51,9 +87,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(
-    (new Date().getMonth() + 1).toString()
-  );
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Attendance and holidays data from server
@@ -87,7 +121,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+  }, );
 
   const fetchAttendance = () => {
     const params = { viewMode };
@@ -101,7 +135,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       params.month = selectedMonth;
       params.year = selectedYear;
     }
-    // Using "/api/attendanceview" endpoint for filtering.
     axios
       .get("http://localhost:5000/api/attendanceview", { params })
       .then((response) => {
@@ -114,9 +147,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
 
   // Build a pivot-like table for Monthwise view
   const renderMonthwiseTable = () => {
-    // Determine the number of days in the selected month/year
     const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
-    // Pivot the data: pivotData[emp_name] = { days: { dayNumber: record }, presentDays, lateMarkCount, totalHours, daysWorked }
     const pivotData = {};
     attendanceData.forEach((rec) => {
       const emp = rec.emp_name;
@@ -126,7 +157,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       const d = new Date(rec.date);
       const dayNum = d.getDate();
       pivotData[emp].days[dayNum] = rec;
-      // Tally stats if the record indicates presence (including work_hour check is handled in getDisplayForRecord)
       if (
         rec.day === "Full Day" ||
         rec.day === "Half Day" ||
@@ -147,16 +177,12 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         <Table bordered hover size="sm" style={{ tableLayout: "fixed", fontSize: "0.85rem" }}>
           <thead>
             <tr>
-              {/* Fixed widths for summary columns */}
               <th style={{ width: "180px" }}>Employee Name</th>
               <th style={{ width: "80px", textAlign: "center" }}>Present Days</th>
               <th style={{ width: "80px", textAlign: "center" }}>Late Mark</th>
               <th style={{ width: "80px", textAlign: "center" }}>Avg Hours</th>
-              {/* Header for each day in the month */}
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
-                <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
-                  {dayNum}
-                </th>
+                <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>{dayNum}</th>
               ))}
             </tr>
           </thead>
@@ -175,11 +201,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <td style={{ width: "80px", textAlign: "center" }}>{avgHours}</td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const dayNumber = i + 1;
-                    // Create a Date object for the cell based on selected month/year
                     const cellDate = new Date(selectedYear, parseInt(selectedMonth, 10) - 1, dayNumber);
                     const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                    // Check if a holiday exists for this date (holiday takes precedence)
-                    const holidayFound = holidays.find(holiday =>
+                    const holidayFound = holidays.find((holiday) =>
                       areSameDate(new Date(holiday.holiday_date), cellDate)
                     );
                     if (holidayFound) {
@@ -223,7 +247,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
-  // Simple table for Datewise view remains unchanged.
   const renderDatewiseTable = () => {
     return (
       <div style={{ overflowX: "auto" }}>
@@ -372,9 +395,25 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <span>Sunday</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#FFD700", width: "20px", height: "20px", marginRight: "3px" }}></div>
-              <span>P (Late Mark)</span>
+              {/* Late Mark legend for Full Day: Underlined P with white box */}
+              <div
+                style={{
+                  backgroundColor: "#ffffff",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textDecoration: "underline",
+                  color: "#000",
+                }}
+              >
+                P
+              </div>
+              <span>P (Late Mark Full)</span>
             </div>
+            {/* Removed Half Day late mark legend */}
             <div className="legend-item d-flex align-items-center me-1 mb-1">
               <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>SV (Site Visit)</span>
@@ -383,7 +422,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <div style={{ backgroundColor: "#ff0000", width: "20px", height: "20px", marginRight: "3px" }}></div>
               <span>Holiday</span>
             </div>
-            {/* Legend for working less than 4.5 hours */}
             <div className="legend-item d-flex align-items-center me-1 mb-1">
               <div
                 style={{
