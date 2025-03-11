@@ -38,16 +38,32 @@ function getDisplayForRecord(record) {
     record.location
   ) {
     const loc = record.location.toLowerCase();
-    if (!(loc.includes("ro") || loc.includes("mo") || loc.includes("rso") || loc.includes("do") || loc.includes("wfh"))) {
+    if (
+      !(
+        loc.includes("ro") ||
+        loc.includes("mo") ||
+        loc.includes("rso") ||
+        loc.includes("do") ||
+        loc.includes("wfh")
+      )
+    ) {
       return { text: "SV", style: { backgroundColor: "#FFFF00" } };
     }
   }
   // If the record is not absent and work_hour is defined and less than 4.5,
   // show "AB" in a white box with bold black text.
-  if (record.day !== "Absent" && record.work_hour !== undefined && record.work_hour < 4.5) {
+  if (
+    record.day !== "Absent" &&
+    record.work_hour !== undefined &&
+    record.work_hour < 4.5
+  ) {
     return {
       text: "AB",
-      style: { backgroundColor: "#ffffff", color: "#000000", fontWeight: "bold" },
+      style: {
+        backgroundColor: "#ffffff",
+        color: "#000000",
+        fontWeight: "bold",
+      },
     };
   }
   // Determine display based on the (possibly updated) day value.
@@ -87,7 +103,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedMonth, setSelectedMonth] = useState(
+    (new Date().getMonth() + 1).toString()
+  );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Attendance and holidays data from server
@@ -121,7 +139,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
-  }, );
+  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
 
   const fetchAttendance = () => {
     const params = { viewMode };
@@ -162,7 +180,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         rec.day === "Half Day" ||
         rec.day === "Late Mark" ||
         rec.day === "Working < 4.5 Hrs" ||
-        (rec.day !== "Absent" && rec.work_hour !== undefined && rec.work_hour < 4.5)
+        (rec.day !== "Absent" &&
+          rec.work_hour !== undefined &&
+          rec.work_hour < 4.5)
       ) {
         pivotData[emp].presentDays++;
         pivotData[emp].daysWorked++;
@@ -182,7 +202,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <th style={{ width: "80px", textAlign: "center" }}>Late Mark</th>
               <th style={{ width: "80px", textAlign: "center" }}>Avg Hours</th>
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
-                <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>{dayNum}</th>
+                <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
+                  {dayNum}
+                </th>
               ))}
             </tr>
           </thead>
@@ -203,22 +225,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                     const dayNumber = i + 1;
                     const cellDate = new Date(selectedYear, parseInt(selectedMonth, 10) - 1, dayNumber);
                     const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                    const holidayFound = holidays.find((holiday) =>
-                      areSameDate(new Date(holiday.holiday_date), cellDate)
-                    );
-                    if (holidayFound) {
-                      return (
-                        <td
-                          key={dayNumber}
-                          style={{
-                            width: "40px",
-                            textAlign: "center",
-                            backgroundColor: "#ff0000",
-                            color: "#fff",
-                          }}
-                        />
-                      );
-                    }
+                    // First check if there is an attendance record for this day.
                     const rec = rowData.days[dayNumber];
                     if (rec) {
                       const { text, style } = getDisplayForRecord(rec);
@@ -227,15 +234,33 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                           {text}
                         </td>
                       );
-                    } else if (dayOfWeek === 0) {
-                      return (
-                        <td
-                          key={dayNumber}
-                          style={{ width: "40px", textAlign: "center", backgroundColor: "#ff9900" }}
-                        ></td>
-                      );
                     } else {
-                      return <td key={dayNumber} style={{ width: "40px", textAlign: "center" }} />;
+                      // If no record, then check if it’s a holiday.
+                      const holidayFound = holidays.find((holiday) =>
+                        areSameDate(new Date(holiday.holiday_date), cellDate)
+                      );
+                      if (holidayFound) {
+                        return (
+                          <td
+                            key={dayNumber}
+                            style={{
+                              width: "40px",
+                              textAlign: "center",
+                              backgroundColor: "#ff0000",
+                              color: "#fff",
+                            }}
+                          />
+                        );
+                      } else if (dayOfWeek === 0) {
+                        return (
+                          <td
+                            key={dayNumber}
+                            style={{ width: "40px", textAlign: "center", backgroundColor: "#ff9900" }}
+                          ></td>
+                        );
+                      } else {
+                        return <td key={dayNumber} style={{ width: "40px", textAlign: "center" }} />;
+                      }
                     }
                   })}
                 </tr>
@@ -285,7 +310,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
 
   return (
     <Container fluid className="p-1" style={{ backgroundColor: "#20B2AA" }}>
-      <Row style={{ backgroundColor: "#20B2AA", padding: "5px", color: "#fff", borderRadius: "4px" }} className="g-1">
+      <Row
+        style={{
+          backgroundColor: "#20B2AA",
+          padding: "5px",
+          color: "#fff",
+          borderRadius: "4px",
+        }}
+        className="g-1"
+      >
         <Col md={3}>
           <Form.Label className="fw-bold me-1">View By :</Form.Label>
           <div>
@@ -379,19 +412,47 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         <Col md={5}>
           <div className="d-flex flex-wrap align-items-center">
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#90EE90", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#90EE90",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>P (Full Day)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#B0E0E6", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#B0E0E6",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>H (Half Day)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#FFC0CB", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#FFC0CB",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>AB (Absent)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#ff9900", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#ff9900",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>Sunday</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
@@ -413,13 +474,26 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               </div>
               <span>P (Late Mark Full)</span>
             </div>
-            {/* Removed Half Day late mark legend */}
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#FFFF00", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#FFFF00",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>SV (Site Visit)</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div style={{ backgroundColor: "#ff0000", width: "20px", height: "20px", marginRight: "3px" }}></div>
+              <div
+                style={{
+                  backgroundColor: "#ff0000",
+                  width: "20px",
+                  height: "20px",
+                  marginRight: "3px",
+                }}
+              ></div>
               <span>Holiday</span>
             </div>
             <div className="legend-item d-flex align-items-center me-1 mb-1">
