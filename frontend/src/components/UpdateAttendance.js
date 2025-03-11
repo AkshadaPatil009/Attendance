@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
+import { io } from "socket.io-client"; // NEW: Import socket.io-client
+
+const socket = io("http://localhost:5000"); // NEW: Connect to Socket.IO server
 
 const UpdateAttendance = () => {
   // States for form fields and data
@@ -12,26 +15,19 @@ const UpdateAttendance = () => {
   const [approvedBy, setApprovedBy] = useState("");
   const [reason, setReason] = useState("");
   const [location, setLocation] = useState("");
-  // clockIn and clockOut hold the datetime-local input values.
   const [clockIn, setClockIn] = useState("");
   const [clockOut, setClockOut] = useState("");
-  // Checkboxes indicate whether to update the corresponding clock field.
   const [updateClockIn, setUpdateClockIn] = useState(false);
   const [updateClockOut, setUpdateClockOut] = useState(false);
   const [fullDay, setFullDay] = useState(false);
-  // This flag tracks if a record was manually selected from the table.
   const [manualSelection, setManualSelection] = useState(false);
 
-  // Fetch attendance records and employee list on mount
-  useEffect(() => {
-    fetchAttendanceRecords();
-    fetchEmployees();
-  }, []);
-
+  // Function to fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/attendance");
-      // CHANGED: Sort records by date in descending order (latest first)
+      const response = await axios.get(
+        `http://localhost:5000/api/attendance?t=${Date.now()}`
+      );
       const sortedRecords = response.data.sort(
         (a, b) => new Date(b.date) - new Date(a.date)
       );
@@ -57,20 +53,34 @@ const UpdateAttendance = () => {
     return moment(fullDateTime, "YYYY-MM-DD h:mmA").format("YYYY-MM-DDTHH:mm");
   };
 
-  // When an employee is selected from the dropdown, fetch their attendance records 
-  // and populate the form with the latest record (only if not manually selected).
+  // Fetch data on mount
+  useEffect(() => {
+    fetchAttendanceRecords();
+    fetchEmployees();
+  }, []);
+
+  // NEW: Listen for socket event to update attendance records
+  useEffect(() => {
+    socket.on("attendanceChanged", () => {
+      fetchAttendanceRecords();
+    });
+    return () => {
+      socket.off("attendanceChanged");
+    };
+  }, []);
+
+  // When an employee is selected, fetch their records.
   useEffect(() => {
     if (selectedEmployee && !manualSelection) {
       axios
         .get(
           `http://localhost:5000/api/attendance?empName=${encodeURIComponent(
             selectedEmployee
-          )}`
+          )}&t=${Date.now()}`
         )
         .then((response) => {
           const empRecords = response.data;
           if (empRecords.length > 0) {
-            // Sort records by date descending and pick the latest record.
             const sortedRecords = empRecords.sort(
               (a, b) => new Date(b.date) - new Date(a.date)
             );
@@ -84,7 +94,6 @@ const UpdateAttendance = () => {
             setUpdateClockIn(!!latestRecord.in_time);
             setUpdateClockOut(!!latestRecord.out_time);
           } else {
-            // Clear form if no records found.
             setSelectedRecord(null);
             setApprovedBy("");
             setReason("");
@@ -101,7 +110,7 @@ const UpdateAttendance = () => {
     }
   }, [selectedEmployee, manualSelection]);
 
-  // When a row in the table is clicked, populate the form and update the dropdown.
+  // When a table row is clicked, populate the form.
   const handleRowClick = (record) => {
     setManualSelection(true);
     setSelectedRecord(record);
@@ -115,14 +124,12 @@ const UpdateAttendance = () => {
     setUpdateClockOut(!!record.out_time);
   };
 
-  // On update, if a clock checkbox is checked, extract only the time portion 
-  // from the datetime-local input and combine it with the original date.
+  // Handle update: format times and send update request.
   const handleUpdate = async () => {
     if (!selectedRecord) {
       alert("No record selected for update!");
       return;
     }
-    // Force the original date into "YYYY-MM-DD" format.
     const recordDate = moment(selectedRecord.date).format("YYYY-MM-DD");
     const formattedClockIn =
       updateClockIn && clockIn
@@ -143,9 +150,12 @@ const UpdateAttendance = () => {
     };
 
     try {
-      await axios.put(`http://localhost:5000/api/attendance/${selectedRecord.id}`, requestBody);
+      await axios.put(
+        `http://localhost:5000/api/attendance/${selectedRecord.id}`,
+        requestBody
+      );
       alert("Attendance updated successfully!");
-      fetchAttendanceRecords();
+      // No need to manually fetch data – socket event will trigger the update.
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert("Failed to update attendance record.");
@@ -159,7 +169,6 @@ const UpdateAttendance = () => {
         <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
           <h5>Update Attendance</h5>
           <Form>
-            {/* Employee Dropdown */}
             <Form.Group controlId="employeeName" className="mb-2">
               <Form.Label>Employee Name:</Form.Label>
               <Form.Select
@@ -178,7 +187,6 @@ const UpdateAttendance = () => {
               </Form.Select>
             </Form.Group>
 
-            {/* Approved by */}
             <Form.Group controlId="approvedBy" className="mb-2">
               <Form.Label>Approved by:</Form.Label>
               <Form.Control
@@ -189,7 +197,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Reason */}
             <Form.Group controlId="reason" className="mb-2">
               <Form.Label>Reason:</Form.Label>
               <Form.Control
@@ -201,7 +208,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Location */}
             <Form.Group controlId="location" className="mb-2">
               <Form.Label>Location:</Form.Label>
               <Form.Control
@@ -212,7 +218,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Clock In */}
             <Form.Group controlId="clockIn" className="mb-2">
               <Form.Check
                 type="checkbox"
@@ -228,7 +233,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Clock Out */}
             <Form.Group controlId="clockOut" className="mb-2">
               <Form.Check
                 type="checkbox"
@@ -244,7 +248,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Full Day */}
             <Form.Group controlId="fullDay" className="mb-3">
               <Form.Check
                 type="checkbox"
@@ -254,7 +257,6 @@ const UpdateAttendance = () => {
               />
             </Form.Group>
 
-            {/* Update Button */}
             <Button variant="warning" onClick={handleUpdate}>
               Update
             </Button>
@@ -265,7 +267,11 @@ const UpdateAttendance = () => {
         <Col md={8}>
           <Container
             className="p-3"
-            style={{ maxHeight: "400px", overflowY: "auto", border: "1px solid #ccc" }}
+            style={{
+              maxHeight: "400px",
+              overflowY: "auto",
+              border: "1px solid #ccc",
+            }}
           >
             <h3 className="mb-3">Attendance Records</h3>
             <Table bordered hover responsive size="sm">

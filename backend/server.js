@@ -5,9 +5,27 @@ const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
 
+// NEW: Import http and socket.io
+const http = require("http");
+const { Server } = require("socket.io");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Create HTTP server and integrate Socket.IO
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Adjust for your client domain in production
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  },
+});
+
+// Emit a socket event helper function
+const emitAttendanceChange = () => {
+  io.emit("attendanceChanged", { message: "Attendance data updated" });
+};
 
 // Database connection using your provided database name
 const db = mysql.createConnection({
@@ -42,6 +60,7 @@ app.post("/login", (req, res) => {
 
 // GET Holidays API - Fetch all holidays sorted by date
 app.get("/api/holidays", (req, res) => {
+  res.set("Cache-Control", "no-store");
   db.query("SELECT * FROM holidays ORDER BY holiday_date ASC", (err, results) => {
     if (err) return res.status(500).json({ error: "Database error" });
     res.json(results);
@@ -99,6 +118,7 @@ app.delete("/api/holidays/:id", (req, res) => {
 
 // GET Employees API - Fetch distinct employee names from attendance table
 app.get("/api/employees", (req, res) => {
+  res.set("Cache-Control", "no-store");
   db.query("SELECT DISTINCT emp_name FROM attendance", (err, results) => {
     if (err)
       return res
@@ -112,16 +132,12 @@ app.get("/api/employees", (req, res) => {
 const calculateWorkHoursAndDay = (inTime, outTime) => {
   let work_hour = 0;
   if (inTime && outTime) {
-    // Parse using the complete date-time format that matches our stored strings.
-    // For example, if inTime is "2025-03-06 09:30AM", use "YYYY-MM-DD h:mmA"
     let inMoment = moment(inTime, "YYYY-MM-DD h:mmA");
     let outMoment = moment(outTime, "YYYY-MM-DD h:mmA");
     if (inMoment.isValid() && outMoment.isValid()) {
-      // If out time is before in time, assume it crossed midnight and add one day.
       if (outMoment.isBefore(inMoment)) {
         outMoment.add(1, "day");
       }
-      // Calculate the difference in hours as a floating point value.
       work_hour = outMoment.diff(inMoment, "hours", true);
     }
   }
@@ -149,10 +165,8 @@ app.post("/api/attendance", (req, res) => {
     return res.status(400).json({ error: "No attendance records provided" });
   }
 
-  // Assume all records are for the same date
   const commonDate = attendanceRecords[0].date;
 
-  // Validate: Do not allow duplicate attendance entries for the same date.
   db.query(
     "SELECT COUNT(*) as count FROM attendance WHERE date = ?",
     [commonDate],
@@ -165,8 +179,7 @@ app.post("/api/attendance", (req, res) => {
         return res.status(400).json({ error: "Attendance records for this date already exist" });
       }
 
-      // -------------------- Modified: Check if the date is Sunday or a holiday --------------------
-      const isSunday = moment(commonDate, "YYYY-MM-DD").day() === 0; // Sunday returns 0
+      const isSunday = moment(commonDate, "YYYY-MM-DD").day() === 0;
       db.query(
         "SELECT COUNT(*) as holidayCount FROM holidays WHERE holiday_date = ?",
         [commonDate],
@@ -176,11 +189,8 @@ app.post("/api/attendance", (req, res) => {
             return res.status(500).json({ error: "Database error while checking holiday" });
           }
           const isHoliday = holidayResult[0].holidayCount > 0;
-          // If it's Sunday or a holiday, do NOT insert absent records.
           const insertAbsent = !(isSunday || isHoliday);
-          // -------------------------------------------------------------------------------------------
 
-          // First, fetch allowed employees from logincrd where disableemp = 0
           db.query(
             "SELECT Name FROM logincrd WHERE disableemp = 0",
             (err, allowedResults) => {
@@ -191,10 +201,8 @@ app.post("/api/attendance", (req, res) => {
                 });
               }
 
-              // Extract allowed employee names
               const allowedEmployeeNames = allowedResults.map((row) => row.Name);
 
-              // Validate: each record must belong to an allowed employee.
               const invalidRecords = attendanceRecords.filter(
                 (record) => !allowedEmployeeNames.includes(record.empName)
               );
@@ -209,20 +217,16 @@ app.post("/api/attendance", (req, res) => {
                 });
               }
 
-              // Filter valid records (those with attendance data from Hangout messages)
               const validRecords = attendanceRecords.filter((record) =>
                 allowedEmployeeNames.includes(record.empName)
               );
 
-              // Build a set of employee names who have attendance records
               const recordedNames = new Set(validRecords.map((record) => record.empName));
 
-              // Determine absent employees only if we are not on Sunday/holiday
               const absentEmployees = insertAbsent
                 ? allowedEmployeeNames.filter((name) => !recordedNames.has(name))
-                : []; // If Sunday or holiday, do not add absent entries
+                : [];
 
-              // Process valid attendance records: calculate work hours, day status and set is_absent flag to 0.
               const valuesValid = validRecords.map((record) => {
                 const { work_hour, dayStatus } = calculateWorkHoursAndDay(
                   record.inTime,
@@ -240,25 +244,21 @@ app.post("/api/attendance", (req, res) => {
                 ];
               });
 
-              // For absent employees, insert records with no in/out time, work_hour = 0, day as "Absent", and is_absent = 1.
               const valuesAbsent = absentEmployees.map((empName) => {
                 return [
                   empName,
-                  "", // in_time
-                  "", // out_time
-                  "", // location
+                  "",
+                  "",
+                  "",
                   commonDate,
-                  0, // work_hour
-                  "Absent", // day status
-                  1 // is_absent flag for absent
+                  0,
+                  "Absent",
+                  1
                 ];
               });
 
-              // Combine both sets of values.
               const allValues = valuesValid.concat(valuesAbsent);
 
-              // Insert the valid and absent records into the attendance table.
-              // Note: We now include the is_absent column.
               const insertQuery = `
                 INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
                 VALUES ?
@@ -270,6 +270,8 @@ app.post("/api/attendance", (req, res) => {
                     error: "Database error while saving attendance records",
                   });
                 }
+                // NEW: Emit socket event when records are saved.
+                emitAttendanceChange();
                 res.json({ message: "Attendance records saved successfully" });
               });
             }
@@ -285,7 +287,6 @@ app.put("/api/attendance/:id", (req, res) => {
   const { id } = req.params;
   const { inTime, outTime, location, date, approved_by, reason } = req.body;
 
-  // First, fetch the existing record
   db.query("SELECT * FROM attendance WHERE id = ?", [id], (err, results) => {
     if (err) {
       console.error(err);
@@ -296,19 +297,13 @@ app.put("/api/attendance/:id", (req, res) => {
     }
     const existingRecord = results[0];
 
-    // Merge updated clock fields: if the request provides a new value (non-empty), use it;
-    // otherwise, use the existing value.
     const newInTime = inTime && inTime.trim() !== "" ? inTime : existingRecord.in_time;
     const newOutTime = outTime && outTime.trim() !== "" ? outTime : existingRecord.out_time;
 
-    // Recalculate work hours and day status using the merged clock values.
     const { work_hour, dayStatus: computedDayStatus } = calculateWorkHoursAndDay(newInTime, newOutTime);
-    // Update is_absent only based on the updated clock fields.
     const newIsAbsent = (newInTime && newOutTime) ? 0 : 1;
-    // Optionally, if the record becomes absent, force day status to "Absent"
     const newDayStatus = newIsAbsent ? "Absent" : computedDayStatus;
 
-    // For other fields, use the updated value from the request if provided; otherwise, use the existing value.
     const newLocation = location !== undefined ? location : existingRecord.location;
     const newDate = date !== undefined ? date : existingRecord.date;
     const newApprovedBy = approved_by !== undefined ? approved_by : existingRecord.approved_by;
@@ -329,6 +324,8 @@ app.put("/api/attendance/:id", (req, res) => {
         }
         if (result.affectedRows === 0)
           return res.status(404).json({ error: "Attendance record not found" });
+        // NEW: Emit socket event when record is updated.
+        emitAttendanceChange();
         res.json({ message: "Attendance updated successfully", id });
       }
     );
@@ -337,9 +334,9 @@ app.put("/api/attendance/:id", (req, res) => {
 
 // GET Attendance API - Fetch all attendance records (optional filtering via query parameters)
 app.get("/api/attendance", (req, res) => {
+  res.set("Cache-Control", "no-store");
   let query = "SELECT * FROM attendance";
   const params = [];
-  // Filter by employee name if provided: /api/attendance?empName=EmployeeName
   if (req.query.empName) {
     query += " WHERE emp_name = ?";
     params.push(req.query.empName);
@@ -355,6 +352,7 @@ app.get("/api/attendance", (req, res) => {
 
 // GET Attendance API - Fetch attendance records based on query parameters.
 app.get("/api/attendanceview", (req, res) => {
+  res.set("Cache-Control", "no-store");
   const { viewMode, empName, date, month, year } = req.query;
   let query = "SELECT * FROM attendance";
   const conditions = [];
@@ -385,4 +383,13 @@ app.get("/api/attendanceview", (req, res) => {
   });
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// NEW: Listen for socket connections.
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
+// Start the server using the HTTP server with Socket.IO
+server.listen(5000, () => console.log("Server running on port 5000"));
