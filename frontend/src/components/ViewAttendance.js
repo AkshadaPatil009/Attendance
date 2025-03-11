@@ -9,6 +9,11 @@ import axios from "axios";
  * (and if the record is not for a Sunday or a site visit), then change the day to "Late Mark".
  */
 function getDisplayForRecord(record) {
+  // If the record is for Holiday, immediately return holiday style: "P" in red/white.
+  if (record.day === "Holiday") {
+    return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
+  }
+
   // Apply late mark logic only if the record is "Full Day" and not a Sunday or a site visit.
   if (
     record.in_time &&
@@ -19,7 +24,6 @@ function getDisplayForRecord(record) {
     // Only apply late mark if the record's date is not Sunday.
     if (recordDate.getDay() !== 0) {
       const checkIn = moment(record.in_time, "YYYY-MM-DD HH:mm:ss");
-      // Build a threshold moment for 10:00 AM of the same day.
       const threshold = moment(record.in_time, "YYYY-MM-DD").set({
         hour: 10,
         minute: 0,
@@ -30,13 +34,9 @@ function getDisplayForRecord(record) {
       }
     }
   }
-  // New Site Visit Logic:
-  // Only apply site visit logic if the record's day is NOT Holiday (or Sunday) so that those are not overwritten.
-  if (
-    record.day !== "Holiday" &&
-    record.day !== "Sunday" &&
-    record.location
-  ) {
+
+  // Site Visit Logic: only if not Sunday/Holiday and location not ro/mo/rso/do/wfh
+  if (record.day !== "Sunday" && record.location) {
     const loc = record.location.toLowerCase();
     if (
       !(
@@ -50,23 +50,16 @@ function getDisplayForRecord(record) {
       return { text: "SV", style: { backgroundColor: "#FFFF00" } };
     }
   }
-  // If the record is not absent and work_hour is defined and less than 4.5,
-  // show "AB" in a white box with bold black text.
-  if (
-    record.day !== "Absent" &&
-    record.work_hour !== undefined &&
-    record.work_hour < 4.5
-  ) {
+
+  // If the record is not absent and work_hour < 4.5, show "AB" in a white bold box.
+  if (record.day !== "Absent" && record.work_hour !== undefined && record.work_hour < 4.5) {
     return {
       text: "AB",
-      style: {
-        backgroundColor: "#ffffff",
-        color: "#000000",
-        fontWeight: "bold",
-      },
+      style: { backgroundColor: "#ffffff", color: "#000", fontWeight: "bold" },
     };
   }
-  // Determine display based on the (possibly updated) day value.
+
+  // Determine display based on day value
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } }; // Light Green
@@ -76,20 +69,17 @@ function getDisplayForRecord(record) {
       return {
         text: <span style={{ textDecoration: "underline" }}>P</span>,
         style: { backgroundColor: "#90EE90" },
-      }; // Underlined P in full-day green
+      };
     case "Absent":
       return { text: "", style: { backgroundColor: "#FFC0CB" } }; // Pink
     case "Sunday":
       return { text: "SUN", style: { backgroundColor: "#ff9900" } }; // Orange
-    case "Holiday":
-      // Show P for holiday working employees.
-      return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
     default:
       return { text: "", style: {} };
   }
 }
 
-// Helper function to compare dates (ignoring time)
+// Compare dates ignoring time
 function areSameDate(date1, date2) {
   return (
     date1.getFullYear() === date2.getFullYear() &&
@@ -99,21 +89,15 @@ function areSameDate(date1, date2) {
 }
 
 const ViewAttendance = ({ viewMode, setViewMode }) => {
-  // Filter states
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  // Set default date to current date formatted as YYYY-MM-DD.
   const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
-  const [selectedMonth, setSelectedMonth] = useState(
-    (new Date().getMonth() + 1).toString()
-  );
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-
-  // Attendance and holidays data from server
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
-  // Fetch employee list on mount and sort alphabetically.
+  // Fetch employees
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/employees")
@@ -124,11 +108,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         setEmployees(sortedEmployees);
       })
       .catch((error) => {
-        console.error("Error fetching employee list:", error);
+        console.error("Error fetching employees:", error);
       });
   }, []);
 
-  // Fetch holidays list on mount
+  // Fetch holidays
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/holidays")
@@ -140,7 +124,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Memoize the fetchAttendance function so that it only changes when its dependencies change.
+  // Fetch attendance on filter changes
   const fetchAttendance = useCallback(() => {
     const params = { viewMode };
     if (selectedEmployee) {
@@ -163,19 +147,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
 
-  // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
   }, [fetchAttendance]);
 
-  // Build a pivot-like table for Monthwise view
+  // Render Monthwise Table
   const renderMonthwiseTable = () => {
-    const daysInMonth = new Date(
-      selectedYear,
-      parseInt(selectedMonth, 10),
-      0
-    ).getDate();
+    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
     const pivotData = {};
+
     attendanceData.forEach((rec) => {
       const emp = rec.emp_name;
       if (!pivotData[emp]) {
@@ -190,14 +170,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       const d = new Date(rec.date);
       const dayNum = d.getDate();
       pivotData[emp].days[dayNum] = rec;
+
       if (
         rec.day === "Full Day" ||
         rec.day === "Half Day" ||
         rec.day === "Late Mark" ||
         rec.day === "Working < 4.5 Hrs" ||
-        (rec.day !== "Absent" &&
-          rec.work_hour !== undefined &&
-          rec.work_hour < 4.5)
+        (rec.day !== "Absent" && rec.work_hour !== undefined && rec.work_hour < 4.5)
       ) {
         pivotData[emp].presentDays++;
         pivotData[emp].daysWorked++;
@@ -207,32 +186,34 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         pivotData[emp].lateMarkCount++;
       }
     });
+
     return (
       <div style={{ overflowX: "auto" }}>
         <Table
           bordered
           hover
           size="sm"
-          style={{ tableLayout: "fixed", fontSize: "0.85rem" }}
+          style={{
+            tableLayout: "fixed",
+            fontSize: "0.75rem",
+            minWidth: "900px",
+          }}
+          className="mb-0"
         >
-          <thead>
+          <thead style={{ fontSize: "0.75rem" }}>
             <tr>
               <th style={{ width: "180px" }}>Employee Name</th>
-              <th style={{ width: "80px", textAlign: "center" }}>
-                Present Days
-              </th>
-              <th style={{ width: "80px", textAlign: "center" }}>Late Mark</th>
-              <th style={{ width: "80px", textAlign: "center" }}>Avg Hours</th>
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                (dayNum) => (
-                  <th key={dayNum} style={{ width: "40px", textAlign: "center" }}>
-                    {dayNum}
-                  </th>
-                )
-              )}
+              <th style={{ width: "60px", textAlign: "center" }}>Present</th>
+              <th style={{ width: "60px", textAlign: "center" }}>Late</th>
+              <th style={{ width: "60px", textAlign: "center" }}>AvgHr</th>
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
+                <th key={dayNum} style={{ width: "30px", textAlign: "center" }}>
+                  {dayNum}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody style={{ fontSize: "0.75rem" }}>
             {Object.keys(pivotData)
               .sort((a, b) => a.localeCompare(b))
               .map((emp) => {
@@ -241,16 +222,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   rowData.daysWorked > 0
                     ? (rowData.totalHours / rowData.daysWorked).toFixed(2)
                     : "0.00";
+
                 return (
                   <tr key={emp}>
                     <td style={{ width: "180px" }}>{emp}</td>
-                    <td style={{ width: "80px", textAlign: "center" }}>
+                    <td style={{ width: "60px", textAlign: "center" }}>
                       {rowData.presentDays}
                     </td>
-                    <td style={{ width: "80px", textAlign: "center" }}>
+                    <td style={{ width: "60px", textAlign: "center" }}>
                       {rowData.lateMarkCount}
                     </td>
-                    <td style={{ width: "80px", textAlign: "center" }}>
+                    <td style={{ width: "60px", textAlign: "center" }}>
                       {avgHours}
                     </td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
@@ -261,32 +243,34 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                         dayNumber
                       );
                       const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                      // Check for holiday and Sunday first.
                       const holidayFound = holidays.find((holiday) =>
                         areSameDate(new Date(holiday.holiday_date), cellDate)
                       );
                       let forcedStyle = {};
+                      let cellText = "";
+                      const rec = rowData.days[dayNumber];
+
+                      // Force style if holiday or Sunday
                       if (holidayFound) {
                         forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
                       } else if (dayOfWeek === 0) {
                         forcedStyle = { backgroundColor: "#ff9900" };
                       }
-                      // Get attendance record details if exists.
-                      let cellText = "";
-                      const rec = rowData.days[dayNumber];
+
+                      // If there's an attendance record for that day
                       if (rec) {
                         const display = getDisplayForRecord(rec);
                         cellText = display.text;
-                        // If no forced style is applied, use the record's style.
                         if (!holidayFound && dayOfWeek !== 0) {
                           forcedStyle = { ...display.style };
                         }
                       }
+
                       return (
                         <td
                           key={dayNumber}
                           style={{
-                            width: "40px",
+                            width: "30px",
                             textAlign: "center",
                             ...forcedStyle,
                           }}
@@ -304,22 +288,30 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
-  // Build Datewise table sorted by employee name. Dates are formatted as YYYY-MM-DD.
+  // Render Datewise Table
   const renderDatewiseTable = () => {
     const sortedData = [...attendanceData].sort((a, b) =>
       a.emp_name.localeCompare(b.emp_name)
     );
     return (
       <div style={{ overflowX: "auto" }}>
-        <Table bordered hover size="sm" style={{ fontSize: "0.85rem" }}>
-          <thead>
+        <Table
+          bordered
+          hover
+          size="sm"
+          style={{
+            fontSize: "0.75rem",
+            minWidth: "800px",
+          }}
+        >
+          <thead style={{ fontSize: "0.75rem" }}>
             <tr>
-              <th>Employee Name</th>
+              <th>Employee</th>
               <th>Date</th>
               <th>In Time</th>
               <th>Out Time</th>
-              <th>Work Hour</th>
-              <th>Day Status</th>
+              <th>Work Hr</th>
+              <th>Day</th>
               <th>Location</th>
             </tr>
           </thead>
@@ -348,20 +340,26 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     <Container
       fluid
       className="p-1"
-      style={{ backgroundColor: "#20B2AA" }}
+      style={{
+        backgroundColor: "#20B2AA",
+        fontSize: "0.75rem", // overall smaller font
+      }}
     >
       <Row
+        className="g-0"
         style={{
           backgroundColor: "#20B2AA",
-          padding: "5px",
+          padding: "3px",
           color: "#fff",
           borderRadius: "4px",
         }}
-        className="g-1"
       >
+        {/* Filter Controls */}
         <Col md={3}>
-          <Form.Label className="fw-bold me-1">View By :</Form.Label>
-          <div>
+          <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
+            View By :
+          </Form.Label>
+          <div style={{ fontSize: "0.75rem" }}>
             <Form.Check
               type="radio"
               label="Monthwise"
@@ -382,12 +380,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             />
           </div>
         </Col>
-        <Col md={4}>
-          <Row>
+
+        {/* Employee / Date/Month/Year selection */}
+        <Col md={4} className="g-0">
+          <Row className="g-1">
             <Col md={12}>
-              <Form.Label>Employee Name</Form.Label>
+              <Form.Label style={{ fontSize: "0.8rem" }}>Employee Name</Form.Label>
               <Form.Select
                 className="mb-1"
+                style={{ fontSize: "0.75rem" }}
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
               >
@@ -402,9 +403,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             {viewMode === "monthwise" && (
               <>
                 <Col md={6}>
-                  <Form.Label>Month</Form.Label>
+                  <Form.Label style={{ fontSize: "0.8rem" }}>Month</Form.Label>
                   <Form.Select
                     className="mb-1"
+                    style={{ fontSize: "0.75rem" }}
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                   >
@@ -423,10 +425,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   </Form.Select>
                 </Col>
                 <Col md={6}>
-                  <Form.Label>Year</Form.Label>
+                  <Form.Label style={{ fontSize: "0.8rem" }}>Year</Form.Label>
                   <Form.Control
                     type="number"
                     className="mb-1"
+                    style={{ fontSize: "0.75rem" }}
                     placeholder="Enter Year"
                     value={selectedYear}
                     min="1900"
@@ -438,10 +441,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             )}
             {viewMode === "datewise" && (
               <Col md={12}>
-                <Form.Label>Date</Form.Label>
+                <Form.Label style={{ fontSize: "0.8rem" }}>Date</Form.Label>
                 <Form.Control
                   type="date"
                   className="mb-1"
+                  style={{ fontSize: "0.75rem" }}
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
@@ -449,125 +453,156 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             )}
           </Row>
         </Col>
-        <Col md={5}>
-          <div className="d-flex flex-wrap align-items-center">
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div
-                style={{
-                  backgroundColor: "#90EE90",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
-                }}
-              ></div>
-              <span>P (Full Day)</span>
-            </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
+
+        {/* SINGLE ROW LEGEND with spacing */}
+        <Col md={5} className="mt-2">
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "20px", // space between items
+              marginLeft: "5px",
+              fontSize: "0.75rem",
+            }}
+          >
+            {/* Half day */}
+            <div style={{ display: "flex", alignItems: "center" }}>
               <div
                 style={{
                   backgroundColor: "#B0E0E6",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
                 }}
               ></div>
-              <span>H (Half Day)</span>
+              <span>Half day</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
+
+            {/* Full Day (8.5 Hrs) */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div
+                style={{
+                  backgroundColor: "#90EE90",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
+                }}
+              ></div>
+              <span>Full Day (8.5 Hrs)</span>
+            </div>
+
+            {/* Absent */}
+            <div style={{ display: "flex", alignItems: "center" }}>
               <div
                 style={{
                   backgroundColor: "#FFC0CB",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
                 }}
               ></div>
-              <span>AB (Absent)</span>
+              <span>Absent</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
+
+            {/* Sunday */}
+            <div style={{ display: "flex", alignItems: "center" }}>
               <div
                 style={{
                   backgroundColor: "#ff9900",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
                 }}
               ></div>
               <span>Sunday</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
-              {/* Late Mark legend for Full Day: Underlined P with white box */}
+
+            {/* Late Mark (dash) */}
+            <div style={{ display: "flex", alignItems: "center" }}>
               <div
                 style={{
                   backgroundColor: "#ffffff",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  textDecoration: "underline",
                   color: "#000",
+                  border: "1px solid #000",
                 }}
               >
-                _
+                –
               </div>
-              <span>P (Late Mark Full)</span>
+              <span>Late Mark</span>
             </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div
-                style={{
-                  backgroundColor: "#FFFF00",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
-                }}
-              ></div>
-              <span>SV (Site Visit)</span>
-            </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
-              <div
-                style={{
-                  backgroundColor: "#ff0000",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
-                }}
-              ></div>
-              <span>Holiday</span>
-            </div>
-            <div className="legend-item d-flex align-items-center me-1 mb-1">
+
+            {/* Working less than 5 Hrs (AB) */}
+            <div style={{ display: "flex", alignItems: "center" }}>
               <div
                 style={{
                   backgroundColor: "#ffffff",
-                  width: "20px",
-                  height: "20px",
-                  marginRight: "3px",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: "bold",
-                  color: "#000000",
+                  color: "#000",
+                  border: "1px solid #000",
                 }}
               >
                 AB
               </div>
-              <span>(4.5 Hrs)</span>
+              <span>Working less than 5 Hrs</span>
+            </div>
+
+            {/* Site Visit */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div
+                style={{
+                  backgroundColor: "#FFFF00",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
+                }}
+              ></div>
+              <span>Site Visit</span>
+            </div>
+
+            {/* Holiday */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div
+                style={{
+                  backgroundColor: "#ff0000",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "4px",
+                }}
+              ></div>
+              <span>Holiday</span>
             </div>
           </div>
         </Col>
       </Row>
-      <Row className="mt-1">
-        <Col>
+
+      <Row className="mt-1 g-0">
+        <Col style={{ fontSize: "0.75rem" }}>
           {viewMode === "datewise" && (
             <>
-              <h5 className="mb-1">Datewise Attendance</h5>
+              <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                Datewise Attendance
+              </h5>
               {renderDatewiseTable()}
             </>
           )}
           {viewMode === "monthwise" && (
             <>
-              <h5 className="mb-1">Monthwise Attendance</h5>
+              <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                Monthwise Attendance
+              </h5>
               {renderMonthwiseTable()}
             </>
           )}
