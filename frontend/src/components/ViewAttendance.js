@@ -102,7 +102,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Filter states
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
+  // Set default date to current date formatted as YYYY-MM-DD.
+  const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
   const [selectedMonth, setSelectedMonth] = useState(
     (new Date().getMonth() + 1).toString()
   );
@@ -112,12 +113,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
-  // Fetch employee list on mount
+  // Fetch employee list on mount and sort alphabetically.
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/employees")
       .then((response) => {
-        setEmployees(response.data);
+        const sortedEmployees = [...response.data].sort((a, b) =>
+          a.emp_name.localeCompare(b.emp_name)
+        );
+        setEmployees(sortedEmployees);
       })
       .catch((error) => {
         console.error("Error fetching employee list:", error);
@@ -229,76 +233,82 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             </tr>
           </thead>
           <tbody>
-            {Object.keys(pivotData).map((emp) => {
-              const rowData = pivotData[emp];
-              const avgHours =
-                rowData.daysWorked > 0
-                  ? (rowData.totalHours / rowData.daysWorked).toFixed(2)
-                  : "0.00";
-              return (
-                <tr key={emp}>
-                  <td style={{ width: "180px" }}>{emp}</td>
-                  <td style={{ width: "80px", textAlign: "center" }}>
-                    {rowData.presentDays}
-                  </td>
-                  <td style={{ width: "80px", textAlign: "center" }}>
-                    {rowData.lateMarkCount}
-                  </td>
-                  <td style={{ width: "80px", textAlign: "center" }}>
-                    {avgHours}
-                  </td>
-                  {Array.from({ length: daysInMonth }, (_, i) => {
-                    const dayNumber = i + 1;
-                    const cellDate = new Date(
-                      selectedYear,
-                      parseInt(selectedMonth, 10) - 1,
-                      dayNumber
-                    );
-                    const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                    // Check for holiday and Sunday first.
-                    const holidayFound = holidays.find((holiday) =>
-                      areSameDate(new Date(holiday.holiday_date), cellDate)
-                    );
-                    let forcedStyle = {};
-                    if (holidayFound) {
-                      forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
-                    } else if (dayOfWeek === 0) {
-                      forcedStyle = { backgroundColor: "#ff9900" };
-                    }
-                    // Get attendance record details if exists.
-                    let cellText = "";
-                    const rec = rowData.days[dayNumber];
-                    if (rec) {
-                      const display = getDisplayForRecord(rec);
-                      cellText = display.text;
-                      // If no forced style is applied, use the record's style.
-                      if (!holidayFound && dayOfWeek !== 0) {
-                        forcedStyle = { ...display.style };
+            {Object.keys(pivotData)
+              .sort((a, b) => a.localeCompare(b))
+              .map((emp) => {
+                const rowData = pivotData[emp];
+                const avgHours =
+                  rowData.daysWorked > 0
+                    ? (rowData.totalHours / rowData.daysWorked).toFixed(2)
+                    : "0.00";
+                return (
+                  <tr key={emp}>
+                    <td style={{ width: "180px" }}>{emp}</td>
+                    <td style={{ width: "80px", textAlign: "center" }}>
+                      {rowData.presentDays}
+                    </td>
+                    <td style={{ width: "80px", textAlign: "center" }}>
+                      {rowData.lateMarkCount}
+                    </td>
+                    <td style={{ width: "80px", textAlign: "center" }}>
+                      {avgHours}
+                    </td>
+                    {Array.from({ length: daysInMonth }, (_, i) => {
+                      const dayNumber = i + 1;
+                      const cellDate = new Date(
+                        selectedYear,
+                        parseInt(selectedMonth, 10) - 1,
+                        dayNumber
+                      );
+                      const dayOfWeek = cellDate.getDay(); // 0 is Sunday
+                      // Check for holiday and Sunday first.
+                      const holidayFound = holidays.find((holiday) =>
+                        areSameDate(new Date(holiday.holiday_date), cellDate)
+                      );
+                      let forcedStyle = {};
+                      if (holidayFound) {
+                        forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
+                      } else if (dayOfWeek === 0) {
+                        forcedStyle = { backgroundColor: "#ff9900" };
                       }
-                    }
-                    return (
-                      <td
-                        key={dayNumber}
-                        style={{
-                          width: "40px",
-                          textAlign: "center",
-                          ...forcedStyle,
-                        }}
-                      >
-                        {cellText}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
+                      // Get attendance record details if exists.
+                      let cellText = "";
+                      const rec = rowData.days[dayNumber];
+                      if (rec) {
+                        const display = getDisplayForRecord(rec);
+                        cellText = display.text;
+                        // If no forced style is applied, use the record's style.
+                        if (!holidayFound && dayOfWeek !== 0) {
+                          forcedStyle = { ...display.style };
+                        }
+                      }
+                      return (
+                        <td
+                          key={dayNumber}
+                          style={{
+                            width: "40px",
+                            textAlign: "center",
+                            ...forcedStyle,
+                          }}
+                        >
+                          {cellText}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
           </tbody>
         </Table>
       </div>
     );
   };
 
+  // Build Datewise table sorted by employee name. Dates are formatted as YYYY-MM-DD.
   const renderDatewiseTable = () => {
+    const sortedData = [...attendanceData].sort((a, b) =>
+      a.emp_name.localeCompare(b.emp_name)
+    );
     return (
       <div style={{ overflowX: "auto" }}>
         <Table bordered hover size="sm" style={{ fontSize: "0.85rem" }}>
@@ -314,12 +324,12 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             </tr>
           </thead>
           <tbody>
-            {attendanceData.map((rec, idx) => {
+            {sortedData.map((rec, idx) => {
               const { style } = getDisplayForRecord(rec);
               return (
                 <tr key={idx} style={style}>
                   <td>{rec.emp_name}</td>
-                  <td>{rec.date}</td>
+                  <td>{moment(rec.date).format("YYYY-MM-DD")}</td>
                   <td>{rec.in_time}</td>
                   <td>{rec.out_time}</td>
                   <td>{rec.work_hour}</td>
