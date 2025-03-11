@@ -38,16 +38,11 @@ function getDisplayForRecord(record) {
 
   // Site Visit Logic: only if not Sunday/Holiday and location not ro/mo/rso/do/wfh
   if (record.day !== "Sunday" && record.location) {
-    const loc = record.location.toLowerCase();
-    if (
-      !(
-        loc.includes("ro") ||
-        loc.includes("mo") ||
-        loc.includes("rso") ||
-        loc.includes("do") ||
-        loc.includes("wfh")
-      )
-    ) {
+    const validCodes = ["ro", "mo", "rso", "do", "wfh"];
+    // Split the location into words and check if any word exactly matches one of the valid codes.
+    const words = record.location.toLowerCase().trim().split(/\s+/);
+    const hasValidCode = words.some(word => validCodes.includes(word));
+    if (!hasValidCode) {
       return { text: "SV", style: { backgroundColor: "#FFFF00" } };
     }
   }
@@ -612,10 +607,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           </Col>
         </Row>
 
-        {/* Download Button placed under the legend */}
+        {/* Download Button placed under the legend.
+            The attribute data-html2canvas-ignore="true" ensures it is not captured in the PNG image */}
         <Row className="mt-1">
           <Col style={{ textAlign: "right" }}>
-            <Button variant="primary" onClick={handleDownload}>
+            <Button
+              variant="primary"
+              onClick={handleDownload}
+              data-html2canvas-ignore="true"
+            >
               Download Report
             </Button>
           </Col>
