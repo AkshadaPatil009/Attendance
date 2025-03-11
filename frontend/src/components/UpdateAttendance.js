@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
-import { io } from "socket.io-client"; // NEW: Import socket.io-client
+import { io } from "socket.io-client"; // Import socket.io-client
 
-const socket = io("http://localhost:5000"); // NEW: Connect to Socket.IO server
+const socket = io("http://localhost:5000"); // Connect to Socket.IO server
 
 const UpdateAttendance = () => {
   // States for form fields and data
@@ -22,7 +22,7 @@ const UpdateAttendance = () => {
   const [fullDay, setFullDay] = useState(false);
   const [manualSelection, setManualSelection] = useState(false);
 
-  // Function to fetch attendance records with cache busting.
+  // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
     try {
       const response = await axios.get(
@@ -37,6 +37,7 @@ const UpdateAttendance = () => {
     }
   };
 
+  // Fetch employees
   const fetchEmployees = async () => {
     try {
       const response = await axios.get("http://localhost:5000/api/employees");
@@ -46,7 +47,7 @@ const UpdateAttendance = () => {
     }
   };
 
-  // Helper: Convert stored full datetime (e.g. "2025-03-06 9:07AM") 
+  // Convert stored full datetime (e.g. "2025-03-06 9:07AM") 
   // into HTML datetime-local format ("YYYY-MM-DDTHH:mm")
   const convertToDatetimeLocal = (fullDateTime) => {
     if (!fullDateTime) return "";
@@ -59,7 +60,7 @@ const UpdateAttendance = () => {
     fetchEmployees();
   }, []);
 
-  // NEW: Listen for socket event to update attendance records
+  // Listen for socket event to update attendance records
   useEffect(() => {
     socket.on("attendanceChanged", () => {
       fetchAttendanceRecords();
@@ -69,7 +70,7 @@ const UpdateAttendance = () => {
     };
   }, []);
 
-  // When an employee is selected, fetch their records.
+  // When an employee is selected, fetch their records if not a manual row selection
   useEffect(() => {
     if (selectedEmployee && !manualSelection) {
       axios
@@ -110,7 +111,7 @@ const UpdateAttendance = () => {
     }
   }, [selectedEmployee, manualSelection]);
 
-  // When a table row is clicked, populate the form.
+  // Populate the form when a table row is clicked
   const handleRowClick = (record) => {
     setManualSelection(true);
     setSelectedRecord(record);
@@ -124,7 +125,7 @@ const UpdateAttendance = () => {
     setUpdateClockOut(!!record.out_time);
   };
 
-  // Handle update: format times and send update request.
+  // Handle update: format times and send update request
   const handleUpdate = async () => {
     if (!selectedRecord) {
       alert("No record selected for update!");
@@ -155,7 +156,7 @@ const UpdateAttendance = () => {
         requestBody
       );
       alert("Attendance updated successfully!");
-      // No need to manually fetch data – socket event will trigger the update.
+      // Socket event triggers the refresh
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert("Failed to update attendance record.");
@@ -163,20 +164,26 @@ const UpdateAttendance = () => {
   };
 
   return (
-    <Container fluid className="mt-4">
-      <Row>
+    <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>
+      <Row className="g-1">
         {/* Left Column: Update Attendance Form */}
-        <Col md={4} style={{ border: "1px solid #ccc", padding: "10px" }}>
-          <h5>Update Attendance</h5>
-          <Form>
-            <Form.Group controlId="employeeName" className="mb-2">
-              <Form.Label>Employee Name:</Form.Label>
+        <Col md={4} style={{ border: "1px solid #ccc", padding: "6px" }}>
+          <h6 className="mb-2" style={{ fontSize: "0.9rem" }}>
+            Update Attendance
+          </h6>
+          <Form style={{ fontSize: "0.8rem" }}>
+            <Form.Group controlId="employeeName" className="mb-1">
+              <Form.Label style={{ fontSize: "0.75rem" }}>
+                Employee Name:
+              </Form.Label>
               <Form.Select
+                size="sm"
                 value={selectedEmployee}
                 onChange={(e) => {
                   setSelectedEmployee(e.target.value);
                   setManualSelection(false);
                 }}
+                style={{ fontSize: "0.75rem" }}
               >
                 <option value="">-- Select Employee --</option>
                 {employees.map((emp, index) => (
@@ -187,77 +194,101 @@ const UpdateAttendance = () => {
               </Form.Select>
             </Form.Group>
 
-            <Form.Group controlId="approvedBy" className="mb-2">
-              <Form.Label>Approved by:</Form.Label>
+            <Form.Group controlId="approvedBy" className="mb-1">
+              <Form.Label style={{ fontSize: "0.75rem" }}>
+                Approved by:
+              </Form.Label>
               <Form.Control
+                size="sm"
                 type="text"
                 placeholder="Enter name"
                 value={approvedBy}
                 onChange={(e) => setApprovedBy(e.target.value)}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Form.Group controlId="reason" className="mb-2">
-              <Form.Label>Reason:</Form.Label>
+            <Form.Group controlId="reason" className="mb-1">
+              <Form.Label style={{ fontSize: "0.75rem" }}>
+                Reason:
+              </Form.Label>
               <Form.Control
+                size="sm"
                 as="textarea"
                 rows={2}
                 placeholder="Enter reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Form.Group controlId="location" className="mb-2">
-              <Form.Label>Location:</Form.Label>
+            <Form.Group controlId="location" className="mb-1">
+              <Form.Label style={{ fontSize: "0.75rem" }}>
+                Location:
+              </Form.Label>
               <Form.Control
+                size="sm"
                 type="text"
                 placeholder="Location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Form.Group controlId="clockIn" className="mb-2">
+            <Form.Group controlId="clockIn" className="mb-1">
               <Form.Check
                 type="checkbox"
                 label="Update Clock In"
                 checked={updateClockIn}
                 onChange={(e) => setUpdateClockIn(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
               />
               <Form.Control
+                size="sm"
                 type="datetime-local"
                 value={clockIn}
                 onChange={(e) => setClockIn(e.target.value)}
                 disabled={!updateClockIn}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Form.Group controlId="clockOut" className="mb-2">
+            <Form.Group controlId="clockOut" className="mb-1">
               <Form.Check
                 type="checkbox"
                 label="Update Clock Out"
                 checked={updateClockOut}
                 onChange={(e) => setUpdateClockOut(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
               />
               <Form.Control
+                size="sm"
                 type="datetime-local"
                 value={clockOut}
                 onChange={(e) => setClockOut(e.target.value)}
                 disabled={!updateClockOut}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Form.Group controlId="fullDay" className="mb-3">
+            <Form.Group controlId="fullDay" className="mb-2">
               <Form.Check
                 type="checkbox"
                 label="Display Full day in Monthly Attendance"
                 checked={fullDay}
                 onChange={(e) => setFullDay(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
-            <Button variant="warning" onClick={handleUpdate}>
+            <Button
+              variant="warning"
+              size="sm"
+              onClick={handleUpdate}
+              style={{ fontSize: "0.75rem" }}
+            >
               Update
             </Button>
           </Form>
@@ -266,25 +297,28 @@ const UpdateAttendance = () => {
         {/* Right Column: Attendance Records Table */}
         <Col md={8}>
           <Container
-            className="p-3"
+            className="p-1"
             style={{
               maxHeight: "400px",
               overflowY: "auto",
               border: "1px solid #ccc",
+              fontSize: "0.75rem",
             }}
           >
-            <h3 className="mb-3">Attendance Records</h3>
-            <Table bordered hover responsive size="sm">
+            <h6 className="mb-2" style={{ fontSize: "0.85rem" }}>
+              Attendance Records
+            </h6>
+            <Table bordered hover responsive size="sm" style={{ fontSize: "0.75rem" }}>
               <thead>
                 <tr>
-                  <th>Employee Name</th>
+                  <th>Employee</th>
                   <th>Approved By</th>
                   <th>Reason</th>
                   <th>In Time</th>
                   <th>Out Time</th>
                   <th>Location</th>
                   <th>Date</th>
-                  <th>Work Hour</th>
+                  <th>Work Hr</th>
                   <th>Day</th>
                 </tr>
               </thead>
