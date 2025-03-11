@@ -139,7 +139,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch attendance whenever filters change
   useEffect(() => {
     fetchAttendance();
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+  }, );
 
   const fetchAttendance = () => {
     const params = { viewMode };
