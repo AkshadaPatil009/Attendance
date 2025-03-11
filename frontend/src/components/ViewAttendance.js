@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import moment from "moment";
-import { Container, Row, Col, Form, Table } from "react-bootstrap";
+import { Container, Row, Col, Form, Table, Button } from "react-bootstrap";
 import axios from "axios";
+import html2canvas from "html2canvas";
 
 /**
  * Return the text code and style for each record based on its work_hour and day.
@@ -96,6 +97,28 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
+
+  // Ref to capture the attendance view (filters, legend, and table)
+  const attendanceRef = useRef(null);
+
+  // Download handler using html2canvas
+  const handleDownload = async () => {
+    if (attendanceRef.current) {
+      try {
+        const canvas = await html2canvas(attendanceRef.current, {
+          scale: 2, // Increase scale for higher quality image
+          useCORS: true,
+        });
+        const imgData = canvas.toDataURL("image/png", 1.0);
+        const link = document.createElement("a");
+        link.href = imgData;
+        link.download = `attendance_${viewMode}.png`;
+        link.click();
+      } catch (error) {
+        console.error("Error generating image", error);
+      }
+    }
+  };
 
   // Fetch employees
   useEffect(() => {
@@ -337,278 +360,289 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   };
 
   return (
-    <Container
-      fluid
-      className="p-1"
-      style={{
-        backgroundColor: "#20B2AA",
-        fontSize: "0.75rem", // overall smaller font
-      }}
-    >
-      <Row
-        className="g-0"
+    <div ref={attendanceRef}>
+      <Container
+        fluid
+        className="p-1"
         style={{
           backgroundColor: "#20B2AA",
-          padding: "3px",
-          color: "#fff",
-          borderRadius: "4px",
+          fontSize: "0.75rem", // overall smaller font
         }}
       >
-        {/* Filter Controls */}
-        <Col md={3}>
-          <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
-            View By :
-          </Form.Label>
-          <div style={{ fontSize: "0.75rem" }}>
-            <Form.Check
-              type="radio"
-              label="Monthwise"
-              name="viewBy"
-              value="monthwise"
-              checked={viewMode === "monthwise"}
-              onChange={(e) => setViewMode(e.target.value)}
-              className="me-1"
-            />
-            <Form.Check
-              type="radio"
-              label="Datewise"
-              name="viewBy"
-              value="datewise"
-              checked={viewMode === "datewise"}
-              onChange={(e) => setViewMode(e.target.value)}
-              className="me-1"
-            />
-          </div>
-        </Col>
+        <Row
+          className="g-0"
+          style={{
+            backgroundColor: "#20B2AA",
+            padding: "3px",
+            color: "#fff",
+            borderRadius: "4px",
+          }}
+        >
+          {/* Filter Controls */}
+          <Col md={3}>
+            <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
+              View By :
+            </Form.Label>
+            <div style={{ fontSize: "0.75rem" }}>
+              <Form.Check
+                type="radio"
+                label="Monthwise"
+                name="viewBy"
+                value="monthwise"
+                checked={viewMode === "monthwise"}
+                onChange={(e) => setViewMode(e.target.value)}
+                className="me-1"
+              />
+              <Form.Check
+                type="radio"
+                label="Datewise"
+                name="viewBy"
+                value="datewise"
+                checked={viewMode === "datewise"}
+                onChange={(e) => setViewMode(e.target.value)}
+                className="me-1"
+              />
+            </div>
+          </Col>
 
-        {/* Employee / Date/Month/Year selection */}
-        <Col md={4} className="g-0">
-          <Row className="g-1">
-            <Col md={12}>
-              <Form.Label style={{ fontSize: "0.8rem" }}>Employee Name</Form.Label>
-              <Form.Select
-                className="mb-1"
-                style={{ fontSize: "0.75rem" }}
-                value={selectedEmployee}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-              >
-                <option value="">All Employees</option>
-                {employees.map((emp, index) => (
-                  <option key={index} value={emp.emp_name}>
-                    {emp.emp_name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Col>
-            {viewMode === "monthwise" && (
-              <>
-                <Col md={6}>
-                  <Form.Label style={{ fontSize: "0.8rem" }}>Month</Form.Label>
-                  <Form.Select
-                    className="mb-1"
-                    style={{ fontSize: "0.75rem" }}
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                  >
-                    <option value="1">January</option>
-                    <option value="2">February</option>
-                    <option value="3">March</option>
-                    <option value="4">April</option>
-                    <option value="5">May</option>
-                    <option value="6">June</option>
-                    <option value="7">July</option>
-                    <option value="8">August</option>
-                    <option value="9">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                  </Form.Select>
-                </Col>
-                <Col md={6}>
-                  <Form.Label style={{ fontSize: "0.8rem" }}>Year</Form.Label>
-                  <Form.Control
-                    type="number"
-                    className="mb-1"
-                    style={{ fontSize: "0.75rem" }}
-                    placeholder="Enter Year"
-                    value={selectedYear}
-                    min="1900"
-                    max="2100"
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                  />
-                </Col>
-              </>
-            )}
-            {viewMode === "datewise" && (
+          {/* Employee / Date/Month/Year selection */}
+          <Col md={4} className="g-0">
+            <Row className="g-1">
               <Col md={12}>
-                <Form.Label style={{ fontSize: "0.8rem" }}>Date</Form.Label>
-                <Form.Control
-                  type="date"
+                <Form.Label style={{ fontSize: "0.8rem" }}>Employee Name</Form.Label>
+                <Form.Select
                   className="mb-1"
                   style={{ fontSize: "0.75rem" }}
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
+                  value={selectedEmployee}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                >
+                  <option value="">All Employees</option>
+                  {employees.map((emp, index) => (
+                    <option key={index} value={emp.emp_name}>
+                      {emp.emp_name}
+                    </option>
+                  ))}
+                </Form.Select>
               </Col>
+              {viewMode === "monthwise" && (
+                <>
+                  <Col md={6}>
+                    <Form.Label style={{ fontSize: "0.8rem" }}>Month</Form.Label>
+                    <Form.Select
+                      className="mb-1"
+                      style={{ fontSize: "0.75rem" }}
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                    >
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </Form.Select>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Label style={{ fontSize: "0.8rem" }}>Year</Form.Label>
+                    <Form.Control
+                      type="number"
+                      className="mb-1"
+                      style={{ fontSize: "0.75rem" }}
+                      placeholder="Enter Year"
+                      value={selectedYear}
+                      min="1900"
+                      max="2100"
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                    />
+                  </Col>
+                </>
+              )}
+              {viewMode === "datewise" && (
+                <Col md={12}>
+                  <Form.Label style={{ fontSize: "0.8rem" }}>Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    className="mb-1"
+                    style={{ fontSize: "0.75rem" }}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                </Col>
+              )}
+            </Row>
+          </Col>
+
+          {/* Color Legend using CSS Grid */}
+          <Col md={5}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, auto)",
+                gap: "10px",
+                marginLeft: "5px",
+                fontSize: "0.75rem",
+                padding: "4px 0",
+              }}
+            >
+              {/* Half Day */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#B0E0E6",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Half day</span>
+              </div>
+
+              {/* Full Day (8.5 Hrs) */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#90EE90",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Full Day (8.5 Hrs)</span>
+              </div>
+
+              {/* Absent */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#FFC0CB",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Absent</span>
+              </div>
+
+              {/* Sunday */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#ff9900",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Sunday</span>
+              </div>
+
+              {/* Late Mark */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#ffffff",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#000",
+                    border: "1px solid #000",
+                  }}
+                >
+                  –
+                </div>
+                <span>Late Mark</span>
+              </div>
+
+              {/* Working less than 5 Hrs (AB) */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#ffffff",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    color: "#000",
+                    border: "1px solid #000",
+                  }}
+                >
+                  AB
+                </div>
+                <span>Working less than 5 Hrs</span>
+              </div>
+
+              {/* Site Visit */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#FFFF00",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Site Visit</span>
+              </div>
+
+              {/* Holiday */}
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <div
+                  style={{
+                    backgroundColor: "#ff0000",
+                    width: "16px",
+                    height: "16px",
+                    marginRight: "4px",
+                  }}
+                ></div>
+                <span>Holiday</span>
+              </div>
+            </div>
+          </Col>
+        </Row>
+
+        {/* Download Button placed under the legend */}
+        <Row className="mt-1">
+          <Col style={{ textAlign: "right" }}>
+            <Button variant="primary" onClick={handleDownload}>
+              Download Report
+            </Button>
+          </Col>
+        </Row>
+
+        <Row className="mt-1 g-0">
+          <Col style={{ fontSize: "0.75rem" }}>
+            {viewMode === "datewise" && (
+              <>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                  Datewise Attendance
+                </h5>
+                {renderDatewiseTable()}
+              </>
             )}
-          </Row>
-        </Col>
-
-        {/* SINGLE ROW LEGEND with spacing */}
-        <Col md={5} className="mt-2">
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "20px", // space between items
-              marginLeft: "5px",
-              fontSize: "0.75rem",
-            }}
-          >
-            {/* Half day */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#B0E0E6",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Half day</span>
-            </div>
-
-            {/* Full Day (8.5 Hrs) */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#90EE90",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Full Day (8.5 Hrs)</span>
-            </div>
-
-            {/* Absent */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#FFC0CB",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Absent</span>
-            </div>
-
-            {/* Sunday */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#ff9900",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Sunday</span>
-            </div>
-
-            {/* Late Mark (dash) */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#ffffff",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#000",
-                  border: "1px solid #000",
-                }}
-              >
-                –
-              </div>
-              <span>Late Mark</span>
-            </div>
-
-            {/* Working less than 5 Hrs (AB) */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#ffffff",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  color: "#000",
-                  border: "1px solid #000",
-                }}
-              >
-                AB
-              </div>
-              <span>Working less than 5 Hrs</span>
-            </div>
-
-            {/* Site Visit */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#FFFF00",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Site Visit</span>
-            </div>
-
-            {/* Holiday */}
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div
-                style={{
-                  backgroundColor: "#ff0000",
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "4px",
-                }}
-              ></div>
-              <span>Holiday</span>
-            </div>
-          </div>
-        </Col>
-      </Row>
-
-      <Row className="mt-1 g-0">
-        <Col style={{ fontSize: "0.75rem" }}>
-          {viewMode === "datewise" && (
-            <>
-              <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                Datewise Attendance
-              </h5>
-              {renderDatewiseTable()}
-            </>
-          )}
-          {viewMode === "monthwise" && (
-            <>
-              <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                Monthwise Attendance
-              </h5>
-              {renderMonthwiseTable()}
-            </>
-          )}
-        </Col>
-      </Row>
-    </Container>
+            {viewMode === "monthwise" && (
+              <>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                  Monthwise Attendance
+                </h5>
+                {renderMonthwiseTable()}
+              </>
+            )}
+          </Col>
+        </Row>
+      </Container>
+    </div>
   );
 };
 
