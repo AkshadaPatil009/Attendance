@@ -5,7 +5,7 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 
 /**
- * Return the text code and style for each record based on its work_hour and day.
+ * Return the text code and style for a combined record based on its total work_hour and day.
  * Late Mark Logic: If an employee’s CI time is after 10:00 AM and day is "Full Day"
  * (and if the record is not for a Sunday or a site visit), then change the day to "Late Mark".
  */
@@ -36,26 +36,29 @@ function getDisplayForRecord(record) {
     }
   }
 
-  // Site Visit Logic: only if not Sunday/Holiday and location not ro/mo/rso/do/wfh
-  if (record.day !== "Sunday" && record.location) {
+  // Site Visit Logic: only if not Sunday/Holiday and location not containing valid codes.
+  if (record.day !== "Sunday" && record.day !== "Holiday" && record.location) {
     const validCodes = ["ro", "mo", "rso", "do", "wfh"];
-    // Split the location into words and check if any word exactly matches one of the valid codes.
     const words = record.location.toLowerCase().trim().split(/\s+/);
-    const hasValidCode = words.some(word => validCodes.includes(word));
+    const hasValidCode = words.some((word) => validCodes.includes(word));
     if (!hasValidCode) {
       return { text: "SV", style: { backgroundColor: "#FFFF00" } };
     }
   }
 
-  // If the record is not absent and work_hour < 4.5, show "AB" in a white bold box.
-  if (record.day !== "Absent" && record.work_hour !== undefined && record.work_hour < 4.5) {
+  // If work_hour is less than 4.5 and record is not absent, show "AB" in a white bold box.
+  if (
+    record.day !== "Absent" &&
+    record.work_hour !== undefined &&
+    record.work_hour < 4.5
+  ) {
     return {
       text: "AB",
       style: { backgroundColor: "#ffffff", color: "#000", fontWeight: "bold" },
     };
   }
 
-  // Determine display based on day value
+  // Determine display based on the (possibly updated) day value.
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } }; // Light Green
@@ -75,7 +78,7 @@ function getDisplayForRecord(record) {
   }
 }
 
-// Compare dates ignoring time
+// Helper: Compare dates ignoring time.
 function areSameDate(date1, date2) {
   return (
     date1.getFullYear() === date2.getFullYear() &&
@@ -93,29 +96,27 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
-  // Ref to capture the attendance view (filters, legend, and table)
+  // Ref for container to capture as PNG.
   const attendanceRef = useRef(null);
 
-  // Download handler using html2canvas
+  // Download PNG function.
   const handleDownload = async () => {
-    if (attendanceRef.current) {
-      try {
-        const canvas = await html2canvas(attendanceRef.current, {
-          scale: 2, // Increase scale for higher quality image
-          useCORS: true,
-        });
-        const imgData = canvas.toDataURL("image/png", 1.0);
-        const link = document.createElement("a");
-        link.href = imgData;
-        link.download = `attendance_${viewMode}.png`;
-        link.click();
-      } catch (error) {
-        console.error("Error generating image", error);
-      }
+    try {
+      const canvas = await html2canvas(attendanceRef.current, {
+        scale: 2,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png", 1.0);
+      const link = document.createElement("a");
+      link.href = imgData;
+      link.download = `attendance_${viewMode}.png`;
+      link.click();
+    } catch (error) {
+      console.error("Error generating image", error);
     }
   };
 
-  // Fetch employees
+  // Fetch employees.
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/employees")
@@ -130,7 +131,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Fetch holidays
+  // Fetch holidays.
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/holidays")
@@ -142,15 +143,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Fetch attendance on filter changes
+  // Fetch attendance.
   const fetchAttendance = useCallback(() => {
     const params = { viewMode };
-    if (selectedEmployee) {
-      params.empName = selectedEmployee;
-    }
-    if (viewMode === "datewise" && selectedDate) {
-      params.date = selectedDate;
-    }
+    if (selectedEmployee) params.empName = selectedEmployee;
+    if (viewMode === "datewise" && selectedDate) params.date = selectedDate;
     if (viewMode === "monthwise") {
       params.month = selectedMonth;
       params.year = selectedYear;
@@ -169,41 +166,78 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     fetchAttendance();
   }, [fetchAttendance]);
 
-  // Render Monthwise Table
-  const renderMonthwiseTable = () => {
-    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
+  // Group attendance records per employee per day.
+  const groupAttendanceByDay = () => {
     const pivotData = {};
-
     attendanceData.forEach((rec) => {
       const emp = rec.emp_name;
       if (!pivotData[emp]) {
-        pivotData[emp] = {
-          days: {},
-          presentDays: 0,
-          lateMarkCount: 0,
-          totalHours: 0,
-          daysWorked: 0,
+        pivotData[emp] = { days: {}, presentDays: 0, lateMarkCount: 0, totalHours: 0, daysWorked: 0 };
+      }
+      const recDate = new Date(rec.date);
+      const dayNum = recDate.getDate();
+      if (!pivotData[emp].days[dayNum]) {
+        pivotData[emp].days[dayNum] = {
+          work_hour: Number(rec.work_hour) || 0,
+          in_time: rec.in_time || "",
+          out_time: rec.out_time || "",
+          day: rec.day,
+          location: rec.location || "",
+          date: rec.date,
         };
-      }
-      const d = new Date(rec.date);
-      const dayNum = d.getDate();
-      pivotData[emp].days[dayNum] = rec;
-
-      if (
-        rec.day === "Full Day" ||
-        rec.day === "Half Day" ||
-        rec.day === "Late Mark" ||
-        rec.day === "Working < 4.5 Hrs" ||
-        (rec.day !== "Absent" && rec.work_hour !== undefined && rec.work_hour < 4.5)
-      ) {
-        pivotData[emp].presentDays++;
-        pivotData[emp].daysWorked++;
-        pivotData[emp].totalHours += rec.work_hour;
-      }
-      if (rec.day === "Late Mark") {
-        pivotData[emp].lateMarkCount++;
+      } else {
+        pivotData[emp].days[dayNum].work_hour += Number(rec.work_hour) || 0;
+        if (rec.in_time) {
+          if (
+            !pivotData[emp].days[dayNum].in_time ||
+            moment(rec.in_time, "YYYY-MM-DD HH:mm:ss").isBefore(
+              moment(pivotData[emp].days[dayNum].in_time, "YYYY-MM-DD HH:mm:ss")
+            )
+          ) {
+            pivotData[emp].days[dayNum].in_time = rec.in_time;
+          }
+        }
+        if (rec.out_time) {
+          if (
+            !pivotData[emp].days[dayNum].out_time ||
+            moment(rec.out_time, "YYYY-MM-DD HH:mm:ss").isAfter(
+              moment(pivotData[emp].days[dayNum].out_time, "YYYY-MM-DD HH:mm:ss")
+            )
+          ) {
+            pivotData[emp].days[dayNum].out_time = rec.out_time;
+          }
+        }
+        if (rec.day === "Late Mark") {
+          pivotData[emp].days[dayNum].day = "Late Mark";
+        }
+        if (!pivotData[emp].days[dayNum].location && rec.location) {
+          pivotData[emp].days[dayNum].location = rec.location;
+        }
       }
     });
+
+    // Calculate summary stats per employee.
+    Object.keys(pivotData).forEach((emp) => {
+      const days = pivotData[emp].days;
+      Object.keys(days).forEach((dayKey) => {
+        // Only count the day as present if it's not "Absent" and total work_hour is >= 4.5.
+        if (days[dayKey].day !== "Absent" && days[dayKey].work_hour >= 4.5) {
+          pivotData[emp].presentDays++;
+          pivotData[emp].daysWorked++;
+          pivotData[emp].totalHours += days[dayKey].work_hour;
+        }
+        if (days[dayKey].day === "Late Mark") {
+          pivotData[emp].lateMarkCount++;
+        }
+      });
+    });
+    return pivotData;
+  };
+
+  // Render Monthwise Table using grouped data.
+  const renderMonthwiseTable = () => {
+    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
+    const pivotData = groupAttendanceByDay();
 
     return (
       <div style={{ overflowX: "auto" }}>
@@ -240,19 +274,12 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   rowData.daysWorked > 0
                     ? (rowData.totalHours / rowData.daysWorked).toFixed(2)
                     : "0.00";
-
                 return (
                   <tr key={emp}>
                     <td style={{ width: "180px" }}>{emp}</td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
-                      {rowData.presentDays}
-                    </td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
-                      {rowData.lateMarkCount}
-                    </td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
-                      {avgHours}
-                    </td>
+                    <td style={{ width: "60px", textAlign: "center" }}>{rowData.presentDays}</td>
+                    <td style={{ width: "60px", textAlign: "center" }}>{rowData.lateMarkCount}</td>
+                    <td style={{ width: "60px", textAlign: "center" }}>{avgHours}</td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
                       const dayNumber = i + 1;
                       const cellDate = new Date(
@@ -260,7 +287,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                         parseInt(selectedMonth, 10) - 1,
                         dayNumber
                       );
-                      const dayOfWeek = cellDate.getDay(); // 0 is Sunday
+                      const dayOfWeek = cellDate.getDay();
                       const holidayFound = holidays.find((holiday) =>
                         areSameDate(new Date(holiday.holiday_date), cellDate)
                       );
@@ -268,14 +295,12 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       let cellText = "";
                       const rec = rowData.days[dayNumber];
 
-                      // Force style if holiday or Sunday
                       if (holidayFound) {
                         forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
                       } else if (dayOfWeek === 0) {
                         forcedStyle = { backgroundColor: "#ff9900" };
                       }
 
-                      // If there's an attendance record for that day
                       if (rec) {
                         const display = getDisplayForRecord(rec);
                         cellText = display.text;
@@ -283,7 +308,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                           forcedStyle = { ...display.style };
                         }
                       }
-
                       return (
                         <td
                           key={dayNumber}
@@ -306,7 +330,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
-  // Render Datewise Table
+  // Render Datewise Table remains unchanged.
   const renderDatewiseTable = () => {
     const sortedData = [...attendanceData].sort((a, b) =>
       a.emp_name.localeCompare(b.emp_name)
@@ -317,10 +341,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           bordered
           hover
           size="sm"
-          style={{
-            fontSize: "0.75rem",
-            minWidth: "800px",
-          }}
+          style={{ fontSize: "0.75rem", minWidth: "800px" }}
         >
           <thead style={{ fontSize: "0.75rem" }}>
             <tr>
@@ -359,10 +380,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       <Container
         fluid
         className="p-1"
-        style={{
-          backgroundColor: "#20B2AA",
-          fontSize: "0.75rem", // overall smaller font
-        }}
+        style={{ backgroundColor: "#20B2AA", fontSize: "0.75rem" }}
       >
         <Row
           className="g-0"
@@ -378,7 +396,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
               View By :
             </Form.Label>
-            <div style={{ fontSize: "1.3rem" }}>
+            <div style={{ fontSize: "0.75rem" }}>
               <Form.Check
                 type="radio"
                 label="Monthwise"
@@ -473,151 +491,132 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             </Row>
           </Col>
 
-          {/* Color Legend using CSS Grid */}
+          {/* Legend and Download Button */}
           <Col md={5}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, auto)",
-                gap: "10px",
-                marginLeft: "100px",
-                fontSize: "1rem",
-                padding: "35px 0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 5px",
               }}
             >
-              {/* Half Day */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#B0E0E6",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Half day</span>
-              </div>
-
-              {/* Full Day (8.5 Hrs) */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#90EE90",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Full Day (8.5 Hrs)</span>
-              </div>
-
-              {/* Absent */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#FFC0CB",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Absent</span>
-              </div>
-
-              {/* Sunday */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#ff9900",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Sunday</span>
-              </div>
-
-              {/* Late Mark */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#ffffff",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#000",
-                    border: "1px solid #000",
-                  }}
-                >
-                  –
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, auto)",
+                  gap: "10px",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#B0E0E6",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Half day</span>
                 </div>
-                <span>Late Mark</span>
-              </div>
-
-              {/* Working less than 5 Hrs (AB) */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#ffffff",
-                    width: "20px",
-                    height: "20px",
-                    marginRight: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: "bold",
-                    color: "#000",
-                    border: "1px solid #000",
-                  }}
-                >
-                  AB
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#90EE90",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Full Day (8.5 Hrs)</span>
                 </div>
-                <span>Working less than 5 Hrs</span>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#FFC0CB",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Absent</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#ff9900",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Sunday</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#ffffff",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#000",
+                      border: "1px solid #000",
+                    }}
+                  >
+                    –
+                  </div>
+                  <span>Late Mark</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#ffffff",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: "bold",
+                      color: "#000",
+                      border: "1px solid #000",
+                    }}
+                  >
+                    AB
+                  </div>
+                  <span>Working &lt; 5 Hrs</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#FFFF00",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Site Visit</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      backgroundColor: "#ff0000",
+                      width: "16px",
+                      height: "16px",
+                      marginRight: "4px",
+                    }}
+                  ></div>
+                  <span>Holiday</span>
+                </div>
               </div>
-
-              {/* Site Visit */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#FFFF00",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Site Visit</span>
-              </div>
-
-              {/* Holiday */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    backgroundColor: "#ff0000",
-                    width: "16px",
-                    height: "16px",
-                    marginRight: "4px",
-                  }}
-                ></div>
-                <span>Holiday</span>
-              </div>
+              <Button onClick={handleDownload} style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
+                Download PNG
+              </Button>
             </div>
-          </Col>
-        </Row>
-
-        {/* Download Button placed under the legend.
-            The attribute data-html2canvas-ignore="true" ensures it is not captured in the PNG image */}
-        <Row className="mt-1">
-          <Col style={{ textAlign: "right" }}>
-            <Button
-              variant="primary"
-              onClick={handleDownload}
-              data-html2canvas-ignore="true"
-            >
-              Download Report
-            </Button>
           </Col>
         </Row>
 
@@ -625,17 +624,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           <Col style={{ fontSize: "0.75rem" }}>
             {viewMode === "datewise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                  Datewise Attendance
-                </h5>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>Datewise Attendance</h5>
                 {renderDatewiseTable()}
               </>
             )}
             {viewMode === "monthwise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                  Monthwise Attendance
-                </h5>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>Monthwise Attendance</h5>
                 {renderMonthwiseTable()}
               </>
             )}
