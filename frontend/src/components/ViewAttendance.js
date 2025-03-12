@@ -3,6 +3,7 @@ import moment from "moment";
 import { Container, Row, Col, Form, Table, Button } from "react-bootstrap";
 import axios from "axios";
 import html2canvas from "html2canvas";
+import { io } from "socket.io-client"; // <-- Added Socket.io Client import
 
 /**
  * Return the text code and style for a combined record based on its total work_hour and day.
@@ -189,6 +190,33 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   useEffect(() => {
     fetchAttendance();
   }, [fetchAttendance]);
+
+  // ------------------ Socket.io Integration ------------------
+  useEffect(() => {
+    const socket = io("http://localhost:5000"); // Connect to Socket.io server
+    // When an attendance change event is received, re-fetch attendance data.
+    socket.on("attendanceChanged", (data) => {
+      console.log("Attendance changed event received:", data);
+      fetchAttendance();
+    });
+    // When a holiday change event is received, re-fetch holidays and attendance.
+    socket.on("holidayChanged", (data) => {
+      console.log("Holiday changed event received:", data);
+      axios
+        .get("http://localhost:5000/api/holidays")
+        .then((response) => {
+          setHolidays(response.data);
+        })
+        .catch((error) => {
+          console.error("Error fetching holidays:", error);
+        });
+      fetchAttendance();
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchAttendance]);
+  // -----------------------------------------------------------
 
   // Group attendance records per employee per day.
   // For each day, if the day is marked as "Half Day", count it as 0.5 present.
