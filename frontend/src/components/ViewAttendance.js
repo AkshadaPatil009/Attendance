@@ -378,7 +378,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
               View By :
             </Form.Label>
-            <div style={{ fontSize: "0.75rem" }}>
+            <div style={{ fontSize: "1.3rem" }}>
               <Form.Check
                 type="radio"
                 label="Monthwise"
@@ -404,10 +404,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           <Col md={4} className="g-0">
             <Row className="g-1">
               <Col md={12}>
-                <Form.Label style={{ fontSize: "0.8rem" }}>Employee Name</Form.Label>
+                <Form.Label style={{ fontSize: "1rem" }}>Employee Name</Form.Label>
                 <Form.Select
                   className="mb-1"
-                  style={{ fontSize: "0.75rem" }}
+                  style={{ fontSize: "0.9rem" }}
                   value={selectedEmployee}
                   onChange={(e) => setSelectedEmployee(e.target.value)}
                 >
@@ -422,10 +422,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               {viewMode === "monthwise" && (
                 <>
                   <Col md={6}>
-                    <Form.Label style={{ fontSize: "0.8rem" }}>Month</Form.Label>
+                    <Form.Label style={{ fontSize: "1rem" }}>Month</Form.Label>
                     <Form.Select
                       className="mb-1"
-                      style={{ fontSize: "0.75rem" }}
+                      style={{ fontSize: "0.9rem" }}
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
                     >
@@ -444,11 +444,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                     </Form.Select>
                   </Col>
                   <Col md={6}>
-                    <Form.Label style={{ fontSize: "0.8rem" }}>Year</Form.Label>
+                    <Form.Label style={{ fontSize: "1rem" }}>Year</Form.Label>
                     <Form.Control
                       type="number"
                       className="mb-1"
-                      style={{ fontSize: "0.75rem" }}
+                      style={{ fontSize: "0.9rem" }}
                       placeholder="Enter Year"
                       value={selectedYear}
                       min="1900"
@@ -480,9 +480,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 display: "grid",
                 gridTemplateColumns: "repeat(3, auto)",
                 gap: "10px",
-                marginLeft: "5px",
-                fontSize: "0.75rem",
-                padding: "4px 0",
+                marginLeft: "100px",
+                fontSize: "1rem",
+                padding: "35px 0",
               }}
             >
               {/* Half Day */}
@@ -562,8 +562,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div
                   style={{
                     backgroundColor: "#ffffff",
-                    width: "16px",
-                    height: "16px",
+                    width: "20px",
+                    height: "20px",
                     marginRight: "4px",
                     display: "flex",
                     alignItems: "center",
