@@ -61,24 +61,24 @@ function getDisplayForRecord(record) {
   // Determine display based on the (possibly updated) day value.
   switch (record.day) {
     case "Full Day":
-      return { text: "P", style: { backgroundColor: "#90EE90" } }; // Light Green
+      return { text: "P", style: { backgroundColor: "#90EE90" } };
     case "Half Day":
-      return { text: "H", style: { backgroundColor: "#B0E0E6" } }; // Light Blue
+      return { text: "H", style: { backgroundColor: "#B0E0E6" } };
     case "Late Mark":
       return {
         text: <span style={{ textDecoration: "underline" }}>P</span>,
         style: { backgroundColor: "#90EE90" },
       };
     case "Absent":
-      return { text: "", style: { backgroundColor: "#FFC0CB" } }; // Pink
+      return { text: "", style: { backgroundColor: "#FFC0CB" } };
     case "Sunday":
-      return { text: "SUN", style: { backgroundColor: "#ff9900" } }; // Orange
+      return { text: "SUN", style: { backgroundColor: "#ff9900" } };
     default:
       return { text: "", style: {} };
   }
 }
 
-// Helper: Compare dates ignoring time.
+// Compare two dates ignoring time.
 function areSameDate(date1, date2) {
   return (
     date1.getFullYear() === date2.getFullYear() &&
@@ -96,16 +96,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
-  // Ref for container to capture as PNG.
+  // Ref for the container (for PNG download)
   const attendanceRef = useRef(null);
 
   // Download PNG function.
   const handleDownload = async () => {
     try {
-      const canvas = await html2canvas(attendanceRef.current, {
-        scale: 2,
-        useCORS: true,
-      });
+      const canvas = await html2canvas(attendanceRef.current, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement("a");
       link.href = imgData;
@@ -143,7 +140,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
   }, []);
 
-  // Fetch attendance.
+  // Fetch attendance based on filters.
   const fetchAttendance = useCallback(() => {
     const params = { viewMode };
     if (selectedEmployee) params.empName = selectedEmployee;
@@ -167,6 +164,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   }, [fetchAttendance]);
 
   // Group attendance records per employee per day.
+  // For each day, if the day is marked as "Half Day", count it as 0.5 present.
+  // For site visits ("SV"), count the day as full day regardless of work hours.
   const groupAttendanceByDay = () => {
     const pivotData = {};
     attendanceData.forEach((rec) => {
@@ -176,6 +175,19 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       }
       const recDate = new Date(rec.date);
       const dayNum = recDate.getDate();
+      // Before grouping, check if record qualifies as site visit.
+      if (
+        rec.location &&
+        rec.day !== "Sunday" &&
+        rec.day !== "Holiday"
+      ) {
+        const validCodes = ["ro", "mo", "rso", "do", "wfh"];
+        const words = rec.location.toLowerCase().trim().split(/\s+/);
+        const hasValidCode = words.some((word) => validCodes.includes(word));
+        if (!hasValidCode) {
+          rec.day = "SV";
+        }
+      }
       if (!pivotData[emp].days[dayNum]) {
         pivotData[emp].days[dayNum] = {
           work_hour: Number(rec.work_hour) || 0,
@@ -220,13 +232,25 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     Object.keys(pivotData).forEach((emp) => {
       const days = pivotData[emp].days;
       Object.keys(days).forEach((dayKey) => {
-        // Only count the day as present if it's not "Absent" and total work_hour is >= 4.5.
-        if (days[dayKey].day !== "Absent" && days[dayKey].work_hour >= 4.5) {
-          pivotData[emp].presentDays++;
-          pivotData[emp].daysWorked++;
-          pivotData[emp].totalHours += days[dayKey].work_hour;
+        const currentDay = days[dayKey];
+        // For site visits, always count as 1 full day regardless of hours.
+        if (currentDay.day === "SV") {
+          pivotData[emp].presentDays += 1;
+          pivotData[emp].daysWorked += 1;
+          pivotData[emp].totalHours += currentDay.work_hour;
         }
-        if (days[dayKey].day === "Late Mark") {
+        // For non-absent days that are not site visits, only count if work_hour is at least 4.5.
+        else if (currentDay.day !== "Absent" && currentDay.work_hour >= 4.5) {
+          if (currentDay.day === "Half Day") {
+            pivotData[emp].presentDays += 0.5;
+            pivotData[emp].daysWorked += 0.5;
+          } else {
+            pivotData[emp].presentDays += 1;
+            pivotData[emp].daysWorked += 1;
+          }
+          pivotData[emp].totalHours += currentDay.work_hour;
+        }
+        if (currentDay.day === "Late Mark") {
           pivotData[emp].lateMarkCount++;
         }
       });
@@ -287,7 +311,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                         parseInt(selectedMonth, 10) - 1,
                         dayNumber
                       );
-                      const dayOfWeek = cellDate.getDay();
+                      const dayOfWeek = cellDate.getDay(); // 0 is Sunday
                       const holidayFound = holidays.find((holiday) =>
                         areSameDate(new Date(holiday.holiday_date), cellDate)
                       );
@@ -510,47 +534,19 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#B0E0E6",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#B0E0E6", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Half day</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#90EE90",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#90EE90", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Full Day (8.5 Hrs)</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#FFC0CB",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#FFC0CB", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Absent</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#ff9900",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#ff9900", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Sunday</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
@@ -591,25 +587,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span>Working &lt; 5 Hrs</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#FFFF00",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#FFFF00", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Site Visit</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      backgroundColor: "#ff0000",
-                      width: "16px",
-                      height: "16px",
-                      marginRight: "4px",
-                    }}
-                  ></div>
+                  <div style={{ backgroundColor: "#ff0000", width: "16px", height: "16px", marginRight: "4px" }}></div>
                   <span>Holiday</span>
                 </div>
               </div>
