@@ -10,12 +10,12 @@ import html2canvas from "html2canvas";
  * (and if the record is not for a Sunday or a site visit), then change the day to "Late Mark".
  */
 function getDisplayForRecord(record) {
-  // If the record is for Holiday, immediately return holiday style: "P" in red/white.
+  // If the record is for Holiday, immediately return holiday style.
   if (record.day === "Holiday") {
     return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
   }
 
-  // Apply late mark logic only if the record is "Full Day" and not a Sunday or a site visit.
+  // Apply late mark logic only if the record is "Full Day" and not a site visit.
   if (
     record.in_time &&
     record.day === "Full Day" &&
@@ -36,7 +36,7 @@ function getDisplayForRecord(record) {
     }
   }
 
-  // Site Visit Logic: only if not Sunday/Holiday and location not containing valid codes.
+  // Site Visit Logic: if location exists and the day is not Sunday or Holiday.
   if (record.day !== "Sunday" && record.day !== "Holiday" && record.location) {
     const validCodes = ["ro", "mo", "rso", "do", "wfh"];
     const words = record.location.toLowerCase().trim().split(/\s+/);
@@ -46,7 +46,7 @@ function getDisplayForRecord(record) {
     }
   }
 
-  // If work_hour is less than 4.5 and record is not absent, show "AB" in a white bold box.
+  // If work_hour is less than 4.5 and record is not absent, show "AB".
   if (
     record.day !== "Absent" &&
     record.work_hour !== undefined &&
@@ -78,6 +78,28 @@ function getDisplayForRecord(record) {
   }
 }
 
+// Helper function to apply late mark logic.
+function applyLateMarkLogic(record) {
+  if (
+    record.in_time &&
+    record.day === "Full Day" &&
+    !(record.location && record.location.toLowerCase().includes("sv"))
+  ) {
+    const recordDate = new Date(record.date);
+    if (recordDate.getDay() !== 0) {
+      const checkIn = moment(record.in_time, "YYYY-MM-DD HH:mm:ss");
+      const threshold = moment(record.in_time, "YYYY-MM-DD").set({
+        hour: 10,
+        minute: 0,
+        second: 0,
+      });
+      if (checkIn.isAfter(threshold)) {
+        record.day = "Late Mark";
+      }
+    }
+  }
+}
+
 // Compare two dates ignoring time.
 function areSameDate(date1, date2) {
   return (
@@ -91,7 +113,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
-  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedMonth, setSelectedMonth] = useState(
+    (new Date().getMonth() + 1).toString()
+  );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -102,7 +126,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Download PNG function.
   const handleDownload = async () => {
     try {
-      const canvas = await html2canvas(attendanceRef.current, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(attendanceRef.current, {
+        scale: 2,
+        useCORS: true,
+      });
       const imgData = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement("a");
       link.href = imgData;
@@ -169,18 +196,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const groupAttendanceByDay = () => {
     const pivotData = {};
     attendanceData.forEach((rec) => {
-      const emp = rec.emp_name;
-      if (!pivotData[emp]) {
-        pivotData[emp] = { days: {}, presentDays: 0, lateMarkCount: 0, totalHours: 0, daysWorked: 0 };
-      }
-      const recDate = new Date(rec.date);
-      const dayNum = recDate.getDate();
-      // Before grouping, check if record qualifies as site visit.
-      if (
-        rec.location &&
-        rec.day !== "Sunday" &&
-        rec.day !== "Holiday"
-      ) {
+      // First, apply late mark logic.
+      applyLateMarkLogic(rec);
+
+      // Then, apply site visit logic if the record is not for Sunday/Holiday.
+      if (rec.location && rec.day !== "Sunday" && rec.day !== "Holiday") {
         const validCodes = ["ro", "mo", "rso", "do", "wfh"];
         const words = rec.location.toLowerCase().trim().split(/\s+/);
         const hasValidCode = words.some((word) => validCodes.includes(word));
@@ -188,6 +208,18 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           rec.day = "SV";
         }
       }
+      const emp = rec.emp_name;
+      if (!pivotData[emp]) {
+        pivotData[emp] = {
+          days: {},
+          presentDays: 0,
+          lateMarkCount: 0,
+          totalHours: 0,
+          daysWorked: 0,
+        };
+      }
+      const recDate = new Date(rec.date);
+      const dayNum = recDate.getDate();
       if (!pivotData[emp].days[dayNum]) {
         pivotData[emp].days[dayNum] = {
           work_hour: Number(rec.work_hour) || 0,
@@ -233,13 +265,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       const days = pivotData[emp].days;
       Object.keys(days).forEach((dayKey) => {
         const currentDay = days[dayKey];
-        // For site visits, always count as 1 full day regardless of hours.
+        // For site visits, always count as 1 full day.
         if (currentDay.day === "SV") {
           pivotData[emp].presentDays += 1;
           pivotData[emp].daysWorked += 1;
           pivotData[emp].totalHours += currentDay.work_hour;
         }
-        // For non-absent days that are not site visits, only count if work_hour is at least 4.5.
+        // For non-absent days with sufficient hours.
         else if (currentDay.day !== "Absent" && currentDay.work_hour >= 4.5) {
           if (currentDay.day === "Half Day") {
             pivotData[emp].presentDays += 0.5;
@@ -250,6 +282,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           }
           pivotData[emp].totalHours += currentDay.work_hour;
         }
+        // Count the late mark occurrences.
         if (currentDay.day === "Late Mark") {
           pivotData[emp].lateMarkCount++;
         }
@@ -301,9 +334,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 return (
                   <tr key={emp}>
                     <td style={{ width: "180px" }}>{emp}</td>
-                    <td style={{ width: "60px", textAlign: "center" }}>{rowData.presentDays}</td>
-                    <td style={{ width: "60px", textAlign: "center" }}>{rowData.lateMarkCount}</td>
-                    <td style={{ width: "60px", textAlign: "center" }}>{avgHours}</td>
+                    <td style={{ width: "60px", textAlign: "center" }}>
+                      {rowData.presentDays}
+                    </td>
+                    <td style={{ width: "60px", textAlign: "center" }}>
+                      {rowData.lateMarkCount}
+                    </td>
+                    <td style={{ width: "60px", textAlign: "center" }}>
+                      {avgHours}
+                    </td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
                       const dayNumber = i + 1;
                       const cellDate = new Date(
