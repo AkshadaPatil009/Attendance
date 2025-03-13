@@ -371,7 +371,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             fontSize: "0.75rem",
             minWidth: "900px",
           }}
-          className="mb-0"
+          className="mb-0 custom-border-table"  
         >
           <thead style={{ fontSize: "0.75rem" }}>
             <tr>
@@ -703,7 +703,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 </div>
               </div>
               <Button onClick={handleDownload} style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
-                Download PNG
+                Download Report
               </Button>
             </div>
           </Col>

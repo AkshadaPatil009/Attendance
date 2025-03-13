@@ -1,5 +1,14 @@
 /* Force completed rows to use a light gray background */
 tr.completedHoliday td {
-    background-color: rgb(212, 205, 205) !important;
-  }
-  
+  background-color: rgb(212, 205, 205) !important;
+}
+
+/* Custom styling for the monthwise attendance table */
+.custom-border-table {
+  border: 2px solid black; /* Black border around the table */
+}
+
+.custom-border-table th,
+.custom-border-table td {
+  border: 1px solid black !important; /* Black borders for each cell */
+}
