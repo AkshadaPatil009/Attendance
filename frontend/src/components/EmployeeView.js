@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Form, Card } from "react-bootstrap";
 
 const EmployeeView = ({ role }) => {
@@ -9,39 +9,35 @@ const EmployeeView = ({ role }) => {
     remainingSickLeave: "",
     remainingPlannedLeave: "",
   });
+  const [employees, setEmployees] = useState([]);
 
-  const employees = [
-    { id: 1, name: "John Doe" },
-    { id: 2, name: "Jane Smith" },
-    { id: 3, name: "Emily Johnson" },
-  ];
+  // Fetch the employees list for admin view
+  useEffect(() => {
+    if (role === "admin") {
+      fetch("http://localhost:5000/api/employees-list")
+        .then((response) => response.json())
+        .then((data) => setEmployees(data))
+        .catch((error) => console.error("Error fetching employees:", error));
+    }
+  }, [role]);
 
+  // Fetch employee leaves when an employee is selected
   const handleEmployeeSelect = (e) => {
     const employeeId = e.target.value;
     setSelectedEmployee(employeeId);
-
-    // In a real scenario, fetch employee leave data from an API.
-    // Here, we hardcode sample data.
-    if (employeeId === "1") {
+    if (employeeId !== "") {
+      fetch(`http://localhost:5000/api/employee-leaves/${employeeId}`)
+        .then((response) => response.json())
+        .then((data) => setEmployeeLeaves(data))
+        .catch((error) =>
+          console.error("Error fetching employee leaves:", error)
+        );
+    } else {
       setEmployeeLeaves({
-        sickLeave: "3",
-        plannedLeave: "5",
-        remainingSickLeave: "7",
-        remainingPlannedLeave: "3",
-      });
-    } else if (employeeId === "2") {
-      setEmployeeLeaves({
-        sickLeave: "2",
-        plannedLeave: "4",
-        remainingSickLeave: "8",
-        remainingPlannedLeave: "6",
-      });
-    } else if (employeeId === "3") {
-      setEmployeeLeaves({
-        sickLeave: "5",
-        plannedLeave: "2",
-        remainingSickLeave: "4",
-        remainingPlannedLeave: "6",
+        sickLeave: "",
+        plannedLeave: "",
+        remainingSickLeave: "",
+        remainingPlannedLeave: "",
       });
     }
   };
@@ -74,7 +70,10 @@ const EmployeeView = ({ role }) => {
       )}
 
       {/* Leave Section */}
-      <Card className="p-3 shadow-sm mt-3" style={{ maxWidth: "400px", margin: "auto" }}>
+      <Card
+        className="p-3 shadow-sm mt-3"
+        style={{ maxWidth: "400px", margin: "auto" }}
+      >
         <h5>
           <b>Used Leaves</b>
         </h5>

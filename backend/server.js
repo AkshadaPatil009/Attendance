@@ -383,6 +383,21 @@ app.get("/api/attendanceview", (req, res) => {
   });
 });
 
+// NEW API: Get Employees List for Admin Employee View
+app.get("/api/employees-list", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  db.query(
+    "SELECT id, Name as name FROM logincrd WHERE disableemp = 0",
+    (err, results) => {
+      if (err)
+        return res.status(500).json({
+          error: "Database error while fetching employee list",
+        });
+      res.json(results);
+    }
+  );
+});
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
