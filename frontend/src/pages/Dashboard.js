@@ -87,14 +87,7 @@ const Dashboard = () => {
                       >
                         Holidays
                       </Button>
-                      <Button
-                        variant={activeSection === "report" ? "secondary" : "light"}
-                        className="me-2 mb-2"
-                        onClick={() => setActiveSection("report")}
-                        active={activeSection === "report"}
-                      >
-                        Report
-                      </Button>
+                      
                     </>
                   )}
 
