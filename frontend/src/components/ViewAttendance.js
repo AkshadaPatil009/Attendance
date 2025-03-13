@@ -288,6 +288,31 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       }
     });
 
+    // Minimal change: Recalculate aggregated day status for each day.
+    // This block uses the earliest check-in to decide between "Late Mark" and "Full Day" (or keeps "Half Day"/"SV"/"Absent" as is).
+    Object.keys(pivotData).forEach((emp) => {
+      Object.keys(pivotData[emp].days).forEach((dayKey) => {
+        let rec = pivotData[emp].days[dayKey];
+        // Do not change if record is already "SV", "Absent", or marked for a holiday.
+        const recordDate = new Date(rec.date);
+        if (
+          rec.day !== "SV" &&
+          rec.day !== "Absent" &&
+          rec.day !== "Holiday" &&
+          rec.in_time &&
+          recordDate.getDay() !== 0
+        ) {
+          const checkIn = moment(rec.in_time, "YYYY-MM-DD HH:mm:ss");
+          const threshold = moment(rec.in_time, "YYYY-MM-DD").set({
+            hour: 10,
+            minute: 0,
+            second: 0,
+          });
+          rec.day = checkIn.isAfter(threshold) ? "Late Mark" : "Full Day";
+        }
+      });
+    });
+
     // Calculate summary stats per employee.
     Object.keys(pivotData).forEach((emp) => {
       const days = pivotData[emp].days;
