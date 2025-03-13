@@ -219,8 +219,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // -----------------------------------------------------------
 
   // Group attendance records per employee per day.
-  // For each day, if the day is marked as "Half Day", count it as 0.5 present.
-  // For site visits ("SV"), count the day as full day regardless of work hours.
+  // For each day, merge multiple records.
+  // Then, compute a new property "displayStatus" for rendering,
+  // based on aggregated work hours and earliest check-in.
+  // (This does not affect the original aggregated "work_hour" and summary stats.)
   const groupAttendanceByDay = () => {
     const pivotData = {};
     attendanceData.forEach((rec) => {
@@ -288,32 +290,41 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       }
     });
 
-    // Minimal change: Recalculate aggregated day status for each day.
-    // This block uses the earliest check-in to decide between "Late Mark" and "Full Day" (or keeps "Half Day"/"SV"/"Absent" as is).
+    // Minimal change: Compute a new "displayStatus" for each aggregated day
+    // without modifying the original "day" (used in summary stats).
     Object.keys(pivotData).forEach((emp) => {
       Object.keys(pivotData[emp].days).forEach((dayKey) => {
         let rec = pivotData[emp].days[dayKey];
-        // Do not change if record is already "SV", "Absent", or marked for a holiday.
         const recordDate = new Date(rec.date);
+        // Compute displayStatus only for records not marked as SV, Absent, or Holiday and not on Sunday.
         if (
+          rec.in_time &&
+          recordDate.getDay() !== 0 &&
           rec.day !== "SV" &&
           rec.day !== "Absent" &&
-          rec.day !== "Holiday" &&
-          rec.in_time &&
-          recordDate.getDay() !== 0
+          rec.day !== "Holiday"
         ) {
-          const checkIn = moment(rec.in_time, "YYYY-MM-DD HH:mm:ss");
-          const threshold = moment(rec.in_time, "YYYY-MM-DD").set({
-            hour: 10,
-            minute: 0,
-            second: 0,
-          });
-          rec.day = checkIn.isAfter(threshold) ? "Late Mark" : "Full Day";
+          if (rec.work_hour < 4.5) {
+            rec.displayStatus = "AB";
+          } else if (rec.work_hour < 8.5) {
+            rec.displayStatus = "Half Day";
+          } else {
+            const checkIn = moment(rec.in_time, "YYYY-MM-DD HH:mm:ss");
+            const threshold = moment(rec.in_time, "YYYY-MM-DD").set({
+              hour: 10,
+              minute: 0,
+              second: 0,
+            });
+            rec.displayStatus = checkIn.isAfter(threshold) ? "Late Mark" : "Full Day";
+          }
+        } else {
+          // For other cases, use the original day value.
+          rec.displayStatus = rec.day;
         }
       });
     });
 
-    // Calculate summary stats per employee.
+    // Calculate summary stats per employee using the original aggregated "day".
     Object.keys(pivotData).forEach((emp) => {
       const days = pivotData[emp].days;
       Object.keys(days).forEach((dayKey) => {
@@ -418,7 +429,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       }
 
                       if (rec) {
-                        const display = getDisplayForRecord(rec);
+                        // Use the computed displayStatus for rendering.
+                        const display = getDisplayForRecord({
+                          ...rec,
+                          day: rec.displayStatus,
+                        });
                         cellText = display.text;
                         if (!holidayFound && dayOfWeek !== 0) {
                           forcedStyle = { ...display.style };
