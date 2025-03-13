@@ -124,9 +124,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Ref for the container (for PNG download)
   const attendanceRef = useRef(null);
 
-  // Download PNG function.
+  // Download PNG function (temporarily hides the download button)
   const handleDownload = async () => {
     try {
+      // Hide the download button using its ID ("downloadReport")
+      const downloadButton = document.getElementById("downloadReport");
+      if (downloadButton) {
+        downloadButton.style.visibility = "hidden";
+      }
+      // Wait for the DOM to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const canvas = await html2canvas(attendanceRef.current, {
         scale: 2,
         useCORS: true,
@@ -136,6 +144,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       link.href = imgData;
       link.download = `attendance_${viewMode}.png`;
       link.click();
+
+      // Restore the download button's visibility
+      if (downloadButton) {
+        downloadButton.style.visibility = "visible";
+      }
     } catch (error) {
       console.error("Error generating image", error);
     }
@@ -290,8 +303,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       }
     });
 
-    // Minimal change: Compute a new "displayStatus" for each aggregated day
-    // without modifying the original "day" (used in summary stats).
+    // Compute a new "displayStatus" for each aggregated day without modifying the original "day"
+    // (used in summary stats).
     Object.keys(pivotData).forEach((emp) => {
       Object.keys(pivotData[emp].days).forEach((dayKey) => {
         let rec = pivotData[emp].days[dayKey];
@@ -315,7 +328,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               minute: 0,
               second: 0,
             });
-            rec.displayStatus = checkIn.isAfter(threshold) ? "Late Mark" : "Full Day";
+            rec.displayStatus = checkIn.isAfter(threshold)
+              ? "Late Mark"
+              : "Full Day";
           }
         } else {
           // For other cases, use the original day value.
@@ -371,7 +386,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             fontSize: "0.75rem",
             minWidth: "900px",
           }}
-          className="mb-0 custom-border-table"  
+          className="mb-0 custom-border-table"
         >
           <thead style={{ fontSize: "0.75rem" }}>
             <tr>
@@ -527,7 +542,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
             <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
               View By :
             </Form.Label>
-            <div style={{ fontSize: "0.75rem" }}>
+            <div style={{ fontSize: "1.2rem" }}>
               <Form.Check
                 type="radio"
                 label="Monthwise"
@@ -629,7 +644,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                padding: "10px 5px",
+                padding: "35px 20px",
               }}
             >
               <div
@@ -637,7 +652,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   display: "grid",
                   gridTemplateColumns: "repeat(3, auto)",
                   gap: "10px",
-                  fontSize: "0.75rem",
+                  fontSize: "1rem",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center" }}>
@@ -702,7 +717,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span>Holiday</span>
                 </div>
               </div>
-              <Button onClick={handleDownload} style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
+              <Button onClick={handleDownload} id="downloadReport" style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
                 Download Report
               </Button>
             </div>
