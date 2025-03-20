@@ -29,7 +29,7 @@ const Dashboard = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Set current date automatically when admin logs in
+    // Set current date automatically when Admin logs in
     if (user && user.role === "Admin") {
       setSelectedDate(new Date().toISOString().split("T")[0]); // Format as YYYY-MM-DD
     }
@@ -47,13 +47,16 @@ const Dashboard = () => {
       <Header role={user.role} />
       <Navbar bg="primary" variant="dark" expand="lg" className="mb-3 p-3">
         <Container fluid>
+          {/* Display user’s name on the left side */}
           <Navbar.Brand>
-            {user.role === "Admin" ? "Admin Panel" : "Employee Dashboard"}
+            {user.role === "Admin"
+              ? `Admin Panel - Welcome, ${user.name}`
+              : `Employee Dashboard - Welcome, ${user.name}`}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Row className="w-100">
-              {/* Left-aligned Date Picker (only for admin) */}
+              {/* Left-aligned Date Picker (only for Admin) */}
               {user.role === "Admin" && (
                 <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
                   <Form className="w-100">
@@ -75,7 +78,6 @@ const Dashboard = () => {
                         variant={activeSection === "attendanceForm" ? "secondary" : "light"}
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("attendanceForm")}
-                        active={activeSection === "attendanceForm"}
                       >
                         Attendance Form
                       </Button>
@@ -83,25 +85,18 @@ const Dashboard = () => {
                         variant={activeSection === "holidays" ? "secondary" : "light"}
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("holidays")}
-                        active={activeSection === "holidays"}
                       >
                         Holidays
                       </Button>
+                      <Button
+                        variant={activeSection === "employeeView" ? "secondary" : "light"}
+                        className="me-2 mb-2"
+                        onClick={() => setActiveSection("employeeView")}
+                      >
+                        Employee View
+                      </Button>
                     </>
                   )}
-
-                  {/* Remove "Employee View" Button if Logged in as Employee */}
-                  {user.role === "Admin" && (
-                    <Button
-                      variant={activeSection === "employeeView" ? "secondary" : "light"}
-                      className="me-2 mb-2"
-                      onClick={() => setActiveSection("employeeView")}
-                      active={activeSection === "employeeView"}
-                    >
-                      Employee View
-                    </Button>
-                  )}
-
                   {/* Logout Button */}
                   <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
                     Logout
@@ -120,9 +115,8 @@ const Dashboard = () => {
         )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "holidays" && <Holidays />}
-        {activeSection === "employeeView" && (
-          user.role === "Admin" ? <AdminEmployeeView /> : <EmployeeDashboard />
-        )}
+        {activeSection === "employeeView" &&
+          (user.role === "Admin" ? <AdminEmployeeView /> : <EmployeeDashboard />)}
       </div>
 
       <Footer />
