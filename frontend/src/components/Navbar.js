@@ -34,7 +34,6 @@ const AdminNavbar = () => {
                 <Button variant="light" className="me-2 mb-2">Attendance Form</Button>
                 <Button variant="light" className="me-2 mb-2">Add Holidays</Button>
                 <Button variant="light" className="me-2 mb-2">Emp View</Button>
-                <Button variant="light" className="me-2 mb-2">Report</Button>
               </Nav>
             </Col>
           </Row>

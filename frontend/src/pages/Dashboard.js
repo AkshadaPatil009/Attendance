@@ -4,8 +4,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AttendanceForm from "../components/AttendanceForm";
 import Holidays from "../components/Holiday";
-import EmployeeView from "../components/EmployeeView";
-import Report from "../components/Report";
+import AdminEmployeeView from "../components/AdminEmployeeView";
+import EmployeeDashboard from "../components/EmployeeView";
 import { Navbar, Nav, Container, Button, Form, Row, Col } from "react-bootstrap";
 import "./Dashboard.css"; // Import the CSS that forces the background color
 
@@ -87,7 +87,6 @@ const Dashboard = () => {
                       >
                         Holidays
                       </Button>
-                      
                     </>
                   )}
 
@@ -121,8 +120,9 @@ const Dashboard = () => {
         )}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "holidays" && <Holidays />}
-        {activeSection === "employeeView" && <EmployeeView role={user.role} />}
-        {activeSection === "report" && <Report />}
+        {activeSection === "employeeView" && (
+          user.role === "admin" ? <AdminEmployeeView /> : <EmployeeDashboard />
+        )}
       </div>
 
       <Footer />
