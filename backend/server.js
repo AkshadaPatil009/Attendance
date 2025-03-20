@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
@@ -121,9 +122,9 @@ app.get("/api/employees", (req, res) => {
   res.set("Cache-Control", "no-store");
   db.query("SELECT DISTINCT emp_name FROM attendance", (err, results) => {
     if (err)
-      return res
-        .status(500)
-        .json({ error: "Database error while fetching employee list" });
+      return res.status(500).json({
+        error: "Database error while fetching employee list",
+      });
     res.json(results);
   });
 });
@@ -191,91 +192,94 @@ app.post("/api/attendance", (req, res) => {
           const isHoliday = holidayResult[0].holidayCount > 0;
           const insertAbsent = !(isSunday || isHoliday);
 
+          // Use UNION query to combine allowed employees from both tables
           db.query(
-            "SELECT Name FROM logincrd WHERE disableemp = 0",
+            "SELECT Name FROM logincrd WHERE disableemp = 0 UNION SELECT Name FROM employee_master",
             (err, allowedResults) => {
-              if (err) {
+              if (err || allowedResults.length === 0) {
                 console.error(err);
                 return res.status(500).json({
                   error: "Database error while fetching allowed employees",
                 });
               }
+              processAttendanceRecords(allowedResults.map(row => row.Name));
+            }
+          );
 
-              const allowedEmployeeNames = allowedResults.map((row) => row.Name);
-
-              const invalidRecords = attendanceRecords.filter(
-                (record) => !allowedEmployeeNames.includes(record.empName)
-              );
-              if (invalidRecords.length > 0) {
-                const invalidNames = invalidRecords
-                  .map((record) => record.empName)
-                  .join(", ");
-                return res.status(400).json({
-                  error:
-                    "Attendance records could not be saved for the following employees (not allowed): " +
-                    invalidNames,
-                });
-              }
-
-              const validRecords = attendanceRecords.filter((record) =>
-                allowedEmployeeNames.includes(record.empName)
-              );
-
-              const recordedNames = new Set(validRecords.map((record) => record.empName));
-
-              const absentEmployees = insertAbsent
-                ? allowedEmployeeNames.filter((name) => !recordedNames.has(name))
-                : [];
-
-              const valuesValid = validRecords.map((record) => {
-                const { work_hour, dayStatus } = calculateWorkHoursAndDay(
-                  record.inTime,
-                  record.outTime
-                );
-                return [
-                  record.empName,
-                  record.inTime,
-                  record.outTime,
-                  record.location,
-                  record.date,
-                  work_hour,
-                  dayStatus,
-                  0 // is_absent flag for present records
-                ];
+          // Helper function to process attendance records
+          function processAttendanceRecords(allowedEmployeeNames) {
+            const invalidRecords = attendanceRecords.filter(
+              (record) => !allowedEmployeeNames.includes(record.empName)
+            );
+            if (invalidRecords.length > 0) {
+              const invalidNames = invalidRecords
+                .map((record) => record.empName)
+                .join(", ");
+              return res.status(400).json({
+                error:
+                  "Attendance records could not be saved for the following employees (not allowed): " +
+                  invalidNames,
               });
+            }
 
-              const valuesAbsent = absentEmployees.map((empName) => {
-                return [
-                  empName,
-                  "",
-                  "",
-                  "",
-                  commonDate,
-                  0,
-                  "Absent",
-                  1
-                ];
-              });
+            const validRecords = attendanceRecords.filter((record) =>
+              allowedEmployeeNames.includes(record.empName)
+            );
 
-              const allValues = valuesValid.concat(valuesAbsent);
+            const recordedNames = new Set(validRecords.map((record) => record.empName));
 
-              const insertQuery = `
+            const absentEmployees = insertAbsent
+              ? allowedEmployeeNames.filter((name) => !recordedNames.has(name))
+              : [];
+
+            const valuesValid = validRecords.map((record) => {
+              const { work_hour, dayStatus } = calculateWorkHoursAndDay(
+                record.inTime,
+                record.outTime
+              );
+              return [
+                record.empName,
+                record.inTime,
+                record.outTime,
+                record.location,
+                record.date,
+                work_hour,
+                dayStatus,
+                0 // is_absent flag for present records
+              ];
+            });
+
+            const valuesAbsent = absentEmployees.map((empName) => {
+              return [
+                empName,
+                "",
+                "",
+                "",
+                commonDate,
+                0,
+                "Absent",
+                1
+              ];
+            });
+
+            const allValues = valuesValid.concat(valuesAbsent);
+
+            const insertQuery = `
                 INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
                 VALUES ?
               `;
-              db.query(insertQuery, [allValues], (err, result) => {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).json({
-                    error: "Database error while saving attendance records",
-                  });
-                }
-                // NEW: Emit socket event when records are saved.
-                emitAttendanceChange();
-                res.json({ message: "Attendance records saved successfully" });
-              });
-            }
-          );
+            db.query(insertQuery, [allValues], (err, result) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).json({
+                  error: "Database error while saving attendance records",
+                });
+              }
+              // NEW: Emit socket event when records are saved.
+              emitAttendanceChange();
+              res.json({ message: "Attendance records saved successfully" });
+            });
+          }
         }
       );
     }
@@ -383,16 +387,17 @@ app.get("/api/attendanceview", (req, res) => {
   });
 });
 
-// NEW API: Get Employees List for Admin Employee View
+// NEW API: Get Employees List for Admin Employee View using UNION query
 app.get("/api/employees-list", (req, res) => {
   res.set("Cache-Control", "no-store");
   db.query(
-    "SELECT id, Name as name FROM logincrd WHERE disableemp = 0",
+    "SELECT id, Name as name FROM logincrd WHERE disableemp = 0 UNION SELECT id, Name as name FROM employee_master",
     (err, results) => {
-      if (err)
+      if (err || results.length === 0) {
         return res.status(500).json({
           error: "Database error while fetching employee list",
         });
+      }
       res.json(results);
     }
   );
