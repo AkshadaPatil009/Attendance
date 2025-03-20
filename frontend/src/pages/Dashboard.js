@@ -22,7 +22,7 @@ const Dashboard = () => {
     } else {
       setUser(storedUser);
       // Set default section based on user role:
-      if (storedUser.role === "admin") {
+      if (storedUser.role === "Admin") {
         setActiveSection("attendanceForm");
       }
     }
@@ -30,7 +30,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Set current date automatically when admin logs in
-    if (user && user.role === "admin") {
+    if (user && user.role === "Admin") {
       setSelectedDate(new Date().toISOString().split("T")[0]); // Format as YYYY-MM-DD
     }
   }, [user]);
@@ -48,13 +48,13 @@ const Dashboard = () => {
       <Navbar bg="primary" variant="dark" expand="lg" className="mb-3 p-3">
         <Container fluid>
           <Navbar.Brand>
-            {user.role === "admin" ? "Admin Panel" : "Employee Dashboard"}
+            {user.role === "Admin" ? "Admin Panel" : "Employee Dashboard"}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Row className="w-100">
               {/* Left-aligned Date Picker (only for admin) */}
-              {user.role === "admin" && (
+              {user.role === "Admin" && (
                 <Col xs={12} md={4} className="d-flex align-items-center mt-2 mt-md-0">
                   <Form className="w-100">
                     <Form.Control
@@ -69,7 +69,7 @@ const Dashboard = () => {
               {/* Right-aligned Buttons */}
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
-                  {user.role === "admin" && (
+                  {user.role === "Admin" && (
                     <>
                       <Button
                         variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -91,7 +91,7 @@ const Dashboard = () => {
                   )}
 
                   {/* Remove "Employee View" Button if Logged in as Employee */}
-                  {user.role === "admin" && (
+                  {user.role === "Admin" && (
                     <Button
                       variant={activeSection === "employeeView" ? "secondary" : "light"}
                       className="me-2 mb-2"
@@ -121,7 +121,7 @@ const Dashboard = () => {
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "holidays" && <Holidays />}
         {activeSection === "employeeView" && (
-          user.role === "admin" ? <AdminEmployeeView /> : <EmployeeDashboard />
+          user.role === "Admin" ? <AdminEmployeeView /> : <EmployeeDashboard />
         )}
       </div>
 

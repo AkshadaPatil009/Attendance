@@ -10,7 +10,7 @@ const Header = ({ role }) => {
         {role && (
           <div>
             <Link className="btn btn-outline-light btn-sm me-2" to="/">Home</Link>
-            {role === "admin" && <Link className="btn btn-outline-light btn-sm me-2" to="/admin">Admin Dashboard</Link>}
+            {role === "Admin" && <Link className="btn btn-outline-light btn-sm me-2" to="/Admin">Admin Dashboard</Link>}
             {role === "employee" && <Link className="btn btn-outline-light btn-sm" to="/employee">Employee Dashboard</Link>}
           </div>
         )}
