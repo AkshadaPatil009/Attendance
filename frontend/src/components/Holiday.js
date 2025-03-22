@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Button, Form, Modal, Table } from "react-bootstrap";
+import { Button, Form, Modal, Table, Tabs, Tab, Container, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
-import "../pages/Dashboard.css"; // Ensure this file is imported so the CSS applies
+import "../pages/Dashboard.css"; // Ensure your CSS is applied
 
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
@@ -26,20 +26,11 @@ const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
 
   return (
     <div className="position-relative">
-      <Button
-        variant="outline-secondary"
-        onClick={() => setOpen(!open)}
-        className="w-100 text-start"
-      >
-        {selectedLocations.length > 0
-          ? selectedLocations.join(", ")
-          : "Select Locations"}
+      <Button variant="outline-secondary" onClick={() => setOpen(!open)} className="w-100 text-start">
+        {selectedLocations.length > 0 ? selectedLocations.join(", ") : "Select Locations"}
       </Button>
       {open && (
-        <div
-          className="border position-absolute bg-white p-2"
-          style={{ zIndex: 1000, width: "100%" }}
-        >
+        <div className="border position-absolute bg-white p-2" style={{ zIndex: 1000, width: "100%" }}>
           <Form.Check
             type="checkbox"
             label="Select All"
@@ -61,14 +52,11 @@ const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
   );
 };
 
+// Holidays component (unchanged from your code)
 const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newHoliday, setNewHoliday] = useState({
-    date: "",
-    name: "",
-    locations: [],
-  });
+  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
   const [filterLocation, setFilterLocation] = useState("All");
   const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
 
@@ -80,23 +68,17 @@ const Holidays = () => {
   const [holidayToDelete, setHolidayToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Fetch holiday list from the backend API
   const fetchHolidays = () => {
     fetch("http://localhost:5000/api/holidays")
       .then((res) => res.json())
-      .then((data) => {
-        setHolidays(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching holidays:", error);
-      });
+      .then((data) => setHolidays(data))
+      .catch((error) => console.error("Error fetching holidays:", error));
   };
 
   useEffect(() => {
     fetchHolidays();
   }, []);
 
-  // Filter holidays based on selected location
   const filteredHolidays =
     filterLocation === "All"
       ? holidays
@@ -104,13 +86,10 @@ const Holidays = () => {
 
   const handleAddHoliday = () => {
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
-      // Create an array of promises to add a holiday for each selected location
       const addHolidayPromises = newHoliday.locations.map((location) =>
         fetch("http://localhost:5000/api/holidays", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             holiday_date: newHoliday.date,
             holiday_name: newHoliday.name,
@@ -121,19 +100,15 @@ const Holidays = () => {
 
       Promise.all(addHolidayPromises)
         .then(() => {
-          // Re-fetch the holidays list after adding
           fetchHolidays();
           setNewHoliday({ date: "", name: "", locations: [] });
           setShowAddModal(false);
         })
-        .catch((error) => {
-          console.error("Error adding holiday(s):", error);
-        });
+        .catch((error) => console.error("Error adding holiday(s):", error));
     }
   };
 
   const handleEdit = (holiday) => {
-    // Adjust the date using timezone offset so that the correct date appears
     const date = new Date(holiday.holiday_date);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     const formattedDate = date.toISOString().split("T")[0];
@@ -149,9 +124,7 @@ const Holidays = () => {
   const handleUpdateHoliday = () => {
     fetch(`http://localhost:5000/api/holidays/${editingHoliday.id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         holiday_date: editingHoliday.holiday_date,
         holiday_name: editingHoliday.holiday_name,
@@ -160,17 +133,13 @@ const Holidays = () => {
     })
       .then((res) => res.json())
       .then(() => {
-        // Re-fetch the updated holidays list
         fetchHolidays();
         setShowEditModal(false);
         setEditingHoliday(null);
       })
-      .catch((error) => {
-        console.error("Error updating holiday:", error);
-      });
+      .catch((error) => console.error("Error updating holiday:", error));
   };
 
-  // Delete holiday functions
   const handleDelete = (holiday) => {
     setHolidayToDelete(holiday);
     setShowDeleteModal(true);
@@ -181,20 +150,16 @@ const Holidays = () => {
       method: "DELETE",
     })
       .then(() => {
-        // Re-fetch holidays after deletion
         fetchHolidays();
         setShowDeleteModal(false);
         setHolidayToDelete(null);
       })
-      .catch((error) => {
-        console.error("Error deleting holiday:", error);
-      });
+      .catch((error) => console.error("Error deleting holiday:", error));
   };
 
   return (
     <div className="container mt-4">
       <h3 className="text-center">Holidays</h3>
-
       {/* Filter Dropdown for Location */}
       <div className="mb-3">
         <Form.Group controlId="filterLocation">
@@ -213,7 +178,6 @@ const Holidays = () => {
           </Form.Control>
         </Form.Group>
       </div>
-
       {/* Table of Holidays */}
       <div className="border p-3 mt-3">
         {filteredHolidays.length > 0 ? (
@@ -230,7 +194,6 @@ const Holidays = () => {
               {filteredHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
                 const today = new Date();
-                // Compare only the date parts by zeroing out the time
                 const holidayDateOnly = new Date(
                   holidayDate.getFullYear(),
                   holidayDate.getMonth(),
@@ -242,21 +205,16 @@ const Holidays = () => {
                   today.getDate()
                 );
                 const isPast = holidayDateOnly < todayOnly;
-
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 });
-
                 return (
                   <tr
                     key={holiday.id}
                     className={isPast ? "completedHoliday" : ""}
-                    style={{
-                      backgroundColor: !isPast ? "#ff0000" : undefined,
-                      color: "#fff",
-                    }}
+                    style={{ backgroundColor: !isPast ? "#ff0000" : undefined, color: "#fff" }}
                   >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
@@ -280,12 +238,10 @@ const Holidays = () => {
           <p className="text-center">No holidays found.</p>
         )}
       </div>
-
       {/* Button to open "Add Holiday" modal */}
       <Button className="mt-3" onClick={() => setShowAddModal(true)}>
         Add Holiday
       </Button>
-
       {/* Add Holiday Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
         <Modal.Header closeButton>
@@ -298,9 +254,7 @@ const Holidays = () => {
               <Form.Control
                 type="date"
                 value={newHoliday.date}
-                onChange={(e) =>
-                  setNewHoliday({ ...newHoliday, date: e.target.value })
-                }
+                onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
               />
             </Form.Group>
             <Form.Group className="mt-2">
@@ -309,18 +263,14 @@ const Holidays = () => {
                 type="text"
                 placeholder="Enter holiday name"
                 value={newHoliday.name}
-                onChange={(e) =>
-                  setNewHoliday({ ...newHoliday, name: e.target.value })
-                }
+                onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
               />
             </Form.Group>
             <Form.Group className="mt-2">
               <Form.Label>Locations</Form.Label>
               <LocationMultiSelect
                 selectedLocations={newHoliday.locations}
-                setSelectedLocations={(locations) =>
-                  setNewHoliday({ ...newHoliday, locations })
-                }
+                setSelectedLocations={(locations) => setNewHoliday({ ...newHoliday, locations })}
               />
             </Form.Group>
           </Form>
@@ -334,7 +284,6 @@ const Holidays = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Edit Holiday Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
@@ -388,15 +337,13 @@ const Holidays = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Delete Holiday</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete the holiday "
-          {holidayToDelete && holidayToDelete.holiday_name}"?
+          Are you sure you want to delete the holiday "{holidayToDelete && holidayToDelete.holiday_name}"?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
@@ -411,4 +358,157 @@ const Holidays = () => {
   );
 };
 
-export default Holidays;
+// Leaves component with both "Add Leaves" and "Update Leaves" buttons
+const Leaves = () => {
+  const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
+  const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
+
+  // Calculate total as numbers (0 if empty)
+  const totalLeaves =
+    (parseInt(allocatedUnplannedLeave, 10) || 0) +
+    (parseInt(allocatedPlannedLeave, 10) || 0);
+
+  // ADD new leave records for employees who don't have any record yet
+  const handleAddLeaves = () => {
+    const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
+    const planned = parseInt(allocatedPlannedLeave, 10) || 0;
+
+    fetch("http://localhost:5000/api/employee-leaves", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allocatedUnplannedLeave: unplanned,
+        allocatedPlannedLeave: planned,
+        remainingUnplannedLeave: unplanned,
+        remainingPlannedLeave: planned,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.text().then((text) => {
+            console.error("Server error text:", text);
+            throw new Error(`Server error: ${res.status}`);
+          });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Added leaves for all employees:", data);
+        alert(
+          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
+            unplanned + planned
+          }`
+        );
+      })
+      .catch((error) => {
+        console.error("Error adding leaves:", error);
+        alert("Error adding leaves");
+      });
+  };
+
+  // UPDATE existing leave records for all employees
+  // (You'll need a corresponding PUT route in your backend, e.g. PUT /api/employee-leaves)
+  const handleUpdateLeaves = () => {
+    const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
+    const planned = parseInt(allocatedPlannedLeave, 10) || 0;
+
+    fetch("http://localhost:5000/api/employee-leaves", {
+      method: "PUT", // <-- This is a PUT request
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allocatedUnplannedLeave: unplanned,
+        allocatedPlannedLeave: planned,
+        remainingUnplannedLeave: unplanned,
+        remainingPlannedLeave: planned,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.text().then((text) => {
+            console.error("Server error text:", text);
+            throw new Error(`Server error: ${res.status}`);
+          });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Updated leaves for all employees:", data);
+        alert(
+          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
+            unplanned + planned
+          }`
+        );
+      })
+      .catch((error) => {
+        console.error("Error updating leaves:", error);
+        alert("Error updating leaves");
+      });
+  };
+
+  return (
+    <div className="container mt-4" style={{ minHeight: "600px" }}>
+      <h3 className="text-center mb-4">Add / Update Leaves for All Employees</h3>
+      <Row className="justify-content-center mt-3">
+        <Col md={4}>
+          <Form.Group>
+            <Form.Label>Allocated Unplanned Leaves</Form.Label>
+            <Form.Control
+              type="number"
+              placeholder="Enter unplanned leaves"
+              value={allocatedUnplannedLeave}
+              onChange={(e) => setAllocatedUnplannedLeave(e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={4}>
+          <Form.Group>
+            <Form.Label>Allocated Planned Leaves</Form.Label>
+            <Form.Control
+              type="number"
+              placeholder="Enter planned leaves"
+              value={allocatedPlannedLeave}
+              onChange={(e) => setAllocatedPlannedLeave(e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+      <Row className="justify-content-center mt-3">
+        <Col md={8} className="text-center">
+          <h4>Total Leaves: {totalLeaves}</h4>
+        </Col>
+      </Row>
+      <Row className="justify-content-center mt-4">
+        <Col md={2} className="text-center">
+          <Button variant="primary" onClick={handleAddLeaves}>
+            Add Leaves for All
+          </Button>
+        </Col>
+        <Col md={2} className="text-center">
+          <Button variant="success" onClick={handleUpdateLeaves}>
+            Update Leaves for All
+          </Button>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+
+// Parent component with tabs for Holidays and Leaves
+const HolidayAndLeavesTabs = () => {
+  const [activeTab, setActiveTab] = useState("holidays");
+
+  return (
+    <div className="container mt-4" style={{ minHeight: "600px" }}>
+      <Tabs activeKey={activeTab} onSelect={(tab) => setActiveTab(tab)} className="mb-3">
+        <Tab eventKey="holidays" title="Holidays">
+          <Holidays />
+        </Tab>
+        <Tab eventKey="leaves" title="Leaves">
+          <Leaves />
+        </Tab>
+      </Tabs>
+    </div>
+  );
+};
+
+export default HolidayAndLeavesTabs;
