@@ -2,29 +2,62 @@ import React, { useState, useEffect } from "react";
 import { Card, Table } from "react-bootstrap";
 
 const EmployeeDashboard = () => {
+  // Retrieve stored user info from localStorage
+  // Must contain employeeId returned from the login
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+  const employeeId = storedUser?.employeeId;
+
+  // State for employee leaves
   const [employeeLeaves, setEmployeeLeaves] = useState({
-    sickLeave: "",
+    unplannedLeave: "",
     plannedLeave: "",
-    remainingSickLeave: "",
+    remainingUnplannedLeave: "",
     remainingPlannedLeave: "",
   });
+
+  // State for holidays
   const [holidays, setHolidays] = useState([]);
 
-  // Optionally, you could add logic here to fetch the logged-in employee's leave details.
-  // For example:
-  // useEffect(() => {
-  //   const employeeId = ... // get employee ID from context or props
-  //   fetch(`http://localhost:5000/api/employee-leaves/${employeeId}`)
-  //     .then((response) => response.json())
-  //     .then((data) => setEmployeeLeaves(data))
-  //     .catch((error) => console.error("Error fetching employee leaves:", error));
-  // }, []);
-
-  // Fetch holidays for employee view on mount
+  // Fetch the employee's leave details
   useEffect(() => {
-    fetch("http://localhost:5000/api/holidays")
-      .then((response) => response.json())
-      .then((data) => setHolidays(data))
+    if (!employeeId) {
+      console.error("No employeeId found in localStorage user data.");
+      return;
+    }
+
+    fetch(`http://localhost:5000/api/employees-leaves/${employeeId}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("No leave record found or server error.");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        // data => { usedUnplannedLeave, usedPlannedLeave, remainingUnplannedLeave, remainingPlannedLeave }
+        setEmployeeLeaves({
+          unplannedLeave: data.usedUnplannedLeave || 0,
+          plannedLeave: data.usedPlannedLeave || 0,
+          remainingUnplannedLeave: data.remainingUnplannedLeave || 0,
+          remainingPlannedLeave: data.remainingPlannedLeave || 0,
+        });
+      })
+      .catch((error) => {
+        console.error("Error fetching employee leaves:", error);
+      });
+  }, [employeeId]);
+
+  // Fetch holiday list on mount
+  useEffect(() => {
+    fetch("http://localhost:5000/api/employee_holidays")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Error fetching holidays");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        setHolidays(data);
+      })
       .catch((error) => console.error("Error fetching holidays:", error));
   }, []);
 
@@ -37,15 +70,13 @@ const EmployeeDashboard = () => {
         className="p-3 shadow-sm mt-3"
         style={{ maxWidth: "400px", margin: "auto" }}
       >
-        <h5>
-          <b>Used Leaves</b>
-        </h5>
+        <h5><b>Used Leaves</b></h5>
         <div className="d-flex justify-content-between align-items-center">
-          <span>Sick Leave</span>
+          <span>Unplanned Leave</span>
           <input
             type="text"
             className="form-control w-50"
-            value={employeeLeaves.sickLeave}
+            value={employeeLeaves.unplannedLeave}
             readOnly
           />
         </div>
@@ -59,15 +90,13 @@ const EmployeeDashboard = () => {
           />
         </div>
 
-        <h5 className="mt-3">
-          <b>Remaining Leaves</b>
-        </h5>
+        <h5 className="mt-3"><b>Remaining Leaves</b></h5>
         <div className="d-flex justify-content-between align-items-center">
-          <span>Sick Leave</span>
+          <span>Unplanned Leave</span>
           <input
             type="text"
             className="form-control w-50"
-            value={employeeLeaves.remainingSickLeave}
+            value={employeeLeaves.remainingUnplannedLeave}
             readOnly
           />
         </div>
@@ -84,9 +113,7 @@ const EmployeeDashboard = () => {
 
       {/* Holiday List Table */}
       <div className="mt-4">
-        <h5 className="text-center">
-          <b>Holiday List</b>
-        </h5>
+        <h5 className="text-center"><b>Holiday List</b></h5>
         <Table striped bordered hover responsive>
           <thead>
             <tr>
@@ -102,9 +129,7 @@ const EmployeeDashboard = () => {
                   <td>{index + 1}</td>
                   <td>{holiday.holiday_name}</td>
                   <td>
-                    {new Date(holiday.holiday_date)
-                      .toISOString()
-                      .split("T")[0]}
+                    {new Date(holiday.holiday_date).toISOString().split("T")[0]}
                   </td>
                 </tr>
               ))

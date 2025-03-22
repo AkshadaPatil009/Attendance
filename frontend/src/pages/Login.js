@@ -15,7 +15,7 @@ const Login = ({ setUser }) => {
       const res = await axios.post("http://localhost:5000/login", { email, password });
 
       // Store user info in localStorage
-      const userData = { role: res.data.role, name: res.data.name, token: res.data.token };
+      const userData = { role: res.data.role, name: res.data.name, token: res.data.token, employeeId: res.data.employeeId};
       localStorage.setItem("user", JSON.stringify(userData));
 
       // Update state & redirect

@@ -55,7 +55,7 @@ app.post("/login", (req, res) => {
       "secret",
       { expiresIn: "1h" }
     );
-    res.json({ token, name: user.Name, role: user.Type });
+    res.json({ token, name: user.Name, role: user.Type, employeeId: user.id });
   });
 });
 
@@ -325,31 +325,53 @@ app.get("/api/attendanceview", (req, res) => {
   });
 });
 
-// NEW API: Get Employees List for Admin Employee View using UNION query
+// ======================================================================
+// 1) GET /api/employees-list
+//    Return all employees with their leaves (used, remaining, allocated).
+// ======================================================================
 app.get("/api/employees-list", (req, res) => {
+  // Prevent caching
   res.set("Cache-Control", "no-store");
-  db.query(
-    "SELECT id, Name as name FROM logincrd WHERE disableemp = 0 UNION SELECT id, Name as name FROM employee_master",
-    (err, results) => {
-      if (err || results.length === 0) {
-        return res.status(500).json({ error: "Database error while fetching employee list" });
-      }
-      res.json(results);
+
+  const sql = `
+    SELECT
+      l.id,
+      l.Name AS name,
+      COALESCE(e.allocatedUnplannedLeave, 0) AS allocatedUnplannedLeave,
+      COALESCE(e.allocatedPlannedLeave, 0) AS allocatedPlannedLeave,
+      COALESCE(e.usedUnplannedLeave, 0) AS usedUnplannedLeave,
+      COALESCE(e.usedPlannedLeave, 0) AS usedPlannedLeave,
+      COALESCE(e.remainingUnplannedLeave, 0) AS remainingUnplannedLeave,
+      COALESCE(e.remainingPlannedLeave, 0) AS remainingPlannedLeave
+    FROM logincrd l
+    LEFT JOIN employee_leaves e
+      ON l.id = e.employee_id
+    WHERE l.disableemp = 0
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching employees:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error while fetching employee list" });
     }
-  );
+
+    if (!results || results.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No active employees found or no data available." });
+    }
+
+    res.json(results);
+  });
 });
 
-/* 
-  NEW: Route to ADD new leave records for all employees (POST).
-  Assumes table structure (employee_leaves):
-    employee_id (primary key)
-    allocatedUnplannedLeave
-    allocatedPlannedLeave
-    usedUnplannedLeave
-    usedPlannedLeave
-    remainingUnplannedLeave
-    remainingPlannedLeave
-*/
+// ======================================================================
+// 2) POST /api/employee-leaves
+//    Adds new leave records for employees who don't have any in employee_leaves.
+//    Used Unplanned/Planned Leaves will be set to 0 automatically.
+// ======================================================================
 app.post("/api/employee-leaves", (req, res) => {
   const {
     allocatedUnplannedLeave,
@@ -358,18 +380,22 @@ app.post("/api/employee-leaves", (req, res) => {
     remainingPlannedLeave,
   } = req.body;
 
-  // 1) Get all employees from logincrd (or from both logincrd & employee_master if you prefer).
-  db.query("SELECT id FROM logincrd", (err, employees) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error fetching employees" });
-    }
+// 1) Get all active employees from logincrd
+db.query("SELECT id, Name FROM logincrd WHERE disableemp = 0", (err, employees) => {
+  if (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Database error fetching employees" });
+  }
 
-    if (!employees || employees.length === 0) {
-      return res.status(400).json({ error: "No employees found in logincrd table" });
-    }
+  if (!employees || employees.length === 0) {
+    return res.status(400).json({ error: "No active employees found in logincrd table" });
+  }
 
-    // We'll do a multi-row INSERT for employees not yet in the employee_leaves table.
+  // Process employees here
+  // For example, sending the employee data as a response
+  res.json({ employees });
+
+    // We'll do a multi-row INSERT for employees not yet in employee_leaves
     const employeeIds = employees.map((emp) => emp.id);
 
     db.query(
@@ -384,21 +410,24 @@ app.post("/api/employee-leaves", (req, res) => {
         }
 
         const existingIds = existingResults.map((row) => row.employee_id);
-        const newEmployees = employees.filter((emp) => !existingIds.includes(emp.id));
+        const newEmployees = employees.filter(
+          (emp) => !existingIds.includes(emp.id)
+        );
 
         if (newEmployees.length === 0) {
           return res.json({
-            message: "All employees already have leave records. No new rows added.",
+            message:
+              "All employees already have leave records. No new rows added.",
           });
         }
 
-        // (employee_id, allocatedUnplannedLeave, allocatedPlannedLeave, usedUnplannedLeave, usedPlannedLeave, remainingUnplannedLeave, remainingPlannedLeave)
+        // Notice usedUnplannedLeave and usedPlannedLeave are set to 0
         const values = newEmployees.map((emp) => [
           emp.id,
           allocatedUnplannedLeave,
           allocatedPlannedLeave,
-          0, // usedUnplannedLeave
-          0, // usedPlannedLeave
+          0, // usedUnplannedLeave = 0
+          0, // usedPlannedLeave = 0
           remainingUnplannedLeave,
           remainingPlannedLeave,
         ]);
@@ -418,7 +447,9 @@ app.post("/api/employee-leaves", (req, res) => {
         db.query(insertSql, [values], (err, insertResult) => {
           if (err) {
             console.error(err);
-            return res.status(500).json({ error: "Error inserting new leave records" });
+            return res
+              .status(500)
+              .json({ error: "Error inserting new leave records" });
           }
           return res.json({
             message: `Added leave records for ${newEmployees.length} employees`,
@@ -430,11 +461,11 @@ app.post("/api/employee-leaves", (req, res) => {
   });
 });
 
-/*
-  NEW: Route to UPDATE existing leave records for ALL employees (PUT).
-  This updates columns like allocatedUnplannedLeave, allocatedPlannedLeave, etc.
-  in the employee_leaves table for every row.
-*/
+// ======================================================================
+// 3) PUT /api/employee-leaves
+//    Update allocated & remaining leaves for ALL employees (bulk update).
+//    Also sets usedUnplannedLeave and usedPlannedLeave to 0 for ALL employees.
+// ======================================================================
 app.put("/api/employee-leaves", (req, res) => {
   const {
     allocatedUnplannedLeave,
@@ -443,14 +474,16 @@ app.put("/api/employee-leaves", (req, res) => {
     remainingPlannedLeave,
   } = req.body;
 
-  // Example: Update all employees' leaves in the table
+  // usedUnplannedLeave = 0 and usedPlannedLeave = 0 for all employees
   const updateSql = `
     UPDATE employee_leaves
     SET
       allocatedUnplannedLeave = ?,
       allocatedPlannedLeave = ?,
       remainingUnplannedLeave = ?,
-      remainingPlannedLeave = ?
+      remainingPlannedLeave = ?,
+      usedUnplannedLeave = 0,
+      usedPlannedLeave = 0
   `;
 
   db.query(
@@ -464,7 +497,9 @@ app.put("/api/employee-leaves", (req, res) => {
     (err, result) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Database error updating leaves" });
+        return res
+          .status(500)
+          .json({ error: "Database error updating leaves" });
       }
       res.json({
         message: "Leaves updated successfully for all employees",
@@ -474,6 +509,112 @@ app.put("/api/employee-leaves", (req, res) => {
   );
 });
 
+// ======================================================================
+// 4) PUT /api/employee-leaves/:id
+//    Update used & remaining leaves for a single employee (if needed).
+//    This route remains unchanged. You can still individually set used leaves.
+// ======================================================================
+app.put("/api/employee-leaves/:id", (req, res) => {
+  const employeeId = req.params.id;
+  const {
+    usedUnplannedLeave,
+    usedPlannedLeave,
+    remainingUnplannedLeave,
+    remainingPlannedLeave,
+  } = req.body;
+
+  const updateSql = `
+    UPDATE employee_leaves
+    SET
+      usedUnplannedLeave = ?,
+      usedPlannedLeave = ?,
+      remainingUnplannedLeave = ?,
+      remainingPlannedLeave = ?
+    WHERE employee_id = ?
+  `;
+
+  const params = [
+    usedUnplannedLeave,
+    usedPlannedLeave,
+    remainingUnplannedLeave,
+    remainingPlannedLeave,
+    employeeId,
+  ];
+
+  db.query(updateSql, params, (err, result) => {
+    if (err) {
+      console.error("Error updating employee leaves:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error updating employee leaves." });
+    }
+    if (result.affectedRows === 0) {
+      // No record updated => no row found for this employee_id
+      return res
+        .status(404)
+        .json({ error: "No leave record found for this employee." });
+    }
+    res.json({ message: "Employee leaves updated successfully." });
+  });
+});
+
+
+
+
+
+/**
+ * GET /api/employees-leaves/:id
+ * Fetch used & remaining leaves for the given employee ID
+ */
+app.get("/api/employees-leaves/:id", (req, res) => {
+  const employeeId = req.params.id;
+  console.log("Fetching leaves for employeeId:", employeeId);
+
+  const sql = `
+    SELECT
+      usedUnplannedLeave AS usedUnplannedLeave,
+      usedPlannedLeave AS usedPlannedLeave,
+      remainingUnplannedLeave AS remainingUnplannedLeave,
+      remainingPlannedLeave AS remainingPlannedLeave
+    FROM employee_leaves
+    WHERE employee_id = ?
+    LIMIT 1
+  `;
+  db.query(sql, [employeeId], (err, results) => {
+    if (err) {
+      console.error("Error fetching employee leaves:", err);
+      return res.status(500).json({ error: "Database error fetching leaves." });
+    }
+    if (!results || results.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "No leave record found for this employee." });
+    }
+    res.json(results[0]);
+  });
+});
+
+
+/*
+  Optionally, if you need a GET /api/employee_holidays route:
+*/
+app.get("/api/employee_holidays", (req, res) => {
+  const sql = `
+    SELECT
+      id,
+      holiday_name,
+      holiday_date
+    FROM holidays
+    ORDER BY holiday_date
+  `;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching holidays:", err);
+      return res.status(500).json({ error: "Database error fetching holidays." });
+    }
+    res.json(results);
+  });
+});
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
