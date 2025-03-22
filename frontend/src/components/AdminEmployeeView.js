@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Form, Card } from "react-bootstrap";
+import { Form, Card, Button, Alert } from "react-bootstrap";
 
 const AdminEmployeeView = () => {
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [employeeLeaves, setEmployeeLeaves] = useState({
-    sickLeave: "",
-    plannedLeave: "",
-    remainingSickLeave: "",
-    remainingPlannedLeave: "",
-  });
   const [employees, setEmployees] = useState([]);
+  const [leaveForm, setLeaveForm] = useState({
+    allocatedUnplannedLeave: "",
+    allocatedPlannedLeave: "",
+  });
 
-  // Fetch employees list for admin view on mount
+  const [message, setMessage] = useState(null);
+
   useEffect(() => {
     fetch("http://localhost:5000/api/employees-list")
       .then((response) => response.json())
@@ -19,103 +17,62 @@ const AdminEmployeeView = () => {
       .catch((error) => console.error("Error fetching employees:", error));
   }, []);
 
-  // Fetch employee leaves when an employee is selected
-  const handleEmployeeSelect = (e) => {
-    const employeeId = e.target.value;
-    setSelectedEmployee(employeeId);
+  const handleLeaveFormChange = (e) => {
+    const { name, value } = e.target;
+    setLeaveForm((prev) => ({ ...prev, [name]: value }));
+  };
 
-    if (employeeId !== "") {
-      fetch(`http://localhost:5000/api/employee-leaves/${employeeId}`)
-        .then((response) => response.json())
-        .then((data) => setEmployeeLeaves(data))
-        .catch((error) =>
-          console.error("Error fetching employee leaves:", error)
-        );
-    } else {
-      setEmployeeLeaves({
-        sickLeave: "",
-        plannedLeave: "",
-        remainingSickLeave: "",
-        remainingPlannedLeave: "",
+  const distributeLeaves = () => {
+    const dataToSend = { ...leaveForm };
+
+    fetch("http://localhost:5000/api/employee-leaves/bulk-insert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dataToSend),
+    })
+      .then((response) => {
+        if (response.ok) {
+          setMessage("Leaves have been distributed to all employees successfully.");
+        } else {
+          setMessage("Error distributing leaves.");
+        }
+      })
+      .catch((error) => {
+        console.error("Error distributing leaves:", error);
+        setMessage("Error distributing leaves.");
       });
-    }
   };
 
   return (
     <div className="container mt-4">
       <h3 className="text-center mt-4">Admin Employee View</h3>
+      {message && <Alert variant="info">{message}</Alert>}
 
-      {/* Employee Selection Dropdown */}
-      <div className="mb-4">
-        <Form.Group controlId="employeeSelect">
-          <Form.Label>Select Employee</Form.Label>
-          <Form.Control
-            as="select"
-            onChange={handleEmployeeSelect}
-            value={selectedEmployee}
-          >
-            <option value="">-- Select Employee --</option>
-            {employees.length > 0 ? (
-              employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))
-            ) : (
-              <option disabled>No employees found</option>
-            )}
-          </Form.Control>
-        </Form.Group>
-      </div>
-
-      {/* Leave Details Card */}
-      <Card
-        className="p-3 shadow-sm mt-3"
-        style={{ maxWidth: "400px", margin: "auto" }}
-      >
-        <h5>
-          <b>Used Leaves</b>
-        </h5>
-        <div className="d-flex justify-content-between align-items-center">
-          <span>Sick Leave</span>
-          <input
-            type="text"
-            className="form-control w-50"
-            value={employeeLeaves.sickLeave}
-            readOnly
-          />
-        </div>
-        <div className="d-flex justify-content-between align-items-center mt-2">
-          <span>Planned Leave</span>
-          <input
-            type="text"
-            className="form-control w-50"
-            value={employeeLeaves.plannedLeave}
-            readOnly
-          />
-        </div>
-
-        <h5 className="mt-3">
-          <b>Remaining Leaves</b>
-        </h5>
-        <div className="d-flex justify-content-between align-items-center">
-          <span>Sick Leave</span>
-          <input
-            type="text"
-            className="form-control w-50"
-            value={employeeLeaves.remainingSickLeave}
-            readOnly
-          />
-        </div>
-        <div className="d-flex justify-content-between align-items-center mt-2">
-          <span>Planned Leave</span>
-          <input
-            type="text"
-            className="form-control w-50"
-            value={employeeLeaves.remainingPlannedLeave}
-            readOnly
-          />
-        </div>
+      <Card className="p-3 shadow-sm mt-4" style={{ maxWidth: "500px", margin: "auto" }}>
+        <h5><b>Distribute Leaves to All Employees</b></h5>
+        <Form>
+          <Form.Group>
+            <Form.Label>Allocated Unplanned Leave</Form.Label>
+            <Form.Control
+              type="number"
+              name="allocatedUnplannedLeave"
+              value={leaveForm.allocatedUnplannedLeave}
+              onChange={handleLeaveFormChange}
+            />
+          </Form.Group>
+          <Form.Group className="mt-3">
+            <Form.Label>Allocated Planned Leave</Form.Label>
+            <Form.Control
+              type="number"
+              name="allocatedPlannedLeave"
+              value={leaveForm.allocatedPlannedLeave}
+              onChange={handleLeaveFormChange}
+            />
+          </Form.Group>
+          <Button variant="success" className="mt-3" onClick={distributeLeaves}>
+            Distribute Leaves
+          </Button>
+        </Form>
       </Card>
     </div>
   );
