@@ -42,10 +42,17 @@ const Dashboard = () => {
 
   if (!user) return null; // Prevent rendering until user data is loaded
 
+  // Conditional logout button styling:
+  // For employees (non-admin), place it absolutely at the top-right corner of the header.
+  const logoutButtonStyle =
+    user.role !== "Admin"
+      ? { position: "absolute", top: "10px", right: "10px" }
+      : {};
+
   return (
     <div>
       <Header role={user.role} />
-      <Navbar bg="primary" variant="dark" expand="lg" className="mb-3 p-3">
+      <Navbar bg="primary" variant="dark" expand="lg" className="mb-3 p-3" style={{ position: "relative" }}>
         <Container fluid>
           {/* Display user’s name on the left side */}
           <Navbar.Brand>
@@ -69,7 +76,7 @@ const Dashboard = () => {
                   </Form>
                 </Col>
               )}
-              {/* Right-aligned Buttons */}
+              {/* Right-aligned Section Buttons */}
               <Col xs={12} md={8} className="d-flex justify-content-md-end">
                 <Nav className="d-flex flex-wrap">
                   {user.role === "Admin" && (
@@ -97,14 +104,23 @@ const Dashboard = () => {
                       </Button>
                     </>
                   )}
-                  {/* Logout Button */}
-                  <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
-                    Logout
-                  </Button>
+                  {/* For Admin, Logout button is rendered normally as part of Nav.
+                      For employees, it will also be rendered inside Nav but with absolute positioning below. */}
+                  {user.role === "Admin" && (
+                    <Button variant="danger" className="ms-2 mb-2" onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  )}
                 </Nav>
               </Col>
             </Row>
           </Navbar.Collapse>
+          {/* For Employee Dashboard, position the Logout button in the corner */}
+          {user.role !== "Admin" && (
+            <Button variant="danger" style={logoutButtonStyle} onClick={handleLogout}>
+              Logout
+            </Button>
+          )}
         </Container>
       </Navbar>
 
