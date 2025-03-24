@@ -204,9 +204,9 @@ app.post("/api/attendance", (req, res) => {
             (err, allowedResults) => {
               if (err || allowedResults.length === 0) {
                 console.error(err);
-                return res.status(500).json({
-                  error: "Database error while fetching allowed employees",
-                });
+                return res
+                  .status(500)
+                  .json({ error: "Database error while fetching allowed employees" });
               }
               processAttendanceRecords(allowedResults.map((row) => row.Name));
             }
@@ -266,15 +266,15 @@ app.post("/api/attendance", (req, res) => {
             const allValues = valuesValid.concat(valuesAbsent);
 
             const insertQuery = `
-              INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
-              VALUES ?
-            `;
+          INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
+          VALUES ?
+        `;
             db.query(insertQuery, [allValues], (err, result) => {
               if (err) {
                 console.error(err);
-                return res.status(500).json({
-                  error: "Database error while saving attendance records",
-                });
+                return res
+                  .status(500)
+                  .json({ error: "Database error while saving attendance records" });
               }
               // NEW: Emit socket event when records are saved.
               emitAttendanceChange();
@@ -295,9 +295,7 @@ app.put("/api/attendance/:id", (req, res) => {
   db.query("SELECT * FROM attendance WHERE id = ?", [id], (err, results) => {
     if (err) {
       console.error(err);
-      return res
-        .status(500)
-        .json({ error: "Database error while fetching record" });
+      return res.status(500).json({ error: "Database error while fetching record" });
     }
     if (results.length === 0) {
       return res.status(404).json({ error: "Attendance record not found" });
@@ -368,9 +366,7 @@ app.get("/api/attendance", (req, res) => {
   }
   db.query(query, params, (err, results) => {
     if (err)
-      return res.status(500).json({
-        error: "Database error while fetching attendance records",
-      });
+      return res.status(500).json({ error: "Database error while fetching attendance records" });
     res.json(results);
   });
 });
@@ -402,9 +398,7 @@ app.get("/api/attendanceview", (req, res) => {
   db.query(query, params, (err, results) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({
-        error: "Database error while fetching attendance records",
-      });
+      return res.status(500).json({ error: "Database error while fetching attendance records" });
     }
     res.json(results);
   });
@@ -437,9 +431,9 @@ app.get("/api/employees-list", (req, res) => {
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching employees:", err);
-      return res.status(500).json({
-        error: "Database error while fetching employee list",
-      });
+      return res
+        .status(500)
+        .json({ error: "Database error while fetching employee list" });
     }
 
     if (!results || results.length === 0) {
@@ -473,11 +467,10 @@ app.post("/api/employee-leaves", (req, res) => {
     }
 
     if (!employees || employees.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "No active employees found in logincrd table" });
+      return res.status(400).json({ error: "No active employees found in logincrd table" });
     }
 
+    // Removed duplicate res.json response here that was causing the headers error
     // We'll do a multi-row INSERT for employees not yet in employee_leaves
     const employeeIds = employees.map((emp) => emp.id);
 
@@ -493,9 +486,7 @@ app.post("/api/employee-leaves", (req, res) => {
         }
 
         const existingIds = existingResults.map((row) => row.employee_id);
-        const newEmployees = employees.filter(
-          (emp) => !existingIds.includes(emp.id)
-        );
+        const newEmployees = employees.filter((emp) => !existingIds.includes(emp.id));
 
         if (newEmployees.length === 0) {
           return res.json({
@@ -580,7 +571,9 @@ app.put("/api/employee-leaves", (req, res) => {
     (err, result) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Database error updating leaves" });
+        return res
+          .status(500)
+          .json({ error: "Database error updating leaves" });
       }
       res.json({
         message: "Leaves updated successfully for all employees",
@@ -646,6 +639,7 @@ app.put("/api/employee-leaves/:id", (req, res) => {
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
   
+
   const sql = `
     SELECT
       usedUnplannedLeave AS usedUnplannedLeave,
@@ -689,6 +683,106 @@ app.get("/api/employee_holidays", (req, res) => {
     }
     res.json(results);
   });
+});
+
+// ======================================================================
+// (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
+// Add a new leave record for ONE employee, or update if already exists
+// ======================================================================
+app.post("/api/employee-leaves/add", (req, res) => {
+  const {
+    employeeId,
+    allocatedUnplannedLeave,
+    allocatedPlannedLeave,
+    usedUnplannedLeave,
+    usedPlannedLeave,
+    remainingUnplannedLeave,
+    remainingPlannedLeave,
+  } = req.body;
+
+  if (!employeeId) {
+    return res
+      .status(400)
+      .json({ error: "employeeId is required to add a leave record." });
+  }
+
+  // Check if there's already a record for this employee
+  db.query(
+    "SELECT * FROM employee_leaves WHERE employee_id = ?",
+    [employeeId],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Database error checking leaves" });
+      }
+      if (rows.length > 0) {
+        // If a record already exists, let's update it instead (or you could return an error).
+        const updateSql = `
+          UPDATE employee_leaves
+          SET
+            allocatedUnplannedLeave = ?,
+            allocatedPlannedLeave = ?,
+            usedUnplannedLeave = ?,
+            usedPlannedLeave = ?,
+            remainingUnplannedLeave = ?,
+            remainingPlannedLeave = ?
+          WHERE employee_id = ?
+        `;
+        const updateParams = [
+          allocatedUnplannedLeave || 0,
+          allocatedPlannedLeave || 0,
+          usedUnplannedLeave || 0,
+          usedPlannedLeave || 0,
+          remainingUnplannedLeave || 0,
+          remainingPlannedLeave || 0,
+          employeeId,
+        ];
+        db.query(updateSql, updateParams, (err2) => {
+          if (err2) {
+            console.error(err2);
+            return res
+              .status(500)
+              .json({ error: "Error updating existing leave record" });
+          }
+          return res.json({
+            message: "Employee leave record updated (existing).",
+          });
+        });
+      } else {
+        // No existing record => insert new
+        const insertSql = `
+          INSERT INTO employee_leaves (
+            employee_id,
+            allocatedUnplannedLeave,
+            allocatedPlannedLeave,
+            usedUnplannedLeave,
+            usedPlannedLeave,
+            remainingUnplannedLeave,
+            remainingPlannedLeave
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+        const insertParams = [
+          employeeId,
+          allocatedUnplannedLeave || 0,
+          allocatedPlannedLeave || 0,
+          usedUnplannedLeave || 0,
+          usedPlannedLeave || 0,
+          remainingUnplannedLeave || 0,
+          remainingPlannedLeave || 0,
+        ];
+        db.query(insertSql, insertParams, (err3) => {
+          if (err3) {
+            console.error(err3);
+            return res
+              .status(500)
+              .json({ error: "Error inserting new leave record" });
+          }
+          return res.json({ message: "New employee leave record added." });
+        });
+      }
+    }
+  );
 });
 
 // NEW: Listen for socket connections.
