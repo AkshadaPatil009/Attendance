@@ -158,77 +158,133 @@ const calculateWorkHoursAndDay = (inTime, outTime) => {
 // POST Attendance API - Save attendance records with automatic work hours calculation
 app.post("/api/attendance", (req, res) => {
   const attendanceRecords = req.body.attendanceRecords;
-  if (!attendanceRecords || !Array.isArray(attendanceRecords) || attendanceRecords.length === 0) {
+  if (
+    !attendanceRecords ||
+    !Array.isArray(attendanceRecords) ||
+    attendanceRecords.length === 0
+  ) {
     return res.status(400).json({ error: "No attendance records provided" });
   }
 
   const commonDate = attendanceRecords[0].date;
 
-  db.query("SELECT COUNT(*) as count FROM attendance WHERE date = ?", [commonDate], (err, countResult) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error while validating duplicate date" });
-    }
-    if (countResult[0].count > 0) {
-      return res.status(400).json({ error: "Attendance records for this date already exist" });
-    }
-
-    const isSunday = moment(commonDate, "YYYY-MM-DD").day() === 0;
-    db.query("SELECT COUNT(*) as holidayCount FROM holidays WHERE holiday_date = ?", [commonDate], (err, holidayResult) => {
+  db.query(
+    "SELECT COUNT(*) as count FROM attendance WHERE date = ?",
+    [commonDate],
+    (err, countResult) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Database error while checking holiday" });
+        return res
+          .status(500)
+          .json({ error: "Database error while validating duplicate date" });
       }
-      const isHoliday = holidayResult[0].holidayCount > 0;
-      const insertAbsent = !(isSunday || isHoliday);
+      if (countResult[0].count > 0) {
+        return res
+          .status(400)
+          .json({ error: "Attendance records for this date already exist" });
+      }
 
-      // Use UNION query to combine allowed employees from both tables
-      db.query("SELECT Name FROM logincrd WHERE disableemp = 0 UNION SELECT Name FROM employee_master", (err, allowedResults) => {
-        if (err || allowedResults.length === 0) {
-          console.error(err);
-          return res.status(500).json({ error: "Database error while fetching allowed employees" });
-        }
-        processAttendanceRecords(allowedResults.map(row => row.Name));
-      });
-
-      // Helper function to process attendance records
-      function processAttendanceRecords(allowedEmployeeNames) {
-        const invalidRecords = attendanceRecords.filter(record => !allowedEmployeeNames.includes(record.empName));
-        if (invalidRecords.length > 0) {
-          const invalidNames = invalidRecords.map(record => record.empName).join(", ");
-          return res.status(400).json({
-            error: "Attendance records could not be saved for the following employees (not allowed): " + invalidNames,
-          });
-        }
-
-        const validRecords = attendanceRecords.filter(record => allowedEmployeeNames.includes(record.empName));
-        const recordedNames = new Set(validRecords.map(record => record.empName));
-        const absentEmployees = insertAbsent ? allowedEmployeeNames.filter(name => !recordedNames.has(name)) : [];
-
-        const valuesValid = validRecords.map(record => {
-          const { work_hour, dayStatus } = calculateWorkHoursAndDay(record.inTime, record.outTime);
-          return [record.empName, record.inTime, record.outTime, record.location, record.date, work_hour, dayStatus, 0];
-        });
-
-        const valuesAbsent = absentEmployees.map(empName => [empName, "", "", "", commonDate, 0, "Absent", 1]);
-        const allValues = valuesValid.concat(valuesAbsent);
-
-        const insertQuery = `
-          INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
-          VALUES ?
-        `;
-        db.query(insertQuery, [allValues], (err, result) => {
+      const isSunday = moment(commonDate, "YYYY-MM-DD").day() === 0;
+      db.query(
+        "SELECT COUNT(*) as holidayCount FROM holidays WHERE holiday_date = ?",
+        [commonDate],
+        (err, holidayResult) => {
           if (err) {
             console.error(err);
-            return res.status(500).json({ error: "Database error while saving attendance records" });
+            return res
+              .status(500)
+              .json({ error: "Database error while checking holiday" });
           }
-          // NEW: Emit socket event when records are saved.
-          emitAttendanceChange();
-          res.json({ message: "Attendance records saved successfully" });
-        });
-      }
-    });
-  });
+          const isHoliday = holidayResult[0].holidayCount > 0;
+          const insertAbsent = !(isSunday || isHoliday);
+
+          // Use UNION query to combine allowed employees from both tables
+          db.query(
+            "SELECT Name FROM logincrd WHERE disableemp = 0 UNION SELECT Name FROM employee_master",
+            (err, allowedResults) => {
+              if (err || allowedResults.length === 0) {
+                console.error(err);
+                return res.status(500).json({
+                  error: "Database error while fetching allowed employees",
+                });
+              }
+              processAttendanceRecords(allowedResults.map((row) => row.Name));
+            }
+          );
+
+          // Helper function to process attendance records
+          function processAttendanceRecords(allowedEmployeeNames) {
+            const invalidRecords = attendanceRecords.filter(
+              (record) => !allowedEmployeeNames.includes(record.empName)
+            );
+            if (invalidRecords.length > 0) {
+              const invalidNames = invalidRecords
+                .map((record) => record.empName)
+                .join(", ");
+              return res.status(400).json({
+                error:
+                  "Attendance records could not be saved for the following employees (not allowed): " +
+                  invalidNames,
+              });
+            }
+
+            const validRecords = attendanceRecords.filter((record) =>
+              allowedEmployeeNames.includes(record.empName)
+            );
+            const recordedNames = new Set(validRecords.map((record) => record.empName));
+            const absentEmployees = insertAbsent
+              ? allowedEmployeeNames.filter((name) => !recordedNames.has(name))
+              : [];
+
+            const valuesValid = validRecords.map((record) => {
+              const { work_hour, dayStatus } = calculateWorkHoursAndDay(
+                record.inTime,
+                record.outTime
+              );
+              return [
+                record.empName,
+                record.inTime,
+                record.outTime,
+                record.location,
+                record.date,
+                work_hour,
+                dayStatus,
+                0,
+              ];
+            });
+
+            const valuesAbsent = absentEmployees.map((empName) => [
+              empName,
+              "",
+              "",
+              "",
+              commonDate,
+              0,
+              "Absent",
+              1,
+            ]);
+            const allValues = valuesValid.concat(valuesAbsent);
+
+            const insertQuery = `
+              INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
+              VALUES ?
+            `;
+            db.query(insertQuery, [allValues], (err, result) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).json({
+                  error: "Database error while saving attendance records",
+                });
+              }
+              // NEW: Emit socket event when records are saved.
+              emitAttendanceChange();
+              res.json({ message: "Attendance records saved successfully" });
+            });
+          }
+        }
+      );
+    }
+  );
 });
 
 // PUT Attendance API – Updated to only change is_absent status based on updated clock fields.
@@ -239,22 +295,30 @@ app.put("/api/attendance/:id", (req, res) => {
   db.query("SELECT * FROM attendance WHERE id = ?", [id], (err, results) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: "Database error while fetching record" });
+      return res
+        .status(500)
+        .json({ error: "Database error while fetching record" });
     }
     if (results.length === 0) {
       return res.status(404).json({ error: "Attendance record not found" });
     }
     const existingRecord = results[0];
 
-    const newInTime = inTime && inTime.trim() !== "" ? inTime : existingRecord.in_time;
-    const newOutTime = outTime && outTime.trim() !== "" ? outTime : existingRecord.out_time;
+    const newInTime =
+      inTime && inTime.trim() !== "" ? inTime : existingRecord.in_time;
+    const newOutTime =
+      outTime && outTime.trim() !== "" ? outTime : existingRecord.out_time;
 
-    const { work_hour, dayStatus: computedDayStatus } = calculateWorkHoursAndDay(newInTime, newOutTime);
-    const newIsAbsent = (newInTime && newOutTime) ? 0 : 1;
+    const { work_hour, dayStatus: computedDayStatus } = calculateWorkHoursAndDay(
+      newInTime,
+      newOutTime
+    );
+    const newIsAbsent = newInTime && newOutTime ? 0 : 1;
     const newDayStatus = newIsAbsent ? "Absent" : computedDayStatus;
     const newLocation = location !== undefined ? location : existingRecord.location;
     const newDate = date !== undefined ? date : existingRecord.date;
-    const newApprovedBy = approved_by !== undefined ? approved_by : existingRecord.approved_by;
+    const newApprovedBy =
+      approved_by !== undefined ? approved_by : existingRecord.approved_by;
     const newReason = reason !== undefined ? reason : existingRecord.reason;
 
     const query = `
@@ -262,17 +326,34 @@ app.put("/api/attendance/:id", (req, res) => {
       SET in_time = ?, out_time = ?, location = ?, date = ?, approved_by = ?, reason = ?, work_hour = ?, day = ?, is_absent = ?
       WHERE id = ?
     `;
-    db.query(query, [newInTime, newOutTime, newLocation, newDate, newApprovedBy, newReason, work_hour, newDayStatus, newIsAbsent, id], (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Database error while updating attendance record" });
+    db.query(
+      query,
+      [
+        newInTime,
+        newOutTime,
+        newLocation,
+        newDate,
+        newApprovedBy,
+        newReason,
+        work_hour,
+        newDayStatus,
+        newIsAbsent,
+        id,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error(err);
+          return res
+            .status(500)
+            .json({ error: "Database error while updating attendance record" });
+        }
+        if (result.affectedRows === 0)
+          return res.status(404).json({ error: "Attendance record not found" });
+        // NEW: Emit socket event when record is updated.
+        emitAttendanceChange();
+        res.json({ message: "Attendance updated successfully", id });
       }
-      if (result.affectedRows === 0)
-        return res.status(404).json({ error: "Attendance record not found" });
-      // NEW: Emit socket event when record is updated.
-      emitAttendanceChange();
-      res.json({ message: "Attendance updated successfully", id });
-    });
+    );
   });
 });
 
@@ -287,7 +368,9 @@ app.get("/api/attendance", (req, res) => {
   }
   db.query(query, params, (err, results) => {
     if (err)
-      return res.status(500).json({ error: "Database error while fetching attendance records" });
+      return res.status(500).json({
+        error: "Database error while fetching attendance records",
+      });
     res.json(results);
   });
 });
@@ -319,7 +402,9 @@ app.get("/api/attendanceview", (req, res) => {
   db.query(query, params, (err, results) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: "Database error while fetching attendance records" });
+      return res.status(500).json({
+        error: "Database error while fetching attendance records",
+      });
     }
     res.json(results);
   });
@@ -352,9 +437,9 @@ app.get("/api/employees-list", (req, res) => {
   db.query(sql, (err, results) => {
     if (err) {
       console.error("Error fetching employees:", err);
-      return res
-        .status(500)
-        .json({ error: "Database error while fetching employee list" });
+      return res.status(500).json({
+        error: "Database error while fetching employee list",
+      });
     }
 
     if (!results || results.length === 0) {
@@ -380,20 +465,18 @@ app.post("/api/employee-leaves", (req, res) => {
     remainingPlannedLeave,
   } = req.body;
 
-// 1) Get all active employees from logincrd
-db.query("SELECT id, Name FROM logincrd WHERE disableemp = 0", (err, employees) => {
-  if (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Database error fetching employees" });
-  }
+  // 1) Get all active employees from logincrd
+  db.query("SELECT id, Name FROM logincrd WHERE disableemp = 0", (err, employees) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Database error fetching employees" });
+    }
 
-  if (!employees || employees.length === 0) {
-    return res.status(400).json({ error: "No active employees found in logincrd table" });
-  }
-
-  // Process employees here
-  // For example, sending the employee data as a response
-  res.json({ employees });
+    if (!employees || employees.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "No active employees found in logincrd table" });
+    }
 
     // We'll do a multi-row INSERT for employees not yet in employee_leaves
     const employeeIds = employees.map((emp) => emp.id);
@@ -497,9 +580,7 @@ app.put("/api/employee-leaves", (req, res) => {
     (err, result) => {
       if (err) {
         console.error(err);
-        return res
-          .status(500)
-          .json({ error: "Database error updating leaves" });
+        return res.status(500).json({ error: "Database error updating leaves" });
       }
       res.json({
         message: "Leaves updated successfully for all employees",
@@ -558,18 +639,13 @@ app.put("/api/employee-leaves/:id", (req, res) => {
   });
 });
 
-
-
-
-
 /**
  * GET /api/employees-leaves/:id
  * Fetch used & remaining leaves for the given employee ID
  */
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
-  console.log("Fetching leaves for employeeId:", employeeId);
-
+  
   const sql = `
     SELECT
       usedUnplannedLeave AS usedUnplannedLeave,
@@ -594,7 +670,6 @@ app.get("/api/employees-leaves/:id", (req, res) => {
   });
 });
 
-
 /*
   Optionally, if you need a GET /api/employee_holidays route:
 */
@@ -615,6 +690,7 @@ app.get("/api/employee_holidays", (req, res) => {
     res.json(results);
   });
 });
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
