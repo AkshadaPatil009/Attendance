@@ -785,6 +785,71 @@ app.post("/api/employee-leaves/add", (req, res) => {
   );
 });
 
+
+
+// ======================================================================
+// EmployeeLeavesDate API Endpoints
+// These endpoints handle individual leave date records stored in the
+// EmployeeLeavesDate table.
+// ======================================================================
+
+
+// POST /api/employee-leaves-date
+// Add a new leave date record for an employee
+app.post("/api/employee-leaves-date", (req, res) => {
+  const { employeeId, leave_date, leave_type } = req.body;
+  if (!employeeId || !leave_date || !leave_type) {
+    return res
+      .status(400)
+      .json({ error: "employeeId, leave_date, and leave_type are required." });
+  }
+  const sql = `
+    INSERT INTO EmployeeLeavesDate (employee_id, leave_date, leave_type)
+    VALUES (?, ?, ?)
+  `;
+  db.query(sql, [employeeId, leave_date, leave_type], (err, result) => {
+    if (err) {
+      console.error("Error inserting leave date record:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error inserting leave date record." });
+    }
+    res.json({
+      message: "Leave date record added successfully.",
+      id: result.insertId,
+    });
+  });
+});
+
+// PUT /api/employee-leaves-date/:id
+// Update a leave date record by its ID
+app.put("/api/employee-leaves-date/:id", (req, res) => {
+  const { id } = req.params;
+  const { leave_date, leave_type } = req.body;
+  if (!leave_date || !leave_type) {
+    return res
+      .status(400)
+      .json({ error: "leave_date and leave_type are required." });
+  }
+  const sql = `
+    UPDATE EmployeeLeavesDate 
+    SET leave_date = ?, leave_type = ?
+    WHERE id = ?
+  `;
+  db.query(sql, [leave_date, leave_type, id], (err, result) => {
+    if (err) {
+      console.error("Error updating leave date record:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error updating leave date record." });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Leave date record not found." });
+    }
+    res.json({ message: "Leave date record updated successfully." });
+  });
+});
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
