@@ -363,10 +363,12 @@ const Holidays = () => {
   );
 };
 
-// Leaves component with both "Add Leaves" and "Update Leaves" buttons
+// Leaves component with inline input fields and separate confirmation popups for Add and Update actions
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
+  const [showAddConfirmModal, setShowAddConfirmModal] = useState(false);
+  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
 
   // Calculate total as numbers (0 if empty)
   const totalLeaves =
@@ -402,6 +404,7 @@ const Leaves = () => {
         alert(
           `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
+        setShowAddConfirmModal(false);
       })
       .catch((error) => {
         console.error("Error adding leaves:", error);
@@ -438,6 +441,7 @@ const Leaves = () => {
         alert(
           `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
+        setShowUpdateConfirmModal(false);
       })
       .catch((error) => {
         console.error("Error updating leaves:", error);
@@ -479,16 +483,62 @@ const Leaves = () => {
       </Row>
       <Row className="justify-content-center mt-4">
         <Col md={2} className="text-center">
-          <Button variant="primary" onClick={handleAddLeaves} className="w-100">
-            Add Leaves 
+          <Button variant="primary" onClick={() => setShowAddConfirmModal(true)} className="w-100">
+            Add Leaves
           </Button>
         </Col>
         <Col md={2} className="text-center">
-          <Button variant="success" onClick={handleUpdateLeaves} className="w-100">
-            Update Leaves 
+          <Button variant="success" onClick={() => setShowUpdateConfirmModal(true)} className="w-100">
+            Update Leaves
           </Button>
         </Col>
       </Row>
+      {/* Add Confirmation Modal */}
+      <Modal show={showAddConfirmModal} onHide={() => setShowAddConfirmModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Add Leaves</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to add leaves for all employees with the following details?
+          <br />
+          <strong>Unplanned Leaves:</strong> {allocatedUnplannedLeave || 0}
+          <br />
+          <strong>Planned Leaves:</strong> {allocatedPlannedLeave || 0}
+          <br />
+          <strong>Total Leaves:</strong> {totalLeaves}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddConfirmModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddLeaves}>
+            Confirm Add
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      {/* Update Confirmation Modal */}
+      <Modal show={showUpdateConfirmModal} onHide={() => setShowUpdateConfirmModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Update Leaves</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to update leaves for all employees with the following details?
+          <br />
+          <strong>Unplanned Leaves:</strong> {allocatedUnplannedLeave || 0}
+          <br />
+          <strong>Planned Leaves:</strong> {allocatedPlannedLeave || 0}
+          <br />
+          <strong>Total Leaves:</strong> {totalLeaves}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowUpdateConfirmModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="success" onClick={handleUpdateLeaves}>
+            Confirm Update
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

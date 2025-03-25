@@ -93,7 +93,7 @@ const Dashboard = () => {
                         className="me-2 mb-2"
                         onClick={() => setActiveSection("holidays")}
                       >
-                        Holidays
+                        Holidays/Leaves
                       </Button>
                       <Button
                         variant={activeSection === "employeeView" ? "secondary" : "light"}
