@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Form, Modal, Table, Tabs, Tab, Container, Row, Col } from "react-bootstrap";
+import { Button, Form, Modal, Table, Tabs, Tab, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
 import "../pages/Dashboard.css"; // Ensure your CSS is applied
 
@@ -52,7 +52,7 @@ const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
   );
 };
 
-// Holidays component (unchanged from your code)
+// Holidays component
 const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -157,8 +157,12 @@ const Holidays = () => {
       .catch((error) => console.error("Error deleting holiday:", error));
   };
 
+  // Get today's date without time for comparison
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-4">
       <h3 className="text-center">Holidays</h3>
       {/* Filter Dropdown for Location */}
       <div className="mb-3">
@@ -193,16 +197,15 @@ const Holidays = () => {
             <tbody>
               {filteredHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
-                const today = new Date();
-                const holidayDateOnly = new Date(
-                  holidayDate.getFullYear(),
-                  holidayDate.getMonth(),
-                  holidayDate.getDate()
-                );
                 const todayOnly = new Date(
                   today.getFullYear(),
                   today.getMonth(),
                   today.getDate()
+                );
+                const holidayDateOnly = new Date(
+                  holidayDate.getFullYear(),
+                  holidayDate.getMonth(),
+                  holidayDate.getDate()
                 );
                 const isPast = holidayDateOnly < todayOnly;
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
@@ -239,7 +242,7 @@ const Holidays = () => {
         )}
       </div>
       {/* Button to open "Add Holiday" modal */}
-      <Button className="mt-3" onClick={() => setShowAddModal(true)}>
+      <Button className="mt-3 w-100" onClick={() => setShowAddModal(true)}>
         Add Holiday
       </Button>
       {/* Add Holiday Modal */}
@@ -270,7 +273,9 @@ const Holidays = () => {
               <Form.Label>Locations</Form.Label>
               <LocationMultiSelect
                 selectedLocations={newHoliday.locations}
-                setSelectedLocations={(locations) => setNewHoliday({ ...newHoliday, locations })}
+                setSelectedLocations={(locations) =>
+                  setNewHoliday({ ...newHoliday, locations })
+                }
               />
             </Form.Group>
           </Form>
@@ -395,9 +400,7 @@ const Leaves = () => {
       .then((data) => {
         console.log("Added leaves for all employees:", data);
         alert(
-          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
-            unplanned + planned
-          }`
+          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
       })
       .catch((error) => {
@@ -407,13 +410,12 @@ const Leaves = () => {
   };
 
   // UPDATE existing leave records for all employees
-  // (You'll need a corresponding PUT route in your backend, e.g. PUT /api/employee-leaves)
   const handleUpdateLeaves = () => {
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
     fetch("http://localhost:5000/api/employee-leaves", {
-      method: "PUT", // <-- This is a PUT request
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         allocatedUnplannedLeave: unplanned,
@@ -434,9 +436,7 @@ const Leaves = () => {
       .then((data) => {
         console.log("Updated leaves for all employees:", data);
         alert(
-          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
-            unplanned + planned
-          }`
+          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
       })
       .catch((error) => {
@@ -479,13 +479,13 @@ const Leaves = () => {
       </Row>
       <Row className="justify-content-center mt-4">
         <Col md={2} className="text-center">
-          <Button variant="primary" onClick={handleAddLeaves}>
-            Add Leaves for All
+          <Button variant="primary" onClick={handleAddLeaves} className="w-100">
+            Add Leaves 
           </Button>
         </Col>
         <Col md={2} className="text-center">
-          <Button variant="success" onClick={handleUpdateLeaves}>
-            Update Leaves for All
+          <Button variant="success" onClick={handleUpdateLeaves} className="w-100">
+            Update Leaves 
           </Button>
         </Col>
       </Row>
@@ -498,7 +498,7 @@ const HolidayAndLeavesTabs = () => {
   const [activeTab, setActiveTab] = useState("holidays");
 
   return (
-    <div className="container mt-4" style={{ minHeight: "600px" }}>
+    <div className="container-fluid mt-4" style={{ minHeight: "600px" }}>
       <Tabs activeKey={activeTab} onSelect={(tab) => setActiveTab(tab)} className="mb-3">
         <Tab eventKey="holidays" title="Holidays">
           <Holidays />
