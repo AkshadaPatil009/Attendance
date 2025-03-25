@@ -67,6 +67,11 @@ const AdminEmployeeView = () => {
     setRemainingPlannedLeave(allocatedPlanned - usedPlanned);
   };
 
+  // Sorting employees alphabetically by name
+  const sortedEmployees = [...employees].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
   // Handle employee selection change in the update tab
   const handleEmployeeChange = (e) => {
     setMessage(null);
@@ -247,7 +252,7 @@ const AdminEmployeeView = () => {
                   onChange={handleAddEmployeeChange}
                 >
                   <option value="">-- Select Employee --</option>
-                  {employees.map((emp) => (
+                  {sortedEmployees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
                     </option>
@@ -358,26 +363,26 @@ const AdminEmployeeView = () => {
 
         {/* TAB 2: Update Employee Leaves */}
         <Tab eventKey="update" title="Update Employee Leaves">
-          <Form.Group className="mb-3">
-            <Form.Label>
-              <b>Select Employee (Update Record)</b>
-            </Form.Label>
-            <Form.Control
-              as="select"
-              value={selectedEmployeeId}
-              onChange={handleEmployeeChange}
-            >
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
-            </Form.Control>
-          </Form.Group>
-
           <Card style={{ maxWidth: "600px", margin: "auto" }}>
             <Card.Body>
               <Card.Title>Update Employee Leave Details</Card.Title>
+              {/* Moved Select Employee dropdown inside the card */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  <b>Select Employee (Update Record)</b>
+                </Form.Label>
+                <Form.Control
+                  as="select"
+                  value={selectedEmployeeId}
+                  onChange={handleEmployeeChange}
+                >
+                  {sortedEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </Form.Control>
+              </Form.Group>
               <Form>
                 <Row>
                   <Col>
