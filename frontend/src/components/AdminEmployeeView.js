@@ -21,12 +21,12 @@ const AdminEmployeeView = () => {
   const [remainingUnplannedLeave, setRemainingUnplannedLeave] = useState(0);
   const [remainingPlannedLeave, setRemainingPlannedLeave] = useState(0);
 
-  // Instead of single leave date and type, use an array to store multiple leave records for update
+  // Multiple leave date records for the UPDATE tab only
   const [updateLeaveRecords, setUpdateLeaveRecords] = useState([
     { leaveDate: "", leaveType: "Planned" }
   ]);
 
-  // "Add" states (for adding new aggregate record)
+  // "Add" states (for adding a new aggregate record, WITHOUT multiple date records)
   const [selectedAddEmployeeId, setSelectedAddEmployeeId] = useState("");
   const [allocatedUnplannedLeaveAdd, setAllocatedUnplannedLeaveAdd] = useState(0);
   const [allocatedPlannedLeaveAdd, setAllocatedPlannedLeaveAdd] = useState(0);
@@ -34,10 +34,6 @@ const AdminEmployeeView = () => {
   const [usedPlannedLeaveAdd, setUsedPlannedLeaveAdd] = useState(0);
   const [remainingUnplannedLeaveAdd, setRemainingUnplannedLeaveAdd] = useState(0);
   const [remainingPlannedLeaveAdd, setRemainingPlannedLeaveAdd] = useState(0);
-  // Use an array for adding multiple leave date records in the add tab
-  const [addLeaveRecords, setAddLeaveRecords] = useState([
-    { leaveDate: "", leaveType: "Planned" }
-  ]);
 
   // Fetch employees on mount
   useEffect(() => {
@@ -122,13 +118,13 @@ const AdminEmployeeView = () => {
 
   // Add a new empty leave record field for update tab
   const addUpdateLeaveRecord = () => {
-    setUpdateLeaveRecords([
-      ...updateLeaveRecords,
+    setUpdateLeaveRecords((prev) => [
+      ...prev,
       { leaveDate: "", leaveType: "Planned" }
     ]);
   };
 
-  // Update employee leaves (aggregate update and adding multiple leave date records)
+  // Update employee leaves (aggregate update + multiple leave date records)
   const updateEmployeeLeaves = () => {
     setMessage(null);
     // First, update the employee leave aggregate record
@@ -143,39 +139,38 @@ const AdminEmployeeView = () => {
       }),
     })
       .then((response) => {
-        if (response.ok) {
-          // Optionally sync local state if needed
-          setEmployees((prev) =>
-            prev.map((emp) => {
-              if (emp.id.toString() === selectedEmployeeId.toString()) {
-                return {
-                  ...emp,
-                  usedUnplannedLeave,
-                  usedPlannedLeave,
-                  remainingUnplannedLeave,
-                  remainingPlannedLeave,
-                };
-              }
-              return emp;
-            })
-          );
-          // Now add each leave date record
-          return Promise.all(
-            updateLeaveRecords.map((record) =>
-              fetch("http://localhost:5000/api/employee-leaves-date", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  employeeId: selectedEmployeeId,
-                  leave_date: record.leaveDate,
-                  leave_type: record.leaveType,
-                }),
-              })
-            )
-          );
-        } else {
+        if (!response.ok) {
           throw new Error("Error: Failed to update employee leaves.");
         }
+        // Update was successful => optionally sync local state
+        setEmployees((prev) =>
+          prev.map((emp) => {
+            if (emp.id.toString() === selectedEmployeeId.toString()) {
+              return {
+                ...emp,
+                usedUnplannedLeave,
+                usedPlannedLeave,
+                remainingUnplannedLeave,
+                remainingPlannedLeave,
+              };
+            }
+            return emp;
+          })
+        );
+        // Now add each leave date record
+        return Promise.all(
+          updateLeaveRecords.map((record) =>
+            fetch("http://localhost:5000/api/employee-leaves-date", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                employeeId: selectedEmployeeId,
+                leave_date: record.leaveDate,
+                leave_type: record.leaveType,
+              }),
+            })
+          )
+        );
       })
       .then((responses) => {
         // Check if all responses are OK
@@ -193,34 +188,14 @@ const AdminEmployeeView = () => {
       });
   };
 
-  // "Add" tab handlers
+  // "Add" tab handlers (NO multi-date logic)
   const handleAddEmployeeChange = (e) => {
     setSelectedAddEmployeeId(e.target.value);
   };
 
-  // Handle change in individual add leave record (for multiple dates)
-  const handleAddLeaveRecordChange = (index, field, value) => {
-    const updatedRecords = addLeaveRecords.map((record, i) => {
-      if (i === index) {
-        return { ...record, [field]: value };
-      }
-      return record;
-    });
-    setAddLeaveRecords(updatedRecords);
-  };
-
-  // Add a new empty leave record field for add tab
-  const addAddLeaveRecord = () => {
-    setAddLeaveRecords([
-      ...addLeaveRecords,
-      { leaveDate: "", leaveType: "Planned" }
-    ]);
-  };
-
-  // Add employee leave record (aggregate record + multiple leave dates)
   const handleAddEmployeeLeaves = () => {
     setMessage(null);
-    // First add the employee leave aggregate record
+    // Only add the employee's aggregate record (no "Leave Date Records" here)
     fetch("http://localhost:5000/api/employee-leaves/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -235,33 +210,10 @@ const AdminEmployeeView = () => {
       }),
     })
       .then((response) => {
-        if (response.ok) {
-          // Then add each leave date record for the same employee
-          return Promise.all(
-            addLeaveRecords.map((record) =>
-              fetch("http://localhost:5000/api/employee-leaves-date", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  employeeId: selectedAddEmployeeId,
-                  leave_date: record.leaveDate,
-                  leave_type: record.leaveType,
-                }),
-              })
-            )
-          );
-        } else {
+        if (!response.ok) {
           throw new Error("Error: Failed to add employee leave record.");
         }
-      })
-      .then((responses) => {
-        if (responses.every((res) => res.ok)) {
-          setMessage("Employee leave record added successfully.");
-          // Optionally clear the add leave records
-          setAddLeaveRecords([{ leaveDate: "", leaveType: "Planned" }]);
-        } else {
-          setMessage("Error: Failed to add one or more leave date records.");
-        }
+        setMessage("Employee leave record added successfully.");
       })
       .catch((error) => {
         console.error("Error adding employee leave record:", error);
@@ -270,9 +222,10 @@ const AdminEmployeeView = () => {
   };
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-4">
       {message && <Alert variant="info">{message}</Alert>}
-      <Tabs defaultActiveKey="update" id="employee-leave-tabs" className="mb-3">
+
+      <Tabs defaultActiveKey="update" id="employee-leave-tabs" className="mb-3" fill>
         {/* TAB 1: Add New Employee Leave Record */}
         <Tab eventKey="add" title="Add New Employee Leave Record">
           <Card style={{ maxWidth: "600px", margin: "auto" }}>
@@ -295,6 +248,7 @@ const AdminEmployeeView = () => {
                   ))}
                 </Form.Control>
               </Form.Group>
+
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
@@ -325,6 +279,7 @@ const AdminEmployeeView = () => {
                   </Form.Group>
                 </Col>
               </Row>
+
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
@@ -355,6 +310,7 @@ const AdminEmployeeView = () => {
                   </Form.Group>
                 </Col>
               </Row>
+
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
@@ -385,60 +341,15 @@ const AdminEmployeeView = () => {
                   </Form.Group>
                 </Col>
               </Row>
-              {/* Multiple leave date records for add tab */}
-              <Card className="mb-3">
-                <Card.Body>
-                  <Card.Title>Leave Date Records</Card.Title>
-                  {addLeaveRecords.map((record, index) => (
-                    <Row key={index} className="mb-2">
-                      <Col>
-                        <Form.Group>
-                          <Form.Label>Date</Form.Label>
-                          <Form.Control
-                            type="date"
-                            value={record.leaveDate}
-                            onChange={(e) =>
-                              handleAddLeaveRecordChange(
-                                index,
-                                "leaveDate",
-                                e.target.value
-                              )
-                            }
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col>
-                        <Form.Group>
-                          <Form.Label>Type</Form.Label>
-                          <Form.Control
-                            as="select"
-                            value={record.leaveType}
-                            onChange={(e) =>
-                              handleAddLeaveRecordChange(
-                                index,
-                                "leaveType",
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value="Planned">Planned</option>
-                            <option value="Unplanned">Unplanned</option>
-                          </Form.Control>
-                        </Form.Group>
-                      </Col>
-                    </Row>
-                  ))}
-                  <Button variant="secondary" onClick={addAddLeaveRecord}>
-                    Add Another Leave
-                  </Button>
-                </Card.Body>
-              </Card>
-              <Button variant="primary" onClick={handleAddEmployeeLeaves}>
+
+              {/* No "Leave Date Records" section for Add tab */}
+              <Button variant="primary" onClick={handleAddEmployeeLeaves} className="w-100">
                 Add Employee Leave Record
               </Button>
             </Card.Body>
           </Card>
         </Tab>
+
         {/* TAB 2: Update Employee Leaves */}
         <Tab eventKey="update" title="Update Employee Leaves">
           <Form.Group className="mb-3">
@@ -457,6 +368,7 @@ const AdminEmployeeView = () => {
               ))}
             </Form.Control>
           </Form.Group>
+
           <Card style={{ maxWidth: "600px", margin: "auto" }}>
             <Card.Body>
               <Card.Title>Update Employee Leave Details</Card.Title>
@@ -483,6 +395,7 @@ const AdminEmployeeView = () => {
                     </Form.Group>
                   </Col>
                 </Row>
+
                 <Row>
                   <Col>
                     <Form.Group className="mb-3">
@@ -505,7 +418,8 @@ const AdminEmployeeView = () => {
                     </Form.Group>
                   </Col>
                 </Row>
-                {/* Multiple leave date records for update tab */}
+
+                {/* Multiple leave date records for the Update tab */}
                 <Card className="mb-3">
                   <Card.Body>
                     <Card.Title>Leave Date Records</Card.Title>
@@ -548,12 +462,17 @@ const AdminEmployeeView = () => {
                         </Col>
                       </Row>
                     ))}
-                    <Button variant="secondary" onClick={addUpdateLeaveRecord}>
+                    <Button
+                      variant="secondary"
+                      onClick={addUpdateLeaveRecord}
+                      className="w-100"
+                    >
                       Add Another Leave
                     </Button>
                   </Card.Body>
                 </Card>
-                <Button variant="primary" onClick={updateEmployeeLeaves}>
+
+                <Button variant="primary" onClick={updateEmployeeLeaves} className="w-100">
                   Update Employee Leaves
                 </Button>
               </Form>
