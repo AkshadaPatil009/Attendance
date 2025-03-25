@@ -1,6 +1,5 @@
-// AttendanceEntry.js
 import React, { useState } from "react";
-import { Row, Col, Form, Button, Table, Alert } from "react-bootstrap";
+import { Row, Col, Form, Button, Table, Alert, Modal } from "react-bootstrap";
 
 const AttendanceEntry = ({
   hangoutMessages,
@@ -10,13 +9,14 @@ const AttendanceEntry = ({
   attendanceToSave,
   loading,
   handleFilter,
-  handleSave,
   hangoutTextareaStyle,
   tableContainerStyle,
 }) => {
   const [errorMessage, setErrorMessage] = useState(""); // State for error message
+  const [showConfirm, setShowConfirm] = useState(false);  // State for confirmation modal
 
-  const handleSaveAttendance = async () => {
+  // This function performs the actual save operation
+  const doSaveAttendance = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/attendance", {
         method: "POST",
@@ -36,6 +36,17 @@ const AttendanceEntry = ({
     } catch (error) {
       setErrorMessage("An unexpected error occurred: " + error.message);
     }
+  };
+
+  // When user clicks Save, show the confirmation modal first
+  const handleSaveAttendance = () => {
+    setShowConfirm(true);
+  };
+
+  // Called when user confirms saving
+  const confirmSave = async () => {
+    setShowConfirm(false);
+    await doSaveAttendance();
   };
 
   return (
@@ -162,6 +173,22 @@ const AttendanceEntry = ({
           </Button>
         </Col>
       </Row>
+
+      {/* Confirmation Modal */}
+      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Save</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>Are you sure you want to save the attendance records?</Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirm(false)}>
+            Cancel
+          </Button>
+          <Button variant="success" onClick={confirmSave}>
+            Confirm Save
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };
