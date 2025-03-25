@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
-import { Container, Row, Col, Form, Button, Table } from "react-bootstrap";
-import { io } from "socket.io-client"; // Import socket.io-client
+import { Container, Row, Col, Form, Button, Table, Modal } from "react-bootstrap";
+import { io } from "socket.io-client";
 
 const socket = io("http://localhost:5000"); // Connect to Socket.IO server
 
@@ -21,6 +21,9 @@ const UpdateAttendance = () => {
   const [updateClockOut, setUpdateClockOut] = useState(false);
   const [fullDay, setFullDay] = useState(false);
   const [manualSelection, setManualSelection] = useState(false);
+
+  // New state to control update confirmation modal
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
   // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
@@ -125,10 +128,10 @@ const UpdateAttendance = () => {
     setUpdateClockOut(!!record.out_time);
   };
 
-  // Handle update: format times and send update request
-  const handleUpdate = async () => {
+  // This function performs the actual update operation
+  const doUpdate = async () => {
     if (!selectedRecord) {
-      alert("No record selected for update!");
+      alert("No record selected for update! Please choose an employee record.");
       return;
     }
     const recordDate = moment(selectedRecord.date).format("YYYY-MM-DD");
@@ -161,6 +164,22 @@ const UpdateAttendance = () => {
       console.error("Error updating attendance:", error);
       alert("Failed to update attendance record.");
     }
+  };
+
+  // Show confirmation modal when update is clicked.
+  // If no record is selected, alert the user to select an employee.
+  const handleUpdateClick = () => {
+    if (!selectedEmployee || !selectedRecord) {
+      alert("Please select an employee record to update attendance.");
+      return;
+    }
+    setShowUpdateConfirm(true);
+  };
+
+  // Confirm update then perform the update operation
+  const confirmUpdate = async () => {
+    setShowUpdateConfirm(false);
+    await doUpdate();
   };
 
   return (
@@ -286,7 +305,7 @@ const UpdateAttendance = () => {
             <Button
               variant="warning"
               size="sm"
-              onClick={handleUpdate}
+              onClick={handleUpdateClick}
               style={{ fontSize: "0.75rem" }}
             >
               Update
@@ -341,6 +360,24 @@ const UpdateAttendance = () => {
           </Container>
         </Col>
       </Row>
+
+      {/* Confirmation Modal for Update */}
+      <Modal show={showUpdateConfirm} onHide={() => setShowUpdateConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Update</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to update the attendance record?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowUpdateConfirm(false)}>
+            Cancel
+          </Button>
+          <Button variant="warning" onClick={confirmUpdate}>
+            Confirm Update
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };
