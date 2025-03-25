@@ -9,6 +9,7 @@ import {
   Tabs,
   Tab
 } from "react-bootstrap";
+import { FaPlus, FaMinus } from "react-icons/fa";
 
 const AdminEmployeeView = () => {
   const [employees, setEmployees] = useState([]);
@@ -26,7 +27,7 @@ const AdminEmployeeView = () => {
     { leaveDate: "", leaveType: "Planned" }
   ]);
 
-  // "Add" states (for adding a new aggregate record, WITHOUT multiple date records)
+  // "Add" states (for adding new aggregate record, WITHOUT multiple date records)
   const [selectedAddEmployeeId, setSelectedAddEmployeeId] = useState("");
   const [allocatedUnplannedLeaveAdd, setAllocatedUnplannedLeaveAdd] = useState(0);
   const [allocatedPlannedLeaveAdd, setAllocatedPlannedLeaveAdd] = useState(0);
@@ -124,6 +125,14 @@ const AdminEmployeeView = () => {
     ]);
   };
 
+  // Remove a leave record from update tab (if more than one exists)
+  const removeUpdateLeaveRecord = (index) => {
+    if (updateLeaveRecords.length > 1) {
+      const updatedRecords = updateLeaveRecords.filter((_, i) => i !== index);
+      setUpdateLeaveRecords(updatedRecords);
+    }
+  };
+
   // Update employee leaves (aggregate update + multiple leave date records)
   const updateEmployeeLeaves = () => {
     setMessage(null);
@@ -142,7 +151,7 @@ const AdminEmployeeView = () => {
         if (!response.ok) {
           throw new Error("Error: Failed to update employee leaves.");
         }
-        // Update was successful => optionally sync local state
+        // Optionally sync local state
         setEmployees((prev) =>
           prev.map((emp) => {
             if (emp.id.toString() === selectedEmployeeId.toString()) {
@@ -173,10 +182,8 @@ const AdminEmployeeView = () => {
         );
       })
       .then((responses) => {
-        // Check if all responses are OK
         if (responses.every((res) => res.ok)) {
           setMessage("Employee leaves updated successfully.");
-          // Clear the update leave records (or keep them if you want)
           setUpdateLeaveRecords([{ leaveDate: "", leaveType: "Planned" }]);
         } else {
           setMessage("Error: Failed to add one or more leave date records.");
@@ -188,14 +195,14 @@ const AdminEmployeeView = () => {
       });
   };
 
-  // "Add" tab handlers (NO multi-date logic)
+  // "Add" tab handlers (without multiple date records)
   const handleAddEmployeeChange = (e) => {
     setSelectedAddEmployeeId(e.target.value);
   };
 
   const handleAddEmployeeLeaves = () => {
     setMessage(null);
-    // Only add the employee's aggregate record (no "Leave Date Records" here)
+    // Only add the employee's aggregate record
     fetch("http://localhost:5000/api/employee-leaves/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -224,7 +231,6 @@ const AdminEmployeeView = () => {
   return (
     <div className="container-fluid mt-4">
       {message && <Alert variant="info">{message}</Alert>}
-
       <Tabs defaultActiveKey="update" id="employee-leave-tabs" className="mb-3" fill>
         {/* TAB 1: Add New Employee Leave Record */}
         <Tab eventKey="add" title="Add New Employee Leave Record">
@@ -342,7 +348,7 @@ const AdminEmployeeView = () => {
                 </Col>
               </Row>
 
-              {/* No "Leave Date Records" section for Add tab */}
+              {/* No Leave Date Records section in Add tab */}
               <Button variant="primary" onClick={handleAddEmployeeLeaves} className="w-100">
                 Add Employee Leave Record
               </Button>
@@ -395,7 +401,6 @@ const AdminEmployeeView = () => {
                     </Form.Group>
                   </Col>
                 </Row>
-
                 <Row>
                   <Col>
                     <Form.Group className="mb-3">
@@ -419,13 +424,13 @@ const AdminEmployeeView = () => {
                   </Col>
                 </Row>
 
-                {/* Multiple leave date records for the Update tab */}
+                {/* Multiple leave date records for Update tab with plus and minus icons */}
                 <Card className="mb-3">
                   <Card.Body>
                     <Card.Title>Leave Date Records</Card.Title>
                     {updateLeaveRecords.map((record, index) => (
-                      <Row key={index} className="mb-2">
-                        <Col>
+                      <Row key={index} className="mb-2 align-items-center">
+                        <Col xs={5}>
                           <Form.Group>
                             <Form.Label>Date</Form.Label>
                             <Form.Control
@@ -441,7 +446,7 @@ const AdminEmployeeView = () => {
                             />
                           </Form.Group>
                         </Col>
-                        <Col>
+                        <Col xs={5}>
                           <Form.Group>
                             <Form.Label>Type</Form.Label>
                             <Form.Control
@@ -460,15 +465,30 @@ const AdminEmployeeView = () => {
                             </Form.Control>
                           </Form.Group>
                         </Col>
+                        <Col xs={2} className="text-center">
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => removeUpdateLeaveRecord(index)}
+                            disabled={updateLeaveRecords.length === 1}
+                            style={{ fontSize: "0.6rem", padding: "0.1rem 0.2rem" }}
+                          >
+                            <FaMinus />
+                          </Button>
+                        </Col>
                       </Row>
                     ))}
-                    <Button
-                      variant="secondary"
-                      onClick={addUpdateLeaveRecord}
-                      className="w-100"
-                    >
-                      Add Another Leave
-                    </Button>
+                    <Row className="mt-2">
+                      <Col className="text-center">
+                        <Button
+                          variant="success"
+                          onClick={addUpdateLeaveRecord}
+                          size="sm"
+                        >
+                          <FaPlus /> Add
+                        </Button>
+                      </Col>
+                    </Row>
                   </Card.Body>
                 </Card>
 
