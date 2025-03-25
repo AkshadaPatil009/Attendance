@@ -242,7 +242,11 @@ const Holidays = () => {
         )}
       </div>
       {/* Button to open "Add Holiday" modal */}
-      <Button className="mt-3 w-100" onClick={() => setShowAddModal(true)}>
+      <Button
+        className="mt-3"
+        onClick={() => setShowAddModal(true)}
+        style={{ width: "200px", display: "block", margin: "auto" }}
+      >
         Add Holiday
       </Button>
       {/* Add Holiday Modal */}
