@@ -7,7 +7,8 @@ import {
   Row,
   Col,
   Tabs,
-  Tab
+  Tab,
+  Modal
 } from "react-bootstrap";
 import { FaPlus, FaMinus } from "react-icons/fa";
 
@@ -35,6 +36,10 @@ const AdminEmployeeView = () => {
   const [usedPlannedLeaveAdd, setUsedPlannedLeaveAdd] = useState(0);
   const [remainingUnplannedLeaveAdd, setRemainingUnplannedLeaveAdd] = useState(0);
   const [remainingPlannedLeaveAdd, setRemainingPlannedLeaveAdd] = useState(0);
+
+  // State for confirmation popup for update and add
+  const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
+  const [showAddConfirmation, setShowAddConfirmation] = useState(false);
 
   // Fetch employees on mount
   useEffect(() => {
@@ -85,9 +90,15 @@ const AdminEmployeeView = () => {
     }
   };
 
-  // Update used unplanned leave and recalculate remaining leave
+  // Update used unplanned leave and recalculate remaining leave with negative value validation
   const handleUsedUnplannedChange = (e) => {
-    const value = parseInt(e.target.value, 10) || 0;
+    let value = parseInt(e.target.value, 10) || 0;
+    if (value < 0) {
+      setMessage("Negative values are not allowed for Used Unplanned Leave.");
+      value = 0;
+    } else {
+      setMessage(null);
+    }
     setUsedUnplannedLeave(value);
     const employee = employees.find(
       (emp) => emp.id.toString() === selectedEmployeeId.toString()
@@ -98,9 +109,15 @@ const AdminEmployeeView = () => {
     }
   };
 
-  // Update used planned leave and recalculate remaining leave
+  // Update used planned leave and recalculate remaining leave with negative value validation
   const handleUsedPlannedChange = (e) => {
-    const value = parseInt(e.target.value, 10) || 0;
+    let value = parseInt(e.target.value, 10) || 0;
+    if (value < 0) {
+      setMessage("Negative values are not allowed for Used Planned Leave.");
+      value = 0;
+    } else {
+      setMessage(null);
+    }
     setUsedPlannedLeave(value);
     const employee = employees.find(
       (emp) => emp.id.toString() === selectedEmployeeId.toString()
@@ -233,6 +250,38 @@ const AdminEmployeeView = () => {
       });
   };
 
+  // Handler to open confirmation popup for updating employee leaves
+  const handleUpdateConfirmation = () => {
+    setShowUpdateConfirmation(true);
+  };
+
+  // Handler when update confirmation is accepted
+  const handleConfirmUpdate = () => {
+    setShowUpdateConfirmation(false);
+    updateEmployeeLeaves();
+  };
+
+  // Handler when update confirmation is canceled
+  const handleCancelUpdate = () => {
+    setShowUpdateConfirmation(false);
+  };
+
+  // Handler to open confirmation popup for adding employee leave record
+  const handleAddConfirmation = () => {
+    setShowAddConfirmation(true);
+  };
+
+  // Handler when add confirmation is accepted
+  const handleConfirmAdd = () => {
+    setShowAddConfirmation(false);
+    handleAddEmployeeLeaves();
+  };
+
+  // Handler when add confirmation is canceled
+  const handleCancelAdd = () => {
+    setShowAddConfirmation(false);
+  };
+
   return (
     <div className="container-fluid mt-4">
       {message && <Alert variant="info">{message}</Alert>}
@@ -267,11 +316,16 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={allocatedUnplannedLeaveAdd}
-                      onChange={(e) =>
-                        setAllocatedUnplannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Allocated Unplanned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setAllocatedUnplannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
@@ -281,11 +335,16 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={allocatedPlannedLeaveAdd}
-                      onChange={(e) =>
-                        setAllocatedPlannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Allocated Planned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setAllocatedPlannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
@@ -298,11 +357,16 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={usedUnplannedLeaveAdd}
-                      onChange={(e) =>
-                        setUsedUnplannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Used Unplanned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setUsedUnplannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
@@ -312,11 +376,16 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={usedPlannedLeaveAdd}
-                      onChange={(e) =>
-                        setUsedPlannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Used Planned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setUsedPlannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
@@ -329,11 +398,16 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={remainingUnplannedLeaveAdd}
-                      onChange={(e) =>
-                        setRemainingUnplannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Remaining Unplanned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setRemainingUnplannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
@@ -343,18 +417,23 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={remainingPlannedLeaveAdd}
-                      onChange={(e) =>
-                        setRemainingPlannedLeaveAdd(
-                          parseInt(e.target.value, 10) || 0
-                        )
-                      }
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10) || 0;
+                        if (val < 0) {
+                          setMessage("Negative values are not allowed for Remaining Planned Leave.");
+                          val = 0;
+                        } else {
+                          setMessage(null);
+                        }
+                        setRemainingPlannedLeaveAdd(val);
+                      }}
                     />
                   </Form.Group>
                 </Col>
               </Row>
 
               {/* No Leave Date Records section in Add tab */}
-              <Button variant="primary" onClick={handleAddEmployeeLeaves} className="w-100">
+              <Button variant="primary" onClick={handleAddConfirmation} className="w-100">
                 Add Employee Leave Record
               </Button>
             </Card.Body>
@@ -497,7 +576,7 @@ const AdminEmployeeView = () => {
                   </Card.Body>
                 </Card>
 
-                <Button variant="primary" onClick={updateEmployeeLeaves} className="w-100">
+                <Button variant="primary" onClick={handleUpdateConfirmation} className="w-100">
                   Update Employee Leaves
                 </Button>
               </Form>
@@ -505,6 +584,42 @@ const AdminEmployeeView = () => {
           </Card>
         </Tab>
       </Tabs>
+
+      {/* Update Confirmation Modal */}
+      <Modal show={showUpdateConfirmation} onHide={handleCancelUpdate}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Update</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to update the employee leaves?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCancelUpdate}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleConfirmUpdate}>
+            Confirm
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Add Confirmation Modal */}
+      <Modal show={showAddConfirmation} onHide={handleCancelAdd}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Add</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to add the new employee leave record?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCancelAdd}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleConfirmAdd}>
+            Confirm
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
