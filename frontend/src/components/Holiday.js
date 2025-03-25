@@ -363,12 +363,15 @@ const Holidays = () => {
   );
 };
 
-// Leaves component with inline input fields and separate confirmation popups for Add and Update actions
+// Leaves component with inline input fields, separate confirmation popups for Add and Update actions,
+// and a separate validation error popup that shows when the confirm button is clicked and fields are empty.
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
   const [showAddConfirmModal, setShowAddConfirmModal] = useState(false);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Calculate total as numbers (0 if empty)
   const totalLeaves =
@@ -377,6 +380,11 @@ const Leaves = () => {
 
   // ADD new leave records for employees who don't have any record yet
   const handleAddLeaves = () => {
+    if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
+      setErrorMessage("Please fill out both leave fields.");
+      setShowValidationErrorModal(true);
+      return;
+    }
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
@@ -414,6 +422,11 @@ const Leaves = () => {
 
   // UPDATE existing leave records for all employees
   const handleUpdateLeaves = () => {
+    if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
+      setErrorMessage("Please fill out both leave fields.");
+      setShowValidationErrorModal(true);
+      return;
+    }
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
@@ -536,6 +549,18 @@ const Leaves = () => {
           </Button>
           <Button variant="success" onClick={handleUpdateLeaves}>
             Confirm Update
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      {/* Validation Error Modal */}
+      <Modal show={showValidationErrorModal} onHide={() => setShowValidationErrorModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Validation Error</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>{errorMessage}</Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => setShowValidationErrorModal(false)}>
+            OK
           </Button>
         </Modal.Footer>
       </Modal>
