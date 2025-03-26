@@ -342,6 +342,14 @@ const AttendanceForm = () => {
         <Tab eventKey="view" title="View Attendance">
           <ViewAttendance viewMode={viewMode} setViewMode={setViewMode} />
         </Tab>
+
+        {/* 4) New Tab */}
+        <Tab eventKey="new" title="Leaves Report">
+          <div style={{ padding: "16px" }}>
+            <h3>New Tab Content</h3>
+            <p>This is the new tab added to the Attendance Form. You can customize this area with your additional content or components.</p>
+          </div>
+        </Tab>
       </Tabs>
     </Container>
   );
