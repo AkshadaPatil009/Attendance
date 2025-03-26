@@ -14,8 +14,14 @@ const Login = ({ setUser }) => {
     try {
       const res = await axios.post("http://localhost:5000/login", { email, password });
 
-      // Store user info in localStorage
-      const userData = { role: res.data.role, name: res.data.name, token: res.data.token, employeeId: res.data.employeeId};
+      // Store user info in localStorage including location from the server response
+      const userData = { 
+        role: res.data.role, 
+        name: res.data.name, 
+        token: res.data.token, 
+        employeeId: res.data.employeeId,
+        location: res.data.location 
+      };
       localStorage.setItem("user", JSON.stringify(userData));
 
       // Update state & redirect
