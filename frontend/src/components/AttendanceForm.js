@@ -7,6 +7,7 @@ import { Container, Tabs, Tab } from "react-bootstrap";
 import AttendanceEntry from "./AttendanceEntry";
 import UpdateAttendance from "./UpdateAttendance";
 import ViewAttendance from "./ViewAttendance";
+import EmployeeLeaves from "./EmployeeLeaves";
 
 const AttendanceForm = () => {
   // -----------------------
@@ -34,8 +35,7 @@ const AttendanceForm = () => {
   // -----------------------
   // 3) View Attendance
   // -----------------------
-  const [viewMode, setViewMode] = useState("monthwise"); 
-  // or "datewise" if you want that as the default
+  const [viewMode, setViewMode] = useState("monthwise");
 
   // For styling textareas/tables in the Entry tab
   const hangoutTextareaStyle = {
@@ -65,6 +65,7 @@ const AttendanceForm = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        // GET all employees from the /api/employees endpoint
         const response = await axios.get("http://localhost:5000/api/employees");
         setEmployees(response.data);
       } catch (error) {
@@ -75,7 +76,7 @@ const AttendanceForm = () => {
   }, []);
 
   // -----------------------
-  // 2) Attendance Entry Logic
+  // 1) Attendance Entry Logic
   // -----------------------
   const handleFilter = () => {
     const lines = hangoutMessages
@@ -222,6 +223,7 @@ const AttendanceForm = () => {
     }
     setLoading(true);
     try {
+      // POST the attendance records to /api/attendance
       const response = await axios.post("http://localhost:5000/api/attendance", {
         attendanceRecords: attendanceToSave,
       });
@@ -234,7 +236,7 @@ const AttendanceForm = () => {
   };
 
   // -----------------------
-  // 3) Update Attendance Logic
+  // 2) Update Attendance Logic
   // -----------------------
   useEffect(() => {
     if (!selectedEmployee) {
@@ -246,6 +248,7 @@ const AttendanceForm = () => {
 
   const fetchEmployeeAttendance = async (empName) => {
     try {
+      // GET attendance for a specific employee by name
       const response = await axios.get(
         `http://localhost:5000/api/attendance?empName=${encodeURIComponent(empName)}`
       );
@@ -270,7 +273,7 @@ const AttendanceForm = () => {
       return;
     }
     try {
-      // Send only the necessary fields; work_hour and day will be calculated on the server.
+      // PUT to /api/attendance/:id
       const requestBody = {
         inTime: clockIn,
         outTime: clockOut,
@@ -285,8 +288,7 @@ const AttendanceForm = () => {
         requestBody
       );
       alert("Attendance updated successfully!");
-
-      // Refresh table
+      // Refresh the table
       fetchEmployeeAttendance(selectedEmployee);
     } catch (error) {
       console.error("Error updating attendance:", error);
@@ -343,12 +345,9 @@ const AttendanceForm = () => {
           <ViewAttendance viewMode={viewMode} setViewMode={setViewMode} />
         </Tab>
 
-        {/* 4) New Tab */}
-        <Tab eventKey="new" title="Leaves Report">
-          <div style={{ padding: "16px" }}>
-            <h3>New Tab Content</h3>
-            <p>This is the new tab added to the Attendance Form. You can customize this area with your additional content or components.</p>
-          </div>
+        {/* 4) Employee Leaves Tab */}
+        <Tab eventKey="leaves" title="Employee Leaves">
+          <EmployeeLeaves />
         </Tab>
       </Tabs>
     </Container>

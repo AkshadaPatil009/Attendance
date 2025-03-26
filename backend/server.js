@@ -638,7 +638,6 @@ app.put("/api/employee-leaves/:id", (req, res) => {
  */
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
-  
 
   const sql = `
     SELECT
@@ -694,7 +693,6 @@ app.get("/api/employee_holidays", (req, res) => {
     res.json(results);
   });
 });
-
 
 // ======================================================================
 // (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
@@ -796,14 +794,11 @@ app.post("/api/employee-leaves/add", (req, res) => {
   );
 });
 
-
-
 // ======================================================================
 // EmployeeLeavesDate API Endpoints
 // These endpoints handle individual leave date records stored in the
 // EmployeeLeavesDate table.
 // ======================================================================
-
 
 // POST /api/employee-leaves-date
 // Add a new leave date record for an employee
@@ -860,6 +855,36 @@ app.put("/api/employee-leaves-date/:id", (req, res) => {
     res.json({ message: "Leave date record updated successfully." });
   });
 });
+
+// 5) GET /api/employeeleavesdate
+// Fetch all records from your 'EmployeeLeavesDate' table along with employee names in dd-mm-yyyy format
+// Optionally filter by employeeId if provided
+app.get("/api/employeeleavesdate", (req, res) => {
+  let sql = `
+    SELECT 
+      ed.id, 
+      ed.employee_id, 
+      l.Name AS employee_name, 
+      DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date, 
+      ed.leave_type 
+    FROM EmployeeLeavesDate ed
+    JOIN logincrd l ON ed.employee_id = l.id
+  `;
+  const params = [];
+  if (req.query.employeeId) {
+    sql += " WHERE ed.employee_id = ?";
+    params.push(req.query.employeeId);
+  }
+  sql += " ORDER BY ed.id ASC";
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error fetching employee leaves data:", err);
+      return res.status(500).json({ error: "Failed to fetch employee leaves data." });
+    }
+    res.json(results);
+  });
+});
+
 
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
