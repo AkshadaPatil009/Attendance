@@ -51,11 +51,11 @@ app.post("/login", (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, name: user.Name, type: user.Type },
+      { id: user.id, name: user.Name, type: user.Type, location: user.Location || "" },
       "secret",
       { expiresIn: "1h" }
     );
-    res.json({ token, name: user.Name, role: user.Type, employeeId: user.id });
+    res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, location: user.Location || "" });
   });
 });
 
@@ -668,15 +668,25 @@ app.get("/api/employees-leaves/:id", (req, res) => {
   Optionally, if you need a GET /api/employee_holidays route:
 */
 app.get("/api/employee_holidays", (req, res) => {
-  const sql = `
+  const { location } = req.query;
+  let sql = `
     SELECT
       id,
       holiday_name,
-      holiday_date
+      holiday_date,
+      location
     FROM holidays
-    ORDER BY holiday_date
   `;
-  db.query(sql, (err, results) => {
+  const params = [];
+
+  if (location) {
+    sql += " WHERE location LIKE ?";
+    params.push(`%${location}%`);
+  }
+
+  sql += " ORDER BY holiday_date";
+
+  db.query(sql, params, (err, results) => {
     if (err) {
       console.error("Error fetching holidays:", err);
       return res.status(500).json({ error: "Database error fetching holidays." });
@@ -684,6 +694,7 @@ app.get("/api/employee_holidays", (req, res) => {
     res.json(results);
   });
 });
+
 
 // ======================================================================
 // (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record

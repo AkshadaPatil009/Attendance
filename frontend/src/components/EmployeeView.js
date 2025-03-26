@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Card, Table, Tabs, Tab } from "react-bootstrap";
 
 const EmployeeDashboard = () => {
-  // Retrieve stored user info from localStorage (must contain employeeId from login)
+  // Retrieve stored user info from localStorage (must contain employeeId and location from login)
   const storedUser = JSON.parse(localStorage.getItem("user"));
   const employeeId = storedUser?.employeeId;
+  // Employee's location from login response is assumed to be "Ratnagiri", "Mumbai", or "Delhi"
+  const employeeLocation = storedUser?.location || "";
 
   // State for employee leaves
   const [employeeLeaves, setEmployeeLeaves] = useState({
@@ -45,7 +47,7 @@ const EmployeeDashboard = () => {
       });
   }, [employeeId]);
 
-  // Fetch holiday list on mount
+  // Fetch holiday list on mount and filter by employee location using substring matching
   useEffect(() => {
     fetch("http://localhost:5000/api/employee_holidays")
       .then((response) => {
@@ -55,10 +57,17 @@ const EmployeeDashboard = () => {
         return response.json();
       })
       .then((data) => {
-        setHolidays(data);
+        // Filter holidays to show only those whose location includes the employee's location string.
+        // For example, if employeeLocation is "Ratnagiri", it will match "Ratnagiri Office".
+        const filteredHolidays = employeeLocation
+          ? data.filter((holiday) =>
+              holiday.location && holiday.location.includes(employeeLocation)
+            )
+          : data;
+        setHolidays(filteredHolidays);
       })
       .catch((error) => console.error("Error fetching holidays:", error));
-  }, []);
+  }, [employeeLocation]);
 
   // Get today's date without time for comparison
   const today = new Date();
