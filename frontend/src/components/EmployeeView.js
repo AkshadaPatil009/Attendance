@@ -126,7 +126,7 @@ const EmployeeDashboard = () => {
             <Table striped bordered hover responsive>
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th>Sr.No</th>
                   <th>Holiday Name</th>
                   <th>Date</th>
                 </tr>
