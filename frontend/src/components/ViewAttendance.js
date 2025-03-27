@@ -309,10 +309,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       Object.keys(pivotData[emp].days).forEach((dayKey) => {
         let rec = pivotData[emp].days[dayKey];
         const recordDate = new Date(rec.date);
-        // Compute displayStatus only for records not marked as SV, Absent, or Holiday and not on Sunday.
+        // Compute displayStatus for records not marked as SV, Absent, or Holiday.
         if (
           rec.in_time &&
-          recordDate.getDay() !== 0 &&
           rec.day !== "SV" &&
           rec.day !== "Absent" &&
           rec.day !== "Holiday"
@@ -332,8 +331,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               ? "Late Mark"
               : "Full Day";
           }
+          // For Sunday, override the original day so that it can be counted properly.
+          if (recordDate.getDay() === 0) {
+            rec.day = rec.displayStatus;
+          }
         } else {
-          // For other cases, use the original day value.
           rec.displayStatus = rec.day;
         }
       });
