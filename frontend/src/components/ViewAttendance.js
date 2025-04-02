@@ -232,10 +232,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // -----------------------------------------------------------
 
   // Group attendance records per employee per day.
-  // For each day, merge multiple records.
-  // Then, compute a new property "displayStatus" for rendering,
-  // based on aggregated work hours and earliest check-in.
-  // (This does not affect the original aggregated "work_hour" and summary stats.)
   const groupAttendanceByDay = () => {
     const pivotData = {};
     attendanceData.forEach((rec) => {
@@ -304,7 +300,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     });
 
     // Compute a new "displayStatus" for each aggregated day without modifying the original "day"
-    // (used in summary stats).
     Object.keys(pivotData).forEach((emp) => {
       Object.keys(pivotData[emp].days).forEach((dayKey) => {
         let rec = pivotData[emp].days[dayKey];
@@ -331,7 +326,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               ? "Late Mark"
               : "Full Day";
           }
-          // For Sunday, override the original day so that it can be counted properly.
           if (recordDate.getDay() === 0) {
             rec.day = rec.displayStatus;
           }
@@ -341,19 +335,16 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
     });
 
-    // Calculate summary stats per employee using the original aggregated "day".
+    // Calculate summary stats per employee.
     Object.keys(pivotData).forEach((emp) => {
       const days = pivotData[emp].days;
       Object.keys(days).forEach((dayKey) => {
         const currentDay = days[dayKey];
-        // For site visits, always count as 1 full day.
         if (currentDay.day === "SV") {
           pivotData[emp].presentDays += 1;
           pivotData[emp].daysWorked += 1;
           pivotData[emp].totalHours += currentDay.work_hour;
-        }
-        // For non-absent days with sufficient hours.
-        else if (currentDay.day !== "Absent" && currentDay.work_hour >= 4.5) {
+        } else if (currentDay.day !== "Absent" && currentDay.work_hour >= 4.5) {
           if (currentDay.day === "Half Day") {
             pivotData[emp].presentDays += 0.5;
             pivotData[emp].daysWorked += 0.5;
@@ -363,7 +354,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           }
           pivotData[emp].totalHours += currentDay.work_hour;
         }
-        // Count the late mark occurrences.
         if (currentDay.day === "Late Mark") {
           pivotData[emp].lateMarkCount++;
         }
@@ -372,11 +362,76 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     return pivotData;
   };
 
-  // Render Monthwise Table using grouped data.
+  // Updated renderDatewiseTable: Only the "Day" column uses the legend colors but displays full text.
+  const renderDatewiseTable = () => {
+    const sortedData = [...attendanceData].sort((a, b) =>
+      a.emp_name.localeCompare(b.emp_name)
+    );
+    return (
+      <div style={{ overflowX: "auto" }}>
+        <Table bordered hover size="sm" style={{ fontSize: "0.75rem", minWidth: "800px" }}>
+          <thead style={{ fontSize: "0.75rem" }}>
+            <tr>
+              <th>Employee</th>
+              <th>Date</th>
+              <th>In Time</th>
+              <th>Out Time</th>
+              <th>Work Hr</th>
+              <th>Day</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedData.map((rec, idx) => {
+              const dayDisplay = getDisplayForRecord(rec);
+              // Map the internal day value to full text
+              let fullText = "";
+              switch (rec.day) {
+                case "Holiday":
+                  fullText = "Holiday";
+                  break;
+                case "Full Day":
+                  fullText = "Full Day";
+                  break;
+                case "Half Day":
+                  fullText = "Half Day";
+                  break;
+                case "Late Mark":
+                  fullText = "Late Mark";
+                  break;
+                case "Absent":
+                  fullText = "Absent";
+                  break;
+                case "SV":
+                  fullText = "Site Visit";
+                  break;
+                case "Sunday":
+                  fullText = "Sunday";
+                  break;
+                default:
+                  fullText = rec.day;
+              }
+              return (
+                <tr key={idx}>
+                  <td>{rec.emp_name}</td>
+                  <td>{moment(rec.date).format("YYYY-MM-DD")}</td>
+                  <td>{rec.in_time}</td>
+                  <td>{rec.out_time}</td>
+                  <td>{rec.work_hour}</td>
+                  <td style={dayDisplay.style}>{fullText}</td>
+                  <td>{rec.location}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+    );
+  };
+
   const renderMonthwiseTable = () => {
     const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
     const pivotData = groupAttendanceByDay();
-
     return (
       <div style={{ overflowX: "auto" }}>
         <Table
@@ -438,15 +493,12 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       let forcedStyle = {};
                       let cellText = "";
                       const rec = rowData.days[dayNumber];
-
                       if (holidayFound) {
                         forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
                       } else if (dayOfWeek === 0) {
                         forcedStyle = { backgroundColor: "#ff9900" };
                       }
-
                       if (rec) {
-                        // Use the computed displayStatus for rendering.
                         const display = getDisplayForRecord({
                           ...rec,
                           day: rec.displayStatus,
@@ -472,51 +524,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   </tr>
                 );
               })}
-          </tbody>
-        </Table>
-      </div>
-    );
-  };
-
-  // Render Datewise Table remains unchanged.
-  const renderDatewiseTable = () => {
-    const sortedData = [...attendanceData].sort((a, b) =>
-      a.emp_name.localeCompare(b.emp_name)
-    );
-    return (
-      <div style={{ overflowX: "auto" }}>
-        <Table
-          bordered
-          hover
-          size="sm"
-          style={{ fontSize: "0.75rem", minWidth: "800px" }}
-        >
-          <thead style={{ fontSize: "0.75rem" }}>
-            <tr>
-              <th>Employee</th>
-              <th>Date</th>
-              <th>In Time</th>
-              <th>Out Time</th>
-              <th>Work Hr</th>
-              <th>Day</th>
-              <th>Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedData.map((rec, idx) => {
-              const { style } = getDisplayForRecord(rec);
-              return (
-                <tr key={idx} style={style}>
-                  <td>{rec.emp_name}</td>
-                  <td>{moment(rec.date).format("YYYY-MM-DD")}</td>
-                  <td>{rec.in_time}</td>
-                  <td>{rec.out_time}</td>
-                  <td>{rec.work_hour}</td>
-                  <td>{rec.day}</td>
-                  <td>{rec.location}</td>
-                </tr>
-              );
-            })}
           </tbody>
         </Table>
       </div>

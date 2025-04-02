@@ -856,25 +856,67 @@ app.put("/api/employee-leaves-date/:id", (req, res) => {
   });
 });
 
-// 5) GET /api/employeeleavesdate
-// Fetch all records from your 'EmployeeLeavesDate' table along with employee names in dd-mm-yyyy format
-// Optionally filter by employeeId if provided
+// ======================================================================
+// NEW: GET /api/logincrd
+// Fetch employees from logincrd table and optionally filter by office code.
+// The office code is mapped as follows:
+//   RO => "Ratnagiri"
+//   DO => "Delhi"
+//   MO => "Mumbai"
+// Since there is no "office" column, we filter on the "Location" column.
+app.get("/api/logincrd", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  let sql = "SELECT * FROM logincrd WHERE disableemp = 0";
+  const params = [];
+  if (req.query.office) {
+    const officeMap = {
+      RO: "Ratnagiri",
+      DO: "Delhi",
+      MO: "Mumbai",
+    };
+    const locationFilter = officeMap[req.query.office] || req.query.office;
+    sql += " AND Location = ?";
+    params.push(locationFilter);
+  }
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error fetching employees by office:", err);
+      return res.status(500).json({ error: "Database error while fetching employees by office." });
+    }
+    res.json(results);
+  });
+});
+
+// GET /api/employeeleavesdate
+// Fetch all records from EmployeeLeavesDate along with employee names in dd-mm-yyyy format.
+// Optionally filter by employeeId and/or office.
 app.get("/api/employeeleavesdate", (req, res) => {
   let sql = `
-    SELECT 
-      ed.id, 
-      ed.employee_id, 
-      l.Name AS employee_name, 
-      DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date, 
-      ed.leave_type 
+    SELECT ed.id, ed.employee_id, l.Name AS employee_name,
+           DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date, ed.leave_type 
     FROM EmployeeLeavesDate ed
     JOIN logincrd l ON ed.employee_id = l.id
+    WHERE 1=1
   `;
   const params = [];
+
+  // Filter by employeeId if provided.
   if (req.query.employeeId) {
-    sql += " WHERE ed.employee_id = ?";
+    sql += " AND ed.employee_id = ?";
     params.push(req.query.employeeId);
   }
+  // Filter by office if provided.
+  if (req.query.office) {
+    const officeMap = {
+      RO: "Ratnagiri",
+      DO: "Delhi",
+      MO: "Mumbai",
+    };
+    const locationFilter = officeMap[req.query.office] || req.query.office;
+    sql += " AND LOWER(l.Location) = LOWER(?)";
+    params.push(locationFilter);
+  }
+
   sql += " ORDER BY ed.id ASC";
   db.query(sql, params, (err, results) => {
     if (err) {
@@ -884,7 +926,6 @@ app.get("/api/employeeleavesdate", (req, res) => {
     res.json(results);
   });
 });
-
 
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
