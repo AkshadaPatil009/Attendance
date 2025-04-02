@@ -57,7 +57,6 @@ const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
-  const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
 
   // For editing
   const [editingHoliday, setEditingHoliday] = useState(null);
