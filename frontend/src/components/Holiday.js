@@ -213,10 +213,14 @@ const Holidays = () => {
     setShowDeleteModal(true);
   };
 
+  // Delete all records for a grouped holiday
   const handleConfirmDelete = () => {
-    fetch(`http://localhost:5000/api/holidays/${holidayToDelete.ids[0]}`, {
-      method: "DELETE",
-    })
+    const deletePromises = holidayToDelete.ids.map((id) =>
+      fetch(`http://localhost:5000/api/holidays/${id}`, {
+        method: "DELETE",
+      })
+    );
+    Promise.all(deletePromises)
       .then(() => {
         fetchHolidays();
         setShowDeleteModal(false);
