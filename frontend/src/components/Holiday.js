@@ -231,7 +231,6 @@ const Holidays = () => {
 
   return (
     <div className="container-fluid mt-4">
-      <h3 className="text-center">Holidays</h3>
       {/* Table of Holidays */}
       <div className="border p-3 mt-3">
         {groupedHolidays.length > 0 ? (
