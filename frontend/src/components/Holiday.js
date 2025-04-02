@@ -57,7 +57,6 @@ const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
-  const [filterLocation, setFilterLocation] = useState("All");
   const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
 
   // For editing
@@ -78,11 +77,6 @@ const Holidays = () => {
   useEffect(() => {
     fetchHolidays();
   }, []);
-
-  const filteredHolidays =
-    filterLocation === "All"
-      ? holidays
-      : holidays.filter((holiday) => holiday.location === filterLocation);
 
   const handleAddHoliday = () => {
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
@@ -108,11 +102,43 @@ const Holidays = () => {
     }
   };
 
+  // Group holidays by date and holiday name, preserving a mapping of location to its record ID
+  const groupedHolidays = Object.values(
+    holidays.reduce((acc, holiday) => {
+      const key = `${holiday.holiday_date}-${holiday.holiday_name}`;
+      if (!acc[key]) {
+        acc[key] = {
+          holiday_date: holiday.holiday_date,
+          holiday_name: holiday.holiday_name,
+          locations: new Set([holiday.location]),
+          ids: [holiday.id],
+          locationMap: { [holiday.location]: holiday.id },
+        };
+      } else {
+        acc[key].locations.add(holiday.location);
+        acc[key].ids.push(holiday.id);
+        acc[key].locationMap[holiday.location] = holiday.id;
+      }
+      return acc;
+    }, {})
+  ).map((item) => ({
+    ...item,
+    locations: Array.from(item.locations),
+  }));
+
   const handleEdit = (holiday) => {
     const date = new Date(holiday.holiday_date);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     const formattedDate = date.toISOString().split("T")[0];
-    setEditingHoliday({ ...holiday, holiday_date: formattedDate });
+    // Save original locations and locationMap as part of editingHoliday
+    setEditingHoliday({
+      ...holiday,
+      holiday_date: formattedDate,
+      // 'locations' here will be the updated selection,
+      // while we also store the original set for comparison
+      groupLocations: holiday.locations,
+      locationMap: holiday.locationMap,
+    });
     setShowEditModal(true);
   };
 
@@ -122,22 +148,65 @@ const Holidays = () => {
   };
 
   const handleUpdateHoliday = () => {
-    fetch(`http://localhost:5000/api/holidays/${editingHoliday.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        holiday_date: editingHoliday.holiday_date,
-        holiday_name: editingHoliday.holiday_name,
-        location: editingHoliday.location,
-      }),
-    })
-      .then((res) => res.json())
-      .then(() => {
-        fetchHolidays();
-        setShowEditModal(false);
-        setEditingHoliday(null);
-      })
-      .catch((error) => console.error("Error updating holiday:", error));
+    if (editingHoliday && editingHoliday.locations.length > 0) {
+      const newLocations = editingHoliday.locations; // current selection from the dropdown
+      const originalLocations = editingHoliday.groupLocations; // original locations in the group
+      const locationMap = editingHoliday.locationMap; // mapping of original location to record id
+
+      const promises = [];
+
+      // For each original location, update if it still exists, or delete if removed.
+      originalLocations.forEach((loc) => {
+        if (!newLocations.includes(loc)) {
+          // delete the record for this removed location
+          const id = locationMap[loc];
+          promises.push(
+            fetch(`http://localhost:5000/api/holidays/${id}`, {
+              method: "DELETE",
+            })
+          );
+        } else {
+          // update the record with the current holiday_date and holiday_name
+          const id = locationMap[loc];
+          promises.push(
+            fetch(`http://localhost:5000/api/holidays/${id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                holiday_date: editingHoliday.holiday_date,
+                holiday_name: editingHoliday.holiday_name,
+                location: loc,
+              }),
+            }).then((res) => res.json())
+          );
+        }
+      });
+
+      // For any new location that was added (i.e. not in the original set), add a new record.
+      newLocations.forEach((loc) => {
+        if (!originalLocations.includes(loc)) {
+          promises.push(
+            fetch("http://localhost:5000/api/holidays", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                holiday_date: editingHoliday.holiday_date,
+                holiday_name: editingHoliday.holiday_name,
+                location: loc,
+              }),
+            }).then((res) => res.json())
+          );
+        }
+      });
+
+      Promise.all(promises)
+        .then(() => {
+          fetchHolidays();
+          setShowEditModal(false);
+          setEditingHoliday(null);
+        })
+        .catch((error) => console.error("Error updating holiday:", error));
+    }
   };
 
   const handleDelete = (holiday) => {
@@ -146,7 +215,7 @@ const Holidays = () => {
   };
 
   const handleConfirmDelete = () => {
-    fetch(`http://localhost:5000/api/holidays/${holidayToDelete.id}`, {
+    fetch(`http://localhost:5000/api/holidays/${holidayToDelete.ids[0]}`, {
       method: "DELETE",
     })
       .then(() => {
@@ -164,39 +233,25 @@ const Holidays = () => {
   return (
     <div className="container-fluid mt-4">
       <h3 className="text-center">Holidays</h3>
-      {/* Filter Dropdown for Location */}
-      <div className="mb-3">
-        <Form.Group controlId="filterLocation">
-          <Form.Label>Filter by Location</Form.Label>
-          <Form.Control
-            as="select"
-            value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-          >
-            <option value="All">All Locations</option>
-            {locationOptions.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
-      </div>
       {/* Table of Holidays */}
       <div className="border p-3 mt-3">
-        {filteredHolidays.length > 0 ? (
+        {groupedHolidays.length > 0 ? (
           <Table bordered striped hover responsive>
             <thead className="bg-primary text-white text-center">
               <tr>
                 <th>Date</th>
                 <th>Holiday</th>
-                <th>Location</th>
+                <th>Ratnagiri Office</th>
+                <th>Mumbai Office</th>
+                <th>Delhi Office</th>
                 <th>Actions</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredHolidays.map((holiday) => {
+              {groupedHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
+                // Compare date-only for determining "past" status
                 const todayOnly = new Date(
                   today.getFullYear(),
                   today.getMonth(),
@@ -213,25 +268,42 @@ const Holidays = () => {
                   month: "long",
                   day: "numeric",
                 });
+
+                // For each location column, check if the holiday's locations include the office.
+                const ratnagiriCheck = holiday.locations.includes("Ratnagiri Office") ? "✓" : "";
+                const mumbaiCheck = holiday.locations.includes("Mumbai Office") ? "✓" : "";
+                const delhiCheck = holiday.locations.includes("Delhi Office") ? "✓" : "";
+
+                // For completed holidays, disable edit & delete by applying a disabled style.
+                const actionStyle = isPast
+                  ? { opacity: 0.5, pointerEvents: "none" }
+                  : { cursor: "pointer", marginRight: "10px" };
+
                 return (
                   <tr
-                    key={holiday.id}
+                    key={holiday.ids[0]}
                     className={isPast ? "completedHoliday" : ""}
-                    style={{ backgroundColor: !isPast ? "#ff0000" : undefined, color: "#fff" }}
+                    style={{
+                      backgroundColor: !isPast ? "#ff0000" : undefined,
+                      color: "#fff",
+                    }}
                   >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
-                    <td>{holiday.location}</td>
+                    <td className="text-center">{ratnagiriCheck}</td>
+                    <td className="text-center">{mumbaiCheck}</td>
+                    <td className="text-center">{delhiCheck}</td>
                     <td className="text-center">
                       <FaPencilAlt
-                        onClick={() => handleEdit(holiday)}
-                        style={{ cursor: "pointer", marginRight: "10px" }}
+                        onClick={() => !isPast && handleEdit(holiday)}
+                        style={actionStyle}
                       />
                       <FaTrash
-                        onClick={() => handleDelete(holiday)}
-                        style={{ cursor: "pointer", color: "red" }}
+                        onClick={() => !isPast && handleDelete(holiday)}
+                        style={actionStyle}
                       />
                     </td>
+                    <td className="text-center">{isPast ? "Completed" : "Upcoming"}</td>
                   </tr>
                 );
               })}
@@ -241,6 +313,7 @@ const Holidays = () => {
           <p className="text-center">No holidays found.</p>
         )}
       </div>
+
       {/* Button to open "Add Holiday" modal */}
       <Button
         className="mt-3"
@@ -249,6 +322,7 @@ const Holidays = () => {
       >
         Add Holiday
       </Button>
+
       {/* Add Holiday Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
         <Modal.Header closeButton>
@@ -293,6 +367,7 @@ const Holidays = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
       {/* Edit Holiday Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
@@ -320,19 +395,13 @@ const Holidays = () => {
                 />
               </Form.Group>
               <Form.Group className="mt-2">
-                <Form.Label>Location</Form.Label>
-                <Form.Control
-                  as="select"
-                  name="location"
-                  value={editingHoliday.location}
-                  onChange={handleEditChange}
-                >
-                  {locationOptions.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </Form.Control>
+                <Form.Label>Locations</Form.Label>
+                <LocationMultiSelect
+                  selectedLocations={editingHoliday.locations}
+                  setSelectedLocations={(locations) =>
+                    setEditingHoliday((prev) => ({ ...prev, locations }))
+                  }
+                />
               </Form.Group>
             </Form>
           </Modal.Body>
@@ -346,6 +415,7 @@ const Holidays = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
       {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
@@ -414,7 +484,9 @@ const Leaves = () => {
       .then((data) => {
         console.log("Added leaves for all employees:", data);
         alert(
-          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
+          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
+            unplanned + planned
+          }`
         );
         setShowAddConfirmModal(false);
       })
@@ -456,7 +528,9 @@ const Leaves = () => {
       .then((data) => {
         console.log("Updated leaves for all employees:", data);
         alert(
-          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
+          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
+            unplanned + planned
+          }`
         );
         setShowUpdateConfirmModal(false);
       })

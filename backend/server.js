@@ -360,13 +360,18 @@ app.get("/api/attendance", (req, res) => {
   res.set("Cache-Control", "no-store");
   let query = "SELECT * FROM attendance";
   const params = [];
+  // Check if we need to filter by employee name
   if (req.query.empName) {
     query += " WHERE emp_name = ?";
     params.push(req.query.empName);
   }
+  // Order by emp_name in ascending alphabetical order
+  query += " ORDER BY emp_name ASC";
+  
   db.query(query, params, (err, results) => {
-    if (err)
+    if (err) {
       return res.status(500).json({ error: "Database error while fetching attendance records" });
+    }
     res.json(results);
   });
 });
