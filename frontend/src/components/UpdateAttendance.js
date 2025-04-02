@@ -25,6 +25,13 @@ const UpdateAttendance = () => {
   // New state to control update confirmation modal
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
+  // New states for filter bar
+  const [filterType, setFilterType] = useState("date"); // "date", "week", "month"
+  const [filterDate, setFilterDate] = useState("");
+  const [filterApprovedBy, setFilterApprovedBy] = useState("");
+  // New state for Employee filter
+  const [filterEmployee, setFilterEmployee] = useState("");
+
   // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
     try {
@@ -40,11 +47,11 @@ const UpdateAttendance = () => {
     }
   };
 
-  // Fetch employees
+  // Fetch employees and sort them alphabetically by employee name
   const fetchEmployees = async () => {
     try {
       const response = await axios.get("http://localhost:5000/api/employees");
-      setEmployees(response.data);
+      setEmployees(response.data.sort((a, b) => a.emp_name.localeCompare(b.emp_name)));
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -182,10 +189,170 @@ const UpdateAttendance = () => {
     await doUpdate();
   };
 
+  // Filter the attendanceRecords based on filter criteria
+  const filteredRecords = attendanceRecords.filter((record) => {
+    // Filter by Approved By
+    let approvedByMatch = true;
+    if (filterApprovedBy) {
+      approvedByMatch =
+        record.approved_by &&
+        record.approved_by.toLowerCase().includes(filterApprovedBy.toLowerCase());
+    }
+
+    // Filter by Employee
+    let employeeMatch = true;
+    if (filterEmployee) {
+      employeeMatch =
+        record.emp_name &&
+        record.emp_name.toLowerCase().includes(filterEmployee.toLowerCase());
+    }
+
+    // Filter by Date / Week / Month
+    let dateMatch = true;
+    if (filterDate) {
+      if (filterType === "date") {
+        dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM-DD"), "day");
+      } else if (filterType === "week") {
+        // HTML week input returns a value like "2025-W10"
+        dateMatch = moment(record.date).format("GGGG-[W]WW") === filterDate;
+      } else if (filterType === "month") {
+        dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM"), "month");
+      }
+    }
+    return approvedByMatch && dateMatch && employeeMatch;
+  });
+
   return (
     <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>
       <Row className="g-1">
-        {/* Left Column: Update Attendance Form */}
+        {/* Left Column: Attendance Records Table */}
+        <Col md={8}>
+          {/* Filter Bar */}
+          <Container className="mb-2 p-1" style={{ border: "1px solid #ccc", fontSize: "0.75rem" }}>
+            <Row className="align-items-end">
+              <Col md={3}>
+                <Form.Group controlId="filterType">
+                  <Form.Label style={{ fontSize: "0.75rem" }}>Filter Type:</Form.Label>
+                  <Form.Select
+                    size="sm"
+                    value={filterType}
+                    onChange={(e) => {
+                      setFilterType(e.target.value);
+                      setFilterDate(""); // reset filter date when type changes
+                    }}
+                    style={{ fontSize: "0.75rem" }}
+                  >
+                    <option value="date">Date</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group controlId="filterDate">
+                  <Form.Label style={{ fontSize: "0.75rem" }}>
+                    Select {filterType.charAt(0).toUpperCase() + filterType.slice(1)}:
+                  </Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type={filterType === "date" ? "date" : filterType}
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    style={{ fontSize: "0.75rem" }}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group controlId="filterApprovedBy">
+                  <Form.Label style={{ fontSize: "0.75rem" }}>Approved By:</Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type="text"
+                    placeholder="Filter by name"
+                    value={filterApprovedBy}
+                    onChange={(e) => setFilterApprovedBy(e.target.value)}
+                    style={{ fontSize: "0.75rem" }}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Form.Group controlId="filterEmployee">
+                  <Form.Label style={{ fontSize: "0.75rem" }}>Employee:</Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type="text"
+                    placeholder="Filter by employee"
+                    value={filterEmployee}
+                    onChange={(e) => setFilterEmployee(e.target.value)}
+                    style={{ fontSize: "0.75rem" }}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Button
+                  variant="info"
+                  size="sm"
+                  onClick={() => {
+                    // Reset filters
+                    setFilterType("date");
+                    setFilterDate("");
+                    setFilterApprovedBy("");
+                    setFilterEmployee("");
+                  }}
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  Clear Filters
+                </Button>
+              </Col>
+            </Row>
+          </Container>
+
+          <Container
+            className="p-1"
+            style={{
+              maxHeight: "500px",
+              overflowY: "auto",
+              border: "1px solid #ccc",
+              fontSize: "0.75rem",
+            }}
+          >
+            <h6 className="mb-2" style={{ fontSize: "0.85rem" }}>
+              Attendance Records
+            </h6>
+            <Table bordered hover responsive size="sm" style={{ fontSize: "0.75rem" }}>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Approved By</th>
+                  <th>Reason</th>
+                  <th>In Time</th>
+                  <th>Out Time</th>
+                  <th>Location</th>
+                  <th>Date</th>
+                  <th>Work Hr</th>
+                  <th>Day</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecords.map((record) => (
+                  <tr key={record.id} onClick={() => handleRowClick(record)}>
+                    <td>{record.emp_name}</td>
+                    <td>{record.approved_by}</td>
+                    <td>{record.reason}</td>
+                    <td>{record.in_time}</td>
+                    <td>{record.out_time}</td>
+                    <td>{record.location}</td>
+                    <td>{moment(record.date).format("YYYY-MM-DD")}</td>
+                    <td>{record.work_hour}</td>
+                    <td>{record.day}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Container>
+        </Col>
+
+        {/* Right Column: Update Attendance Form */}
         <Col md={4} style={{ border: "1px solid #ccc", padding: "6px" }}>
           <h6 className="mb-2" style={{ fontSize: "0.9rem" }}>
             Update Attendance
@@ -311,53 +478,6 @@ const UpdateAttendance = () => {
               Update
             </Button>
           </Form>
-        </Col>
-
-        {/* Right Column: Attendance Records Table */}
-        <Col md={8}>
-          <Container
-            className="p-1"
-            style={{
-              maxHeight: "400px",
-              overflowY: "auto",
-              border: "1px solid #ccc",
-              fontSize: "0.75rem",
-            }}
-          >
-            <h6 className="mb-2" style={{ fontSize: "0.85rem" }}>
-              Attendance Records
-            </h6>
-            <Table bordered hover responsive size="sm" style={{ fontSize: "0.75rem" }}>
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Approved By</th>
-                  <th>Reason</th>
-                  <th>In Time</th>
-                  <th>Out Time</th>
-                  <th>Location</th>
-                  <th>Date</th>
-                  <th>Work Hr</th>
-                  <th>Day</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceRecords.map((record) => (
-                  <tr key={record.id} onClick={() => handleRowClick(record)}>
-                    <td>{record.emp_name}</td>
-                    <td>{record.approved_by}</td>
-                    <td>{record.reason}</td>
-                    <td>{record.in_time}</td>
-                    <td>{record.out_time}</td>
-                    <td>{record.location}</td>
-                    <td>{moment(record.date).format("YYYY-MM-DD")}</td>
-                    <td>{record.work_hour}</td>
-                    <td>{record.day}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Container>
         </Col>
       </Row>
 
