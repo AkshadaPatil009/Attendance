@@ -177,6 +177,9 @@ const Holidays = () => {
                 holiday_date: editingHoliday.holiday_date,
                 holiday_name: editingHoliday.holiday_name,
                 location: loc,
+                approval_status: "Pending", // Reset approval to pending on edit
+                approved_by: "",
+                approved_date: ""
               }),
             }).then((res) => res.json())
           );
@@ -319,7 +322,11 @@ const Holidays = () => {
                       <FaTrash onClick={() => !isPast && handleDelete(holiday)} style={actionStyle} />
                     </td>
                     <td className="text-center">
-                      {holiday.approval_status === "Pending" ? "Pending" : "Approved"}
+                      {holiday.approval_status === "Pending" ? (
+                        <span style={{ color: "red" }}>Pending</span>
+                      ) : (
+                        <span style={{ color: "green" }}>Approved</span>
+                      )}
                     </td>
                     <td className="text-center">{isPast ? "Completed" : "Upcoming"}</td>
                   </tr>

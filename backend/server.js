@@ -92,16 +92,17 @@ app.post("/api/holidays", (req, res) => {
 });
 
 // PUT Holiday API - Update an existing holiday
+// Updated to always reset approval to pending when a holiday is edited.
 app.put("/api/holidays/:id", (req, res) => {
   const { id } = req.params;
   const { holiday_date, holiday_name, location } = req.body;
   db.query(
-    "UPDATE holidays SET holiday_date = ?, holiday_name = ?, location = ? WHERE id = ?",
+    "UPDATE holidays SET holiday_date = ?, holiday_name = ?, location = ?, approval_status = 'Pending', approved_by = NULL, approved_date = NULL WHERE id = ?",
     [holiday_date, holiday_name, location, id],
     (err, result) => {
       if (err) return res.status(500).json({ error: "Failed to update holiday" });
       if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
-      res.json({ id, holiday_date, holiday_name, location });
+      res.json({ id, holiday_date, holiday_name, location, approval_status: "Pending", approved_by: null, approved_date: null });
     }
   );
 });
@@ -131,6 +132,7 @@ app.put("/api/holidays/approve/:id", (req, res) => {
     }
   );
 });
+
 
 
 // GET Employees API - Fetch distinct employee names from attendance table
