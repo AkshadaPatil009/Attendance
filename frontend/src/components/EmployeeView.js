@@ -16,7 +16,7 @@ const EmployeeDashboard = () => {
     remainingPlannedLeave: "",
   });
 
-  // State for holidays
+  // State for holidays (each holiday displayed separately)
   const [holidays, setHolidays] = useState([]);
 
   // Fetch the employee's leave details
@@ -47,9 +47,14 @@ const EmployeeDashboard = () => {
       });
   }, [employeeId]);
 
-  // Fetch holiday list on mount and filter by employee location using substring matching
+  // Fetch holiday list on mount using the employee's location as a query parameter.
+  // Then filter to show only holidays with an "Approved" status.
   useEffect(() => {
-    fetch("http://localhost:5000/api/employee_holidays")
+    let url = "http://localhost:5000/api/employee_holidays";
+    if (employeeLocation) {
+      url += `?location=${employeeLocation}`;
+    }
+    fetch(url)
       .then((response) => {
         if (!response.ok) {
           throw new Error("Error fetching holidays");
@@ -57,14 +62,11 @@ const EmployeeDashboard = () => {
         return response.json();
       })
       .then((data) => {
-        // Filter holidays to show only those whose location includes the employee's location string.
-        // For example, if employeeLocation is "Ratnagiri", it will match "Ratnagiri Office".
-        const filteredHolidays = employeeLocation
-          ? data.filter((holiday) =>
-              holiday.location && holiday.location.includes(employeeLocation)
-            )
-          : data;
-        setHolidays(filteredHolidays);
+        // Filter for approved holidays
+        const approvedHolidays = data.filter(
+          (holiday) => holiday.approval_status === "Approved"
+        );
+        setHolidays(approvedHolidays);
       })
       .catch((error) => console.error("Error fetching holidays:", error));
   }, [employeeLocation]);

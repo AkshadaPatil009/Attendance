@@ -71,17 +71,20 @@ app.get("/api/holidays", (req, res) => {
 // POST Holiday API - Add a new holiday
 app.post("/api/holidays", (req, res) => {
   const { holiday_date, holiday_name, location } = req.body;
+  const approval_status = "Pending"; // New: default status
   db.query(
-    "INSERT INTO holidays (holiday_date, holiday_name, location) VALUES (?, ?, ?)",
-    [holiday_date, holiday_name, location],
+    "INSERT INTO holidays (holiday_date, holiday_name, location, approval_status) VALUES (?, ?, ?, ?)",
+    [holiday_date, holiday_name, location, approval_status],
     (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Failed to add holiday" });
+      if (err) return res.status(500).json({ error: "Failed to add holiday" });
       const insertedHoliday = {
         id: result.insertId,
         holiday_date,
         holiday_name,
         location,
+        approval_status,
+        approved_by: null,
+        approved_date: null,
       };
       res.json(insertedHoliday);
     }
@@ -96,10 +99,8 @@ app.put("/api/holidays/:id", (req, res) => {
     "UPDATE holidays SET holiday_date = ?, holiday_name = ?, location = ? WHERE id = ?",
     [holiday_date, holiday_name, location, id],
     (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Failed to update holiday" });
-      if (result.affectedRows === 0)
-        return res.status(404).json({ error: "Holiday not found" });
+      if (err) return res.status(500).json({ error: "Failed to update holiday" });
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
       res.json({ id, holiday_date, holiday_name, location });
     }
   );
@@ -109,13 +110,28 @@ app.put("/api/holidays/:id", (req, res) => {
 app.delete("/api/holidays/:id", (req, res) => {
   const { id } = req.params;
   db.query("DELETE FROM holidays WHERE id = ?", [id], (err, result) => {
-    if (err)
-      return res.status(500).json({ error: "Failed to delete holiday" });
-    if (result.affectedRows === 0)
-      return res.status(404).json({ error: "Holiday not found" });
+    if (err) return res.status(500).json({ error: "Failed to delete holiday" });
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
     res.json({ message: "Holiday deleted successfully" });
   });
 });
+
+// PUT Holiday Approval API - Approve a holiday
+app.put("/api/holidays/approve/:id", (req, res) => {
+  const { id } = req.params;
+  const { approved_by } = req.body;
+  const approved_date = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
+  db.query(
+    "UPDATE holidays SET approval_status = 'Approved', approved_by = ?, approved_date = ? WHERE id = ?",
+    [approved_by, approved_date, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Failed to approve holiday" });
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
+      res.json({ message: "Holiday approved successfully", id, approved_by, approved_date });
+    }
+  );
+});
+
 
 // GET Employees API - Fetch distinct employee names from attendance table
 app.get("/api/employees", (req, res) => {
@@ -678,7 +694,8 @@ app.get("/api/employee_holidays", (req, res) => {
       id,
       holiday_name,
       holiday_date,
-      location
+      location,
+      approval_status
     FROM holidays
   `;
   const params = [];
@@ -698,7 +715,6 @@ app.get("/api/employee_holidays", (req, res) => {
     res.json(results);
   });
 });
-
 // ======================================================================
 // (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
 // Add a new leave record for ONE employee, or update if already exists

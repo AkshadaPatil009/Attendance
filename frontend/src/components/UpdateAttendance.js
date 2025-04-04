@@ -32,6 +32,9 @@ const UpdateAttendance = () => {
   // New state for Employee filter
   const [filterEmployee, setFilterEmployee] = useState("");
 
+  // New state to control pagination (number of months to display)
+  const [displayMonths, setDisplayMonths] = useState(1);
+
   // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
     try {
@@ -222,6 +225,19 @@ const UpdateAttendance = () => {
     return approvedByMatch && dateMatch && employeeMatch;
   });
 
+  // Pagination: If no filterDate is applied, group records by month and display only first N groups.
+  let displayedRecords = filteredRecords;
+  let uniqueMonths = [];
+  if (!filterDate) {
+    uniqueMonths = Array.from(
+      new Set(filteredRecords.map((record) => moment(record.date).format("YYYY-MM")))
+    ).sort((a, b) => moment(b, "YYYY-MM") - moment(a, "YYYY-MM"));
+    const monthsToShow = uniqueMonths.slice(0, displayMonths);
+    displayedRecords = filteredRecords.filter((record) =>
+      monthsToShow.includes(moment(record.date).format("YYYY-MM"))
+    );
+  }
+
   return (
     <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>
       <Row className="g-1">
@@ -334,7 +350,7 @@ const UpdateAttendance = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record) => (
+                {displayedRecords.map((record) => (
                   <tr key={record.id} onClick={() => handleRowClick(record)}>
                     <td>{record.emp_name}</td>
                     <td>{record.approved_by}</td>
@@ -349,6 +365,19 @@ const UpdateAttendance = () => {
                 ))}
               </tbody>
             </Table>
+            {/* Show More Data Button */}
+            {!filterDate && uniqueMonths.length > displayMonths && (
+              <div className="text-center mt-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setDisplayMonths(displayMonths + 1)}
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  Show More Data
+                </Button>
+              </div>
+            )}
           </Container>
         </Col>
 

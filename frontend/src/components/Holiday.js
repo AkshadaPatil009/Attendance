@@ -66,6 +66,10 @@ const Holidays = () => {
   const [holidayToDelete, setHolidayToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // For Approve All confirmation
+  const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+  const [approvalName, setApprovalName] = useState("");
+
   const fetchHolidays = () => {
     fetch("http://localhost:5000/api/holidays")
       .then((res) => res.json())
@@ -101,7 +105,7 @@ const Holidays = () => {
     }
   };
 
-  // Group holidays by date and holiday name, preserving a mapping of location to its record ID
+  // Group holidays by date and holiday name, preserving a mapping of location to its record ID and approval info
   const groupedHolidays = Object.values(
     holidays.reduce((acc, holiday) => {
       const key = `${holiday.holiday_date}-${holiday.holiday_name}`;
@@ -112,6 +116,9 @@ const Holidays = () => {
           locations: new Set([holiday.location]),
           ids: [holiday.id],
           locationMap: { [holiday.location]: holiday.id },
+          approval_status: holiday.approval_status, // include approval status
+          approved_by: holiday.approved_by,
+          approved_date: holiday.approved_date,
         };
       } else {
         acc[key].locations.add(holiday.location);
@@ -133,8 +140,6 @@ const Holidays = () => {
     setEditingHoliday({
       ...holiday,
       holiday_date: formattedDate,
-      // 'locations' here will be the updated selection,
-      // while we also store the original set for comparison
       groupLocations: holiday.locations,
       locationMap: holiday.locationMap,
     });
@@ -148,16 +153,14 @@ const Holidays = () => {
 
   const handleUpdateHoliday = () => {
     if (editingHoliday && editingHoliday.locations.length > 0) {
-      const newLocations = editingHoliday.locations; // current selection from the dropdown
-      const originalLocations = editingHoliday.groupLocations; // original locations in the group
-      const locationMap = editingHoliday.locationMap; // mapping of original location to record id
+      const newLocations = editingHoliday.locations;
+      const originalLocations = editingHoliday.groupLocations;
+      const locationMap = editingHoliday.locationMap;
 
       const promises = [];
 
-      // For each original location, update if it still exists, or delete if removed.
       originalLocations.forEach((loc) => {
         if (!newLocations.includes(loc)) {
-          // delete the record for this removed location
           const id = locationMap[loc];
           promises.push(
             fetch(`http://localhost:5000/api/holidays/${id}`, {
@@ -165,7 +168,6 @@ const Holidays = () => {
             })
           );
         } else {
-          // update the record with the current holiday_date and holiday_name
           const id = locationMap[loc];
           promises.push(
             fetch(`http://localhost:5000/api/holidays/${id}`, {
@@ -181,7 +183,6 @@ const Holidays = () => {
         }
       });
 
-      // For any new location that was added (i.e. not in the original set), add a new record.
       newLocations.forEach((loc) => {
         if (!originalLocations.includes(loc)) {
           promises.push(
@@ -229,6 +230,36 @@ const Holidays = () => {
       .catch((error) => console.error("Error deleting holiday:", error));
   };
 
+  // New: Approve all pending holidays with confirmation modal
+  const handleApproveAll = () => {
+    const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
+    if (pendingHolidays.length === 0) {
+      alert("No pending holidays to approve.");
+      return;
+    }
+    setShowApproveConfirmModal(true);
+  };
+
+  const handleConfirmApproveAll = () => {
+    if (!approvalName) return;
+    const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
+    const approvePromises = pendingHolidays.map((holiday) =>
+      fetch(`http://localhost:5000/api/holidays/approve/${holiday.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved_by: approvalName }),
+      }).then((res) => res.json())
+    );
+    Promise.all(approvePromises)
+      .then(() => {
+        fetchHolidays();
+        setShowApproveConfirmModal(false);
+        setApprovalName("");
+        alert("All pending holidays approved successfully!");
+      })
+      .catch((error) => console.error("Error approving holidays:", error));
+  };
+
   // Get today's date without time for comparison
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -247,36 +278,24 @@ const Holidays = () => {
                 <th>Mumbai Office</th>
                 <th>Delhi Office</th>
                 <th>Actions</th>
+                <th>Approval</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {groupedHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
-                // Compare date-only for determining "past" status
-                const todayOnly = new Date(
-                  today.getFullYear(),
-                  today.getMonth(),
-                  today.getDate()
-                );
-                const holidayDateOnly = new Date(
-                  holidayDate.getFullYear(),
-                  holidayDate.getMonth(),
-                  holidayDate.getDate()
-                );
+                const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const holidayDateOnly = new Date(holidayDate.getFullYear(), holidayDate.getMonth(), holidayDate.getDate());
                 const isPast = holidayDateOnly < todayOnly;
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 });
-
-                // For each location column, check if the holiday's locations include the office.
                 const ratnagiriCheck = holiday.locations.includes("Ratnagiri Office") ? "✓" : "";
                 const mumbaiCheck = holiday.locations.includes("Mumbai Office") ? "✓" : "";
                 const delhiCheck = holiday.locations.includes("Delhi Office") ? "✓" : "";
-
-                // For completed holidays, disable edit & delete by applying a disabled style.
                 const actionStyle = isPast
                   ? { opacity: 0.5, pointerEvents: "none" }
                   : { cursor: "pointer", marginRight: "10px" };
@@ -296,14 +315,11 @@ const Holidays = () => {
                     <td className="text-center">{mumbaiCheck}</td>
                     <td className="text-center">{delhiCheck}</td>
                     <td className="text-center">
-                      <FaPencilAlt
-                        onClick={() => !isPast && handleEdit(holiday)}
-                        style={actionStyle}
-                      />
-                      <FaTrash
-                        onClick={() => !isPast && handleDelete(holiday)}
-                        style={actionStyle}
-                      />
+                      <FaPencilAlt onClick={() => !isPast && handleEdit(holiday)} style={actionStyle} />
+                      <FaTrash onClick={() => !isPast && handleDelete(holiday)} style={actionStyle} />
+                    </td>
+                    <td className="text-center">
+                      {holiday.approval_status === "Pending" ? "Pending" : "Approved"}
                     </td>
                     <td className="text-center">{isPast ? "Completed" : "Upcoming"}</td>
                   </tr>
@@ -316,14 +332,19 @@ const Holidays = () => {
         )}
       </div>
 
-      {/* Button to open "Add Holiday" modal */}
-      <Button
-        className="mt-3"
-        onClick={() => setShowAddModal(true)}
-        style={{ width: "200px", display: "block", margin: "auto" }}
-      >
-        Add Holiday
-      </Button>
+      {/* Common Approve All Button */}
+      <div className="d-flex justify-content-center mt-3">
+        <Button variant="primary" onClick={handleApproveAll} style={{ width: "200px", marginRight: "10px" }}>
+          Approve All Holidays
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => setShowAddModal(true)}
+          style={{ width: "200px" }}
+        >
+          Add Holiday
+        </Button>
+      </div>
 
       {/* Add Holiday Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
@@ -353,9 +374,7 @@ const Holidays = () => {
               <Form.Label>Locations</Form.Label>
               <LocationMultiSelect
                 selectedLocations={newHoliday.locations}
-                setSelectedLocations={(locations) =>
-                  setNewHoliday({ ...newHoliday, locations })
-                }
+                setSelectedLocations={(locations) => setNewHoliday({ ...newHoliday, locations })}
               />
             </Form.Group>
           </Form>
@@ -400,9 +419,7 @@ const Holidays = () => {
                 <Form.Label>Locations</Form.Label>
                 <LocationMultiSelect
                   selectedLocations={editingHoliday.locations}
-                  setSelectedLocations={(locations) =>
-                    setEditingHoliday((prev) => ({ ...prev, locations }))
-                  }
+                  setSelectedLocations={(locations) => setEditingHoliday((prev) => ({ ...prev, locations }))}
                 />
               </Form.Group>
             </Form>
@@ -424,7 +441,8 @@ const Holidays = () => {
           <Modal.Title>Delete Holiday</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete the holiday "{holidayToDelete && holidayToDelete.holiday_name}"?
+          Are you sure you want to delete the holiday "
+          {holidayToDelete && holidayToDelete.holiday_name}"?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
@@ -435,12 +453,38 @@ const Holidays = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Approve All Confirmation Modal */}
+      <Modal show={showApproveConfirmModal} onHide={() => setShowApproveConfirmModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Approve All Holidays</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label>Enter your name to approve all pending holidays:</Form.Label>
+              <Form.Control
+                type="text"
+                value={approvalName}
+                onChange={(e) => setApprovalName(e.target.value)}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowApproveConfirmModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleConfirmApproveAll}>
+            Confirm
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
 
-// Leaves component with inline input fields, separate confirmation popups for Add and Update actions,
-// and a separate validation error popup that shows when the confirm button is clicked and fields are empty.
+// Leaves component (unchanged)
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
@@ -449,12 +493,9 @@ const Leaves = () => {
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Calculate total as numbers (0 if empty)
   const totalLeaves =
-    (parseInt(allocatedUnplannedLeave, 10) || 0) +
-    (parseInt(allocatedPlannedLeave, 10) || 0);
+    (parseInt(allocatedUnplannedLeave, 10) || 0) + (parseInt(allocatedPlannedLeave, 10) || 0);
 
-  // ADD new leave records for employees who don't have any record yet
   const handleAddLeaves = () => {
     if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
       setErrorMessage("Please fill out both leave fields.");
@@ -498,7 +539,6 @@ const Leaves = () => {
       });
   };
 
-  // UPDATE existing leave records for all employees
   const handleUpdateLeaves = () => {
     if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
       setErrorMessage("Please fill out both leave fields.");
