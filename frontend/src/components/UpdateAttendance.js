@@ -242,6 +242,33 @@ const UpdateAttendance = () => {
     );
   }
 
+  // Prepare old and new values for the modal display
+  const oldEmployee = selectedRecord ? selectedRecord.emp_name : "";
+  const newEmployee = selectedEmployee;
+
+  const oldApprovedBy = selectedRecord ? (selectedRecord.approved_by || "") : "";
+  const newApprovedBy = approvedBy;
+
+  const oldReason = selectedRecord ? (selectedRecord.reason || "") : "";
+  const newReason = reason;
+
+  const oldLocation = selectedRecord ? (selectedRecord.location || "") : "";
+  const newLocation = location;
+
+  const oldClockIn = selectedRecord && selectedRecord.in_time
+    ? moment(selectedRecord.in_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
+    : "";
+  const newClockIn = updateClockIn && clockIn
+    ? moment(clockIn).format("YYYY-MM-DD h:mm A")
+    : oldClockIn;
+
+  const oldClockOut = selectedRecord && selectedRecord.out_time
+    ? moment(selectedRecord.out_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
+    : "";
+  const newClockOut = updateClockOut && clockOut
+    ? moment(clockOut).format("YYYY-MM-DD h:mm A")
+    : oldClockOut;
+
   return (
     <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>
       <Row className="g-1">
@@ -534,7 +561,50 @@ const UpdateAttendance = () => {
           <Modal.Title>Confirm Update</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to update the attendance record?
+          {selectedRecord ? (
+            <>
+              {oldEmployee !== newEmployee && (
+                <p>
+                  <strong>Employee:</strong> Old: {oldEmployee} - New: {newEmployee}
+                </p>
+              )}
+              {oldApprovedBy !== newApprovedBy && (
+                <p>
+                  <strong>Approved By:</strong> Old: {oldApprovedBy} - New: {newApprovedBy}
+                </p>
+              )}
+              {oldReason !== newReason && (
+                <p>
+                  <strong>Reason:</strong> Old: {oldReason} - New: {newReason}
+                </p>
+              )}
+              {oldLocation !== newLocation && (
+                <p>
+                  <strong>Location:</strong> Old: {oldLocation} - New: {newLocation}
+                </p>
+              )}
+              {oldClockIn !== newClockIn && (
+                <p>
+                  <strong>Clock In:</strong> Old: {oldClockIn} - New: {newClockIn}
+                </p>
+              )}
+              {oldClockOut !== newClockOut && (
+                <p>
+                  <strong>Clock Out:</strong> Old: {oldClockOut} - New: {newClockOut}
+                </p>
+              )}
+              {oldEmployee === newEmployee &&
+               oldApprovedBy === newApprovedBy &&
+               oldReason === newReason &&
+               oldLocation === newLocation &&
+               oldClockIn === newClockIn &&
+               oldClockOut === newClockOut && (
+                 <p>No changes detected.</p>
+              )}
+            </>
+          ) : (
+            <p>No record selected.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowUpdateConfirm(false)}>
