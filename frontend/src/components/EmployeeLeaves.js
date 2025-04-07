@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Form, Table } from "react-bootstrap";
+import { Form, Table, Row, Col } from "react-bootstrap";
 
 const EmployeeLeaves = () => {
   const [employeeLeaves, setEmployeeLeaves] = useState([]);
@@ -95,37 +95,43 @@ const EmployeeLeaves = () => {
     <div style={{ padding: "16px", width: "600px", margin: "auto" }}>
       <h3 style={{ marginBottom: "16px", textAlign: "center" }}>Employee Leaves</h3>
 
-      {/* Office Selection */}
-      <Form.Group controlId="officeSelect" style={{ marginBottom: "16px" }}>
-        <Form.Label>Choose Office</Form.Label>
-        <Form.Control
-          as="select"
-          value={selectedOffice}
-          onChange={handleOfficeChange}
-        >
-          <option value="">All Offices</option>
-          <option value="DO">DO</option>
-          <option value="MO">MO</option>
-          <option value="RO">RO</option>
-        </Form.Control>
-      </Form.Group>
+      <Row>
+        {/* Office Selection */}
+        <Col md={6}>
+          <Form.Group controlId="officeSelect" style={{ marginBottom: "16px" }}>
+            <Form.Label>Choose Office</Form.Label>
+            <Form.Control
+              as="select"
+              value={selectedOffice}
+              onChange={handleOfficeChange}
+            >
+              <option value="">All Offices</option>
+              <option value="DO">DO</option>
+              <option value="MO">MO</option>
+              <option value="RO">RO</option>
+            </Form.Control>
+          </Form.Group>
+        </Col>
 
-      {/* Employee Selection */}
-      <Form.Group controlId="employeeSelect" style={{ marginBottom: "16px" }}>
-        <Form.Label>Select Employee</Form.Label>
-        <Form.Control
-          as="select"
-          value={selectedEmployee}
-          onChange={handleEmployeeChange}
-        >
-          <option value="">All Employees</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name || emp.Name}
-            </option>
-          ))}
-        </Form.Control>
-      </Form.Group>
+        {/* Employee Selection */}
+        <Col md={6}>
+          <Form.Group controlId="employeeSelect" style={{ marginBottom: "16px" }}>
+            <Form.Label>Select Employee</Form.Label>
+            <Form.Control
+              as="select"
+              value={selectedEmployee}
+              onChange={handleEmployeeChange}
+            >
+              <option value="">All Employees</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name || emp.Name}
+                </option>
+              ))}
+            </Form.Control>
+          </Form.Group>
+        </Col>
+      </Row>
 
       {/* Leave Records Table */}
       {loading ? (

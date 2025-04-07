@@ -384,7 +384,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           <tbody>
             {sortedData.map((rec, idx) => {
               const dayDisplay = getDisplayForRecord(rec);
-              // Map the internal day value to full text
+              // Map the internal day value to full text for datewise view
               let fullText = "";
               switch (rec.day) {
                 case "Holiday":
@@ -397,19 +397,28 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   fullText = "Half Day";
                   break;
                 case "Late Mark":
-                  fullText = "Late Mark";
+                  fullText = "Full Day(Late Mark)";
                   break;
                 case "Absent":
                   fullText = "Absent";
                   break;
                 case "SV":
-                  fullText = "Site Visit";
+                  fullText = "SV";
                   break;
                 case "Sunday":
                   fullText = "Sunday";
                   break;
                 default:
                   fullText = rec.day;
+              }
+              // Additional check: if the record has a location that qualifies as a site visit,
+              // override the Day column text to "Site Visit"
+              const validCodes = ["ro", "mo", "rso", "do", "wfh"];
+              if (
+                rec.location &&
+                rec.location.toLowerCase().trim().split(/\s+/).every(word => !validCodes.includes(word))
+              ) {
+                fullText = "Site Visit";
               }
               return (
                 <tr key={idx}>

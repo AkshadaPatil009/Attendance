@@ -3,6 +3,7 @@ import axios from "axios";
 import moment from "moment";
 import { Container, Row, Col, Form, Button, Table, Modal } from "react-bootstrap";
 import { io } from "socket.io-client";
+import { FaFilter } from "react-icons/fa"; // Import for filter icon
 
 const socket = io("http://localhost:5000"); // Connect to Socket.IO server
 
@@ -34,6 +35,9 @@ const UpdateAttendance = () => {
 
   // New state to control pagination (number of months to display)
   const [displayMonths, setDisplayMonths] = useState(1);
+
+  // New state to control the visibility of the filter bar (icon toggle)
+  const [showFilterBar, setShowFilterBar] = useState(false);
 
   // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
@@ -242,87 +246,7 @@ const UpdateAttendance = () => {
     <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>
       <Row className="g-1">
         {/* Left Column: Attendance Records Table */}
-        <Col md={8}>
-          {/* Filter Bar */}
-          <Container className="mb-2 p-1" style={{ border: "1px solid #ccc", fontSize: "0.75rem" }}>
-            <Row className="align-items-end">
-              <Col md={3}>
-                <Form.Group controlId="filterType">
-                  <Form.Label style={{ fontSize: "0.75rem" }}>Filter Type:</Form.Label>
-                  <Form.Select
-                    size="sm"
-                    value={filterType}
-                    onChange={(e) => {
-                      setFilterType(e.target.value);
-                      setFilterDate(""); // reset filter date when type changes
-                    }}
-                    style={{ fontSize: "0.75rem" }}
-                  >
-                    <option value="date">Date</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group controlId="filterDate">
-                  <Form.Label style={{ fontSize: "0.75rem" }}>
-                    Select {filterType.charAt(0).toUpperCase() + filterType.slice(1)}:
-                  </Form.Label>
-                  <Form.Control
-                    size="sm"
-                    type={filterType === "date" ? "date" : filterType}
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    style={{ fontSize: "0.75rem" }}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group controlId="filterApprovedBy">
-                  <Form.Label style={{ fontSize: "0.75rem" }}>Approved By:</Form.Label>
-                  <Form.Control
-                    size="sm"
-                    type="text"
-                    placeholder="Filter by name"
-                    value={filterApprovedBy}
-                    onChange={(e) => setFilterApprovedBy(e.target.value)}
-                    style={{ fontSize: "0.75rem" }}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group controlId="filterEmployee">
-                  <Form.Label style={{ fontSize: "0.75rem" }}>Employee:</Form.Label>
-                  <Form.Control
-                    size="sm"
-                    type="text"
-                    placeholder="Filter by employee"
-                    value={filterEmployee}
-                    onChange={(e) => setFilterEmployee(e.target.value)}
-                    style={{ fontSize: "0.75rem" }}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Button
-                  variant="info"
-                  size="sm"
-                  onClick={() => {
-                    // Reset filters
-                    setFilterType("date");
-                    setFilterDate("");
-                    setFilterApprovedBy("");
-                    setFilterEmployee("");
-                  }}
-                  style={{ fontSize: "0.75rem" }}
-                >
-                  Clear Filters
-                </Button>
-              </Col>
-            </Row>
-          </Container>
-
+        <Col md={9}>
           <Container
             className="p-1"
             style={{
@@ -335,6 +259,100 @@ const UpdateAttendance = () => {
             <h6 className="mb-2" style={{ fontSize: "0.85rem" }}>
               Attendance Records
             </h6>
+            {/* Toggle Button placed under the Attendance Records header */}
+            <div className="d-flex justify-content-start mb-1">
+              <Button
+                variant="light"
+                size="sm"
+                onClick={() => setShowFilterBar(!showFilterBar)}
+                title="Toggle Filter"
+                style={{ fontSize: "0.75rem" }}
+              >
+                <FaFilter />
+              </Button>
+            </div>
+            {/* Filter Bar */}
+            {showFilterBar && (
+              <Container className="mb-2 p-1" style={{ border: "1px solid #ccc", fontSize: "0.75rem" }}>
+                <Row className="align-items-end">
+                  <Col md={3}>
+                    <Form.Group controlId="filterType">
+                      <Form.Label style={{ fontSize: "0.75rem" }}>Filter Type:</Form.Label>
+                      <Form.Select
+                        size="sm"
+                        value={filterType}
+                        onChange={(e) => {
+                          setFilterType(e.target.value);
+                          setFilterDate(""); // reset filter date when type changes
+                        }}
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        <option value="date">Date</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Form.Group controlId="filterDate">
+                      <Form.Label style={{ fontSize: "0.75rem" }}>
+                        Select {filterType.charAt(0).toUpperCase() + filterType.slice(1)}:
+                      </Form.Label>
+                      <Form.Control
+                        size="sm"
+                        type={filterType === "date" ? "date" : filterType}
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        style={{ fontSize: "0.75rem" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Form.Group controlId="filterApprovedBy">
+                      <Form.Label style={{ fontSize: "0.75rem" }}>Approved By:</Form.Label>
+                      <Form.Control
+                        size="sm"
+                        type="text"
+                        placeholder="Filter by name"
+                        value={filterApprovedBy}
+                        onChange={(e) => setFilterApprovedBy(e.target.value)}
+                        style={{ fontSize: "0.75rem" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Form.Group controlId="filterEmployee">
+                      <Form.Label style={{ fontSize: "0.75rem" }}>Employee:</Form.Label>
+                      <Form.Control
+                        size="sm"
+                        type="text"
+                        placeholder="Filter by employee"
+                        value={filterEmployee}
+                        onChange={(e) => setFilterEmployee(e.target.value)}
+                        style={{ fontSize: "0.75rem" }}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Button
+                      variant="info"
+                      size="sm"
+                      onClick={() => {
+                        // Reset filters
+                        setFilterType("date");
+                        setFilterDate("");
+                        setFilterApprovedBy("");
+                        setFilterEmployee("");
+                      }}
+                      style={{ fontSize: "0.75rem" }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Col>
+                </Row>
+              </Container>
+            )}
+
             <Table bordered hover responsive size="sm" style={{ fontSize: "0.75rem" }}>
               <thead>
                 <tr>
@@ -382,7 +400,7 @@ const UpdateAttendance = () => {
         </Col>
 
         {/* Right Column: Update Attendance Form */}
-        <Col md={4} style={{ border: "1px solid #ccc", padding: "6px" }}>
+        <Col md={3} style={{ border: "1px solid #ccc", padding: "6px" }}>
           <h6 className="mb-2" style={{ fontSize: "0.9rem" }}>
             Update Attendance
           </h6>
