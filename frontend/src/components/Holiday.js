@@ -491,7 +491,7 @@ const Holidays = () => {
   );
 };
 
-// Leaves component (unchanged)
+// Leaves component with input restrictions (max 3 digits enforced via onChange)
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
@@ -502,6 +502,15 @@ const Leaves = () => {
 
   const totalLeaves =
     (parseInt(allocatedUnplannedLeave, 10) || 0) + (parseInt(allocatedPlannedLeave, 10) || 0);
+
+  // Helper function to enforce maximum of 999
+  const handleValueChange = (value) => {
+    const num = parseInt(value, 10);
+    if (!isNaN(num)) {
+      return num > 999 ? "999" : value;
+    }
+    return value;
+  };
 
   const handleAddLeaves = () => {
     if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
@@ -534,9 +543,7 @@ const Leaves = () => {
       .then((data) => {
         console.log("Added leaves for all employees:", data);
         alert(
-          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
-            unplanned + planned
-          }`
+          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
         setShowAddConfirmModal(false);
       })
@@ -577,9 +584,7 @@ const Leaves = () => {
       .then((data) => {
         console.log("Updated leaves for all employees:", data);
         alert(
-          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${
-            unplanned + planned
-          }`
+          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
         );
         setShowUpdateConfirmModal(false);
       })
@@ -600,7 +605,8 @@ const Leaves = () => {
               type="number"
               placeholder="Enter unplanned leaves"
               value={allocatedUnplannedLeave}
-              onChange={(e) => setAllocatedUnplannedLeave(e.target.value)}
+              onChange={(e) => setAllocatedUnplannedLeave(handleValueChange(e.target.value))}
+              min="0"
             />
           </Form.Group>
         </Col>
@@ -611,7 +617,8 @@ const Leaves = () => {
               type="number"
               placeholder="Enter planned leaves"
               value={allocatedPlannedLeave}
-              onChange={(e) => setAllocatedPlannedLeave(e.target.value)}
+              onChange={(e) => setAllocatedPlannedLeave(handleValueChange(e.target.value))}
+              min="0"
             />
           </Form.Group>
         </Col>
