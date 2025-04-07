@@ -28,13 +28,14 @@ const emitAttendanceChange = () => {
   io.emit("attendanceChanged", { message: "Attendance data updated" });
 };
 
-// Database connection using your provided database name
+// MySQL database connection using env variables
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "indiscpx_taskdb_2", // Using the provided database name
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
+
 
 // Login Route (No Encryption - remember to hash passwords in production)
 app.post("/login", (req, res) => {
@@ -958,5 +959,9 @@ io.on("connection", (socket) => {
   });
 });
 
+const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '127.0.0.1';
 // Start the server using the HTTP server with Socket.IO
-server.listen(5000, () => console.log("Server running on port 5000"));
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
+});
