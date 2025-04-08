@@ -3,7 +3,10 @@ import moment from "moment";
 import { Container, Row, Col, Form, Table, Button } from "react-bootstrap";
 import axios from "axios";
 import html2canvas from "html2canvas";
-import { io } from "socket.io-client"; // <-- Added Socket.io Client import
+import { io } from "socket.io-client";
+
+// Define API_URL from environment variable (fallback to localhost for development)
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 /**
  * Return the text code and style for a combined record based on its total work_hour and day.
@@ -157,7 +160,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch employees.
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/employees")
+      .get(`${API_URL}/api/employees`)
       .then((response) => {
         const sortedEmployees = [...response.data].sort((a, b) =>
           a.emp_name.localeCompare(b.emp_name)
@@ -172,7 +175,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // Fetch holidays.
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/holidays")
+      .get(`${API_URL}/api/holidays`)
       .then((response) => {
         setHolidays(response.data);
       })
@@ -191,7 +194,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       params.year = selectedYear;
     }
     axios
-      .get("http://localhost:5000/api/attendanceview", { params })
+      .get(`${API_URL}/api/attendanceview`, { params })
       .then((response) => {
         setAttendanceData(response.data);
       })
@@ -206,7 +209,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
 
   // ------------------ Socket.io Integration ------------------
   useEffect(() => {
-    const socket = io("http://localhost:5000"); // Connect to Socket.io server
+    const socket = io(API_URL); // Using API_URL from environment variable
     // When an attendance change event is received, re-fetch attendance data.
     socket.on("attendanceChanged", (data) => {
       console.log("Attendance changed event received:", data);
@@ -216,7 +219,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     socket.on("holidayChanged", (data) => {
       console.log("Holiday changed event received:", data);
       axios
-        .get("http://localhost:5000/api/holidays")
+        .get(`${API_URL}/api/holidays`)
         .then((response) => {
           setHolidays(response.data);
         })
