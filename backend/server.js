@@ -933,7 +933,7 @@ app.get("/api/employeeleavesdate", (req, res) => {
   let sql = `
     SELECT ed.id, ed.employee_id, l.Name AS employee_name,
            DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date, ed.leave_type 
-    FROM EmployeeLeavesDate ed
+    FROM employeeleavesdate ed
     JOIN logincrd l ON ed.employee_id = l.id
     WHERE 1=1
   `;
