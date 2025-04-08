@@ -9,22 +9,22 @@ const Login = ({ setUser }) => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/login", { email, password });
+      const res = await axios.post(`${API_URL}/login`, { email, password });
 
-      // Store user info in localStorage including location from the server response
-      const userData = { 
-        role: res.data.role, 
-        name: res.data.name, 
-        token: res.data.token, 
+      const userData = {
+        role: res.data.role,
+        name: res.data.name,
+        token: res.data.token,
         employeeId: res.data.employeeId,
-        location: res.data.location 
+        location: res.data.location,
       };
-      localStorage.setItem("user", JSON.stringify(userData));
 
-      // Update state & redirect
+      localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
       navigate("/dashboard");
     } catch (err) {
