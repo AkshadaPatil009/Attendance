@@ -12,6 +12,8 @@ import {
 } from "react-bootstrap";
 import { FaPlus, FaMinus } from "react-icons/fa";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const AdminEmployeeView = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -43,7 +45,7 @@ const AdminEmployeeView = () => {
 
   // Fetch employees on mount
   useEffect(() => {
-    fetch("http://localhost:5000/api/employees-list")
+    fetch(`${API_URL}/api/employees-list`)
       .then((response) => response.json())
       .then((data) => {
         setEmployees(data);
@@ -159,7 +161,7 @@ const AdminEmployeeView = () => {
   const updateEmployeeLeaves = () => {
     setMessage(null);
     // First, update the employee leave aggregate record
-    fetch(`http://localhost:5000/api/employee-leaves/${selectedEmployeeId}`, {
+    fetch(`${API_URL}/api/employee-leaves/${selectedEmployeeId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -191,7 +193,7 @@ const AdminEmployeeView = () => {
         // Now add each leave date record
         return Promise.all(
           updateLeaveRecords.map((record) =>
-            fetch("http://localhost:5000/api/employee-leaves-date", {
+            fetch(`${API_URL}/api/employee-leaves-date`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -225,7 +227,7 @@ const AdminEmployeeView = () => {
   const handleAddEmployeeLeaves = () => {
     setMessage(null);
     // Only add the employee's aggregate record
-    fetch("http://localhost:5000/api/employee-leaves/add", {
+    fetch(`${API_URL}/api/employee-leaves/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

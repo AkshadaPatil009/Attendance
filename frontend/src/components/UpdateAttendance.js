@@ -5,7 +5,11 @@ import { Container, Row, Col, Form, Button, Table, Modal } from "react-bootstrap
 import { io } from "socket.io-client";
 import { FaFilter } from "react-icons/fa"; // Import for filter icon
 
-const socket = io("http://localhost:5000"); // Connect to Socket.IO server
+// Define API_URL from environment variable (fallback to localhost)
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Connect to Socket.IO server using API_URL
+const socket = io(API_URL);
 
 const UpdateAttendance = () => {
   // States for form fields and data
@@ -42,9 +46,7 @@ const UpdateAttendance = () => {
   // Fetch attendance records with cache busting.
   const fetchAttendanceRecords = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/attendance?t=${Date.now()}`
-      );
+      const response = await axios.get(`${API_URL}/api/attendance?t=${Date.now()}`);
       const sortedRecords = response.data.sort(
         (a, b) => new Date(b.date) - new Date(a.date)
       );
@@ -54,10 +56,10 @@ const UpdateAttendance = () => {
     }
   };
 
-  // Fetch employees and sort them alphabetically by employee name
+  // Fetch employees and sort them alphabetically by employee name.
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/employees");
+      const response = await axios.get(`${API_URL}/api/employees`);
       setEmployees(response.data.sort((a, b) => a.emp_name.localeCompare(b.emp_name)));
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -71,13 +73,13 @@ const UpdateAttendance = () => {
     return moment(fullDateTime, "YYYY-MM-DD h:mmA").format("YYYY-MM-DDTHH:mm");
   };
 
-  // Fetch data on mount
+  // Fetch data on mount.
   useEffect(() => {
     fetchAttendanceRecords();
     fetchEmployees();
   }, []);
 
-  // Listen for socket event to update attendance records
+  // Listen for socket event to update attendance records.
   useEffect(() => {
     socket.on("attendanceChanged", () => {
       fetchAttendanceRecords();
@@ -87,12 +89,12 @@ const UpdateAttendance = () => {
     };
   }, []);
 
-  // When an employee is selected, fetch their records if not a manual row selection
+  // When an employee is selected, fetch their records if not a manual row selection.
   useEffect(() => {
     if (selectedEmployee && !manualSelection) {
       axios
         .get(
-          `http://localhost:5000/api/attendance?empName=${encodeURIComponent(
+          `${API_URL}/api/attendance?empName=${encodeURIComponent(
             selectedEmployee
           )}&t=${Date.now()}`
         )
@@ -128,7 +130,7 @@ const UpdateAttendance = () => {
     }
   }, [selectedEmployee, manualSelection]);
 
-  // Populate the form when a table row is clicked
+  // Populate the form when a table row is clicked.
   const handleRowClick = (record) => {
     setManualSelection(true);
     setSelectedRecord(record);
@@ -142,7 +144,7 @@ const UpdateAttendance = () => {
     setUpdateClockOut(!!record.out_time);
   };
 
-  // This function performs the actual update operation
+  // This function performs the actual update operation.
   const doUpdate = async () => {
     if (!selectedRecord) {
       alert("No record selected for update! Please choose an employee record.");
@@ -169,11 +171,11 @@ const UpdateAttendance = () => {
 
     try {
       await axios.put(
-        `http://localhost:5000/api/attendance/${selectedRecord.id}`,
+        `${API_URL}/api/attendance/${selectedRecord.id}`,
         requestBody
       );
       alert("Attendance updated successfully!");
-      // Socket event triggers the refresh
+      // Socket event triggers the refresh.
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert("Failed to update attendance record.");
@@ -181,7 +183,7 @@ const UpdateAttendance = () => {
   };
 
   // Show confirmation modal when update is clicked.
-  // If no record is selected, alert the user to select an employee.
+  // If no record is selected, alert the user.
   const handleUpdateClick = () => {
     if (!selectedEmployee || !selectedRecord) {
       alert("Please select an employee record to update attendance.");
@@ -190,15 +192,15 @@ const UpdateAttendance = () => {
     setShowUpdateConfirm(true);
   };
 
-  // Confirm update then perform the update operation
+  // Confirm update then perform the update operation.
   const confirmUpdate = async () => {
     setShowUpdateConfirm(false);
     await doUpdate();
   };
 
-  // Filter the attendanceRecords based on filter criteria
+  // Filter the attendanceRecords based on filter criteria.
   const filteredRecords = attendanceRecords.filter((record) => {
-    // Filter by Approved By
+    // Filter by Approved By.
     let approvedByMatch = true;
     if (filterApprovedBy) {
       approvedByMatch =
@@ -206,7 +208,7 @@ const UpdateAttendance = () => {
         record.approved_by.toLowerCase().includes(filterApprovedBy.toLowerCase());
     }
 
-    // Filter by Employee
+    // Filter by Employee.
     let employeeMatch = true;
     if (filterEmployee) {
       employeeMatch =
@@ -214,13 +216,13 @@ const UpdateAttendance = () => {
         record.emp_name.toLowerCase().includes(filterEmployee.toLowerCase());
     }
 
-    // Filter by Date / Week / Month
+    // Filter by Date / Week / Month.
     let dateMatch = true;
     if (filterDate) {
       if (filterType === "date") {
         dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM-DD"), "day");
       } else if (filterType === "week") {
-        // HTML week input returns a value like "2025-W10"
+        // HTML week input returns a value like "2025-W10".
         dateMatch = moment(record.date).format("GGGG-[W]WW") === filterDate;
       } else if (filterType === "month") {
         dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM"), "month");
@@ -242,7 +244,7 @@ const UpdateAttendance = () => {
     );
   }
 
-  // Prepare old and new values for the modal display
+  // Prepare old and new values for the modal display.
   const oldEmployee = selectedRecord ? selectedRecord.emp_name : "";
   const newEmployee = selectedEmployee;
 
@@ -255,19 +257,23 @@ const UpdateAttendance = () => {
   const oldLocation = selectedRecord ? (selectedRecord.location || "") : "";
   const newLocation = location;
 
-  const oldClockIn = selectedRecord && selectedRecord.in_time
-    ? moment(selectedRecord.in_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
-    : "";
-  const newClockIn = updateClockIn && clockIn
-    ? moment(clockIn).format("YYYY-MM-DD h:mm A")
-    : oldClockIn;
+  const oldClockIn =
+    selectedRecord && selectedRecord.in_time
+      ? moment(selectedRecord.in_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
+      : "";
+  const newClockIn =
+    updateClockIn && clockIn
+      ? moment(clockIn).format("YYYY-MM-DD h:mm A")
+      : oldClockIn;
 
-  const oldClockOut = selectedRecord && selectedRecord.out_time
-    ? moment(selectedRecord.out_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
-    : "";
-  const newClockOut = updateClockOut && clockOut
-    ? moment(clockOut).format("YYYY-MM-DD h:mm A")
-    : oldClockOut;
+  const oldClockOut =
+    selectedRecord && selectedRecord.out_time
+      ? moment(selectedRecord.out_time, "YYYY-MM-DD h:mmA").format("YYYY-MM-DD h:mm A")
+      : "";
+  const newClockOut =
+    updateClockOut && clockOut
+      ? moment(clockOut).format("YYYY-MM-DD h:mm A")
+      : oldClockOut;
 
   return (
     <Container fluid className="mt-2 p-1" style={{ fontSize: "0.8rem" }}>

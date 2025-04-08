@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Row, Col, Form, Button, Table, Alert, Modal } from "react-bootstrap";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const AttendanceEntry = ({
   hangoutMessages,
   setHangoutMessages,
@@ -18,7 +20,7 @@ const AttendanceEntry = ({
   // This function performs the actual save operation
   const doSaveAttendance = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/attendance", {
+      const response = await fetch(`${API_URL}/api/attendance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

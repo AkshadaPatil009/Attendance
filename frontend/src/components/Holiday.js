@@ -3,6 +3,9 @@ import { Button, Form, Modal, Table, Tabs, Tab, Row, Col } from "react-bootstrap
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
 import "../pages/Dashboard.css"; // Ensure your CSS is applied
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
   const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
@@ -71,7 +74,7 @@ const Holidays = () => {
   const [approvalName, setApprovalName] = useState("");
 
   const fetchHolidays = () => {
-    fetch("http://localhost:5000/api/holidays")
+    fetch(`${API_URL}/api/holidays`)
       .then((res) => res.json())
       .then((data) => setHolidays(data))
       .catch((error) => console.error("Error fetching holidays:", error));
@@ -84,7 +87,7 @@ const Holidays = () => {
   const handleAddHoliday = () => {
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
       const addHolidayPromises = newHoliday.locations.map((location) =>
-        fetch("http://localhost:5000/api/holidays", {
+        fetch(`${API_URL}/api/holidays`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -163,14 +166,14 @@ const Holidays = () => {
         if (!newLocations.includes(loc)) {
           const id = locationMap[loc];
           promises.push(
-            fetch(`http://localhost:5000/api/holidays/${id}`, {
+            fetch(`${API_URL}/api/holidays/${id}`, {
               method: "DELETE",
             })
           );
         } else {
           const id = locationMap[loc];
           promises.push(
-            fetch(`http://localhost:5000/api/holidays/${id}`, {
+            fetch(`${API_URL}/api/holidays/${id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -189,7 +192,7 @@ const Holidays = () => {
       newLocations.forEach((loc) => {
         if (!originalLocations.includes(loc)) {
           promises.push(
-            fetch("http://localhost:5000/api/holidays", {
+            fetch(`${API_URL}/api/holidays`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -220,7 +223,7 @@ const Holidays = () => {
   // Delete all records for a grouped holiday
   const handleConfirmDelete = () => {
     const deletePromises = holidayToDelete.ids.map((id) =>
-      fetch(`http://localhost:5000/api/holidays/${id}`, {
+      fetch(`${API_URL}/api/holidays/${id}`, {
         method: "DELETE",
       })
     );
@@ -247,7 +250,7 @@ const Holidays = () => {
     if (!approvalName) return;
     const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
     const approvePromises = pendingHolidays.map((holiday) =>
-      fetch(`http://localhost:5000/api/holidays/approve/${holiday.id}`, {
+      fetch(`${API_URL}/api/holidays/approve/${holiday.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ approved_by: approvalName }),
@@ -521,7 +524,7 @@ const Leaves = () => {
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
-    fetch("http://localhost:5000/api/employee-leaves", {
+    fetch(`${API_URL}/api/employee-leaves`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -562,7 +565,7 @@ const Leaves = () => {
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
-    fetch("http://localhost:5000/api/employee-leaves", {
+    fetch(`${API_URL}/api/employee-leaves`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

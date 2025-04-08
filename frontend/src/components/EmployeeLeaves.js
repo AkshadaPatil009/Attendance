@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Form, Table, Row, Col } from "react-bootstrap";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const EmployeeLeaves = () => {
   const [employeeLeaves, setEmployeeLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,7 +14,7 @@ const EmployeeLeaves = () => {
   // 1) Fetch all employees (for the dropdown) - not filtered by office
   const fetchEmployeesList = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/employees-list");
+      const response = await axios.get(`${API_URL}/api/employees-list`);
       setEmployees(response.data);
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -22,7 +24,7 @@ const EmployeeLeaves = () => {
   // 2) Fetch employees filtered by office (for the dropdown)
   const fetchOfficeEmployees = async (office) => {
     try {
-      const url = `http://localhost:5000/api/logincrd?office=${office}`;
+      const url = `${API_URL}/api/logincrd?office=${office}`;
       const response = await axios.get(url);
       setEmployees(response.data);
     } catch (error) {
@@ -39,7 +41,7 @@ const EmployeeLeaves = () => {
   const fetchEmployeeLeaves = async (office = "", employeeId = "") => {
     setLoading(true);
     try {
-      let url = "http://localhost:5000/api/employeeleavesdate";
+      let url = `${API_URL}/api/employeeleavesdate`;
       const params = [];
       if (office) {
         params.push(`office=${office}`);

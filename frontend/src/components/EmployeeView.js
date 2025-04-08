@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Card, Table, Tabs, Tab } from "react-bootstrap";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+
 const EmployeeDashboard = () => {
   // Retrieve stored user info from localStorage (must contain employeeId and location from login)
   const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -26,7 +29,7 @@ const EmployeeDashboard = () => {
       return;
     }
 
-    fetch(`http://localhost:5000/api/employees-leaves/${employeeId}`)
+    fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
       .then((response) => {
         if (!response.ok) {
           throw new Error("No leave record found or server error.");
@@ -50,7 +53,7 @@ const EmployeeDashboard = () => {
   // Fetch holiday list on mount using the employee's location as a query parameter.
   // Then filter to show only holidays with an "Approved" status.
   useEffect(() => {
-    let url = "http://localhost:5000/api/employee_holidays";
+    let url = `${API_URL}/api/employee_holidays`;
     if (employeeLocation) {
       url += `?location=${employeeLocation}`;
     }

@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Tabs, Tab } from "react-bootstrap";
-
-// Import your custom components
 import AttendanceEntry from "./AttendanceEntry";
 import UpdateAttendance from "./UpdateAttendance";
 import ViewAttendance from "./ViewAttendance";
 import EmployeeLeaves from "./EmployeeLeaves";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const AttendanceForm = () => {
   // -----------------------
@@ -66,7 +66,7 @@ const AttendanceForm = () => {
     const fetchEmployees = async () => {
       try {
         // GET all employees from the /api/employees endpoint
-        const response = await axios.get("http://localhost:5000/api/employees");
+        const response = await axios.get(`${API_URL}/api/employees`);
         setEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees:", error);
@@ -224,7 +224,7 @@ const AttendanceForm = () => {
     setLoading(true);
     try {
       // POST the attendance records to /api/attendance
-      const response = await axios.post("http://localhost:5000/api/attendance", {
+      const response = await axios.post(`${API_URL}/api/attendance`, {
         attendanceRecords: attendanceToSave,
       });
       alert(response.data.message);
@@ -250,7 +250,7 @@ const AttendanceForm = () => {
     try {
       // GET attendance for a specific employee by name
       const response = await axios.get(
-        `http://localhost:5000/api/attendance?empName=${encodeURIComponent(empName)}`
+        `${API_URL}/api/attendance?empName=${encodeURIComponent(empName)}`
       );
       setEmployeeAttendance(response.data);
     } catch (error) {
@@ -284,7 +284,7 @@ const AttendanceForm = () => {
       };
 
       await axios.put(
-        `http://localhost:5000/api/attendance/${selectedRecord.id}`,
+       `${API_URL}/api/attendance/${selectedRecord.id}`,
         requestBody
       );
       alert("Attendance updated successfully!");
