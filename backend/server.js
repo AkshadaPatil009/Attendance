@@ -849,7 +849,7 @@ app.post("/api/employee-leaves-date", (req, res) => {
       .json({ error: "employeeId, leave_date, and leave_type are required." });
   }
   const sql = `
-    INSERT INTO EmployeeLeavesDate (employee_id, leave_date, leave_type)
+    INSERT INTO employeeleavesdate (employee_id, leave_date, leave_type)
     VALUES (?, ?, ?)
   `;
   db.query(sql, [employeeId, leave_date, leave_type], (err, result) => {
