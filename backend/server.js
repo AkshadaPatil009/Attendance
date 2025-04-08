@@ -38,15 +38,30 @@ const db = mysql.createConnection({
 
 
 // Login Route (No Encryption - remember to hash passwords in production)
+// Login route
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
+
+  console.log("Login request received:", { email, password });
+
   db.query("SELECT * FROM logincrd WHERE Email = ?", [email], (err, results) => {
-    if (err) return res.status(500).json({ error: "Database error" });
-    if (results.length === 0)
+    if (err) {
+      console.error("Database query error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    console.log("Query result:", results);
+
+    if (results.length === 0) {
+      console.log("User not found:", email);
       return res.status(400).json({ error: "User not found" });
+    }
 
     const user = results[0];
+    console.log("User found:", user);
+
     if (password !== user.Password) {
+      console.log("Invalid password for user:", email);
       return res.status(400).json({ error: "Invalid password" });
     }
 
