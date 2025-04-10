@@ -6,7 +6,6 @@ const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
 
-// NEW: Import http and socket.io
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -14,11 +13,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Create HTTP server and integrate Socket.IO
+// integrate Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust for your client domain in production
+    origin: "*", 
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
@@ -36,9 +35,8 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
 });
 
-
 // Login Route (No Encryption - remember to hash passwords in production)
-// Login route
+
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
