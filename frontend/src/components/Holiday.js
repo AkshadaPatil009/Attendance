@@ -5,7 +5,6 @@ import "../pages/Dashboard.css"; // Ensure your CSS is applied
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-
 // Custom component for multi-select location dropdown
 const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
   const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
@@ -73,6 +72,10 @@ const Holidays = () => {
   const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
   const [approvalName, setApprovalName] = useState("");
 
+  // For date‐validation error popup
+  const [showDateErrorModal, setShowDateErrorModal] = useState(false);
+  const [dateErrorMessage, setDateErrorMessage] = useState("");
+
   const fetchHolidays = () => {
     fetch(`${API_URL}/api/holidays`)
       .then((res) => res.json())
@@ -85,6 +88,17 @@ const Holidays = () => {
   }, []);
 
   const handleAddHoliday = () => {
+    // Validate: date must not be in the past
+    const todayOnly = new Date();
+    todayOnly.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(newHoliday.date);
+    selectedDate.setHours(0, 0, 0, 0);
+    if (selectedDate < todayOnly) {
+      setDateErrorMessage("Cannot add a holiday in the past.");
+      setShowDateErrorModal(true);
+      return;
+    }
+
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
       const addHolidayPromises = newHoliday.locations.map((location) =>
         fetch(`${API_URL}/api/holidays`, {
@@ -119,7 +133,7 @@ const Holidays = () => {
           locations: new Set([holiday.location]),
           ids: [holiday.id],
           locationMap: { [holiday.location]: holiday.id },
-          approval_status: holiday.approval_status, // include approval status
+          approval_status: holiday.approval_status,
           approved_by: holiday.approved_by,
           approved_date: holiday.approved_date,
         };
@@ -139,7 +153,6 @@ const Holidays = () => {
     const date = new Date(holiday.holiday_date);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     const formattedDate = date.toISOString().split("T")[0];
-    // Save original locations and locationMap as part of editingHoliday
     setEditingHoliday({
       ...holiday,
       holiday_date: formattedDate,
@@ -155,6 +168,17 @@ const Holidays = () => {
   };
 
   const handleUpdateHoliday = () => {
+    // Validate: new date must not be in the past
+    const todayOnly = new Date();
+    todayOnly.setHours(0, 0, 0, 0);
+    const updatedDate = new Date(editingHoliday.holiday_date);
+    updatedDate.setHours(0, 0, 0, 0);
+    if (updatedDate < todayOnly) {
+      setDateErrorMessage("Cannot set the holiday to a past date.");
+      setShowDateErrorModal(true);
+      return;
+    }
+
     if (editingHoliday && editingHoliday.locations.length > 0) {
       const newLocations = editingHoliday.locations;
       const originalLocations = editingHoliday.groupLocations;
@@ -220,7 +244,6 @@ const Holidays = () => {
     setShowDeleteModal(true);
   };
 
-  // Delete all records for a grouped holiday
   const handleConfirmDelete = () => {
     const deletePromises = holidayToDelete.ids.map((id) =>
       fetch(`${API_URL}/api/holidays/${id}`, {
@@ -236,7 +259,6 @@ const Holidays = () => {
       .catch((error) => console.error("Error deleting holiday:", error));
   };
 
-  // New: Approve all pending holidays with confirmation modal
   const handleApproveAll = () => {
     const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
     if (pendingHolidays.length === 0) {
@@ -292,8 +314,22 @@ const Holidays = () => {
               {groupedHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
                 const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                const holidayDateOnly = new Date(holidayDate.getFullYear(), holidayDate.getMonth(), holidayDate.getDate());
+                const holidayDateOnly = new Date(
+                  holidayDate.getFullYear(),
+                  holidayDate.getMonth(),
+                  holidayDate.getDate()
+                );
+
+                // compute 7 days out
+                const sevenDaysLater = new Date(todayOnly);
+                sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+                // disable if past OR within next 7 days
                 const isPast = holidayDateOnly < todayOnly;
+                const isWithin7Days =
+                  holidayDateOnly >= todayOnly && holidayDateOnly <= sevenDaysLater;
+                const isDisabled = isPast || isWithin7Days;
+
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
@@ -302,7 +338,8 @@ const Holidays = () => {
                 const ratnagiriCheck = holiday.locations.includes("Ratnagiri Office") ? "✓" : "";
                 const mumbaiCheck = holiday.locations.includes("Mumbai Office") ? "✓" : "";
                 const delhiCheck = holiday.locations.includes("Delhi Office") ? "✓" : "";
-                const actionStyle = isPast
+
+                const actionStyle = isDisabled
                   ? { opacity: 0.5, pointerEvents: "none" }
                   : { cursor: "pointer", marginRight: "10px" };
 
@@ -321,8 +358,14 @@ const Holidays = () => {
                     <td className="text-center">{mumbaiCheck}</td>
                     <td className="text-center">{delhiCheck}</td>
                     <td className="text-center">
-                      <FaPencilAlt onClick={() => !isPast && handleEdit(holiday)} style={actionStyle} />
-                      <FaTrash onClick={() => !isPast && handleDelete(holiday)} style={actionStyle} />
+                      <FaPencilAlt
+                        onClick={() => !isDisabled && handleEdit(holiday)}
+                        style={actionStyle}
+                      />
+                      <FaTrash
+                        onClick={() => !isDisabled && handleDelete(holiday)}
+                        style={actionStyle}
+                      />
                     </td>
                     <td className="text-center">
                       {holiday.approval_status === "Pending" ? (
@@ -344,14 +387,14 @@ const Holidays = () => {
 
       {/* Common Approve All Button */}
       <div className="d-flex justify-content-center mt-3">
-        <Button variant="primary" onClick={handleApproveAll} style={{ width: "200px", marginRight: "10px" }}>
-          Approve All Holidays
-        </Button>
         <Button
           variant="primary"
-          onClick={() => setShowAddModal(true)}
-          style={{ width: "200px" }}
+          onClick={handleApproveAll}
+          style={{ width: "200px", marginRight: "10px" }}
         >
+          Approve All Holidays
+        </Button>
+        <Button variant="primary" onClick={() => setShowAddModal(true)} style={{ width: "200px" }}>
           Add Holiday
         </Button>
       </div>
@@ -384,7 +427,9 @@ const Holidays = () => {
               <Form.Label>Locations</Form.Label>
               <LocationMultiSelect
                 selectedLocations={newHoliday.locations}
-                setSelectedLocations={(locations) => setNewHoliday({ ...newHoliday, locations })}
+                setSelectedLocations={(locations) =>
+                  setNewHoliday({ ...newHoliday, locations })
+                }
               />
             </Form.Group>
           </Form>
@@ -429,7 +474,9 @@ const Holidays = () => {
                 <Form.Label>Locations</Form.Label>
                 <LocationMultiSelect
                   selectedLocations={editingHoliday.locations}
-                  setSelectedLocations={(locations) => setEditingHoliday((prev) => ({ ...prev, locations }))}
+                  setSelectedLocations={(locations) =>
+                    setEditingHoliday((prev) => ({ ...prev, locations }))
+                  }
                 />
               </Form.Group>
             </Form>
@@ -487,6 +534,19 @@ const Holidays = () => {
           </Button>
           <Button variant="primary" onClick={handleConfirmApproveAll}>
             Confirm
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Date Validation Error Modal */}
+      <Modal show={showDateErrorModal} onHide={() => setShowDateErrorModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Invalid Date</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>{dateErrorMessage}</Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => setShowDateErrorModal(false)}>
+            OK
           </Button>
         </Modal.Footer>
       </Modal>
