@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
 
+// NEW: Import http and socket.io
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -13,11 +14,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// integrate Socket.IO
+// Create HTTP server and integrate Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "*", // Adjust for your client domain in production
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
@@ -35,33 +36,40 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
 });
 
-// Login Route (No Encryption - remember to hash passwords in production)
 
+// Login Route (No Encryption - remember to hash passwords in production) 
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
+  // Extract the Base64‐encoded password from the request
+  const { email, password} = req.body;
 
-  console.log("Login request received:", { email, password });
 
-  db.query("SELECT * FROM logincrd WHERE Email = ?", [email], (err, results) => {
-    if (err) {
-      console.error("Database query error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
+  // Decode it back to plain text
+  //let password;
+ 
 
-    console.log("Query result:", results);
+  db.query(
+    "SELECT * FROM logincrd WHERE Email = ?",
+    [email],
+    (err, results) => {
+      if (err) {
+        console.error("Database query error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
 
-    if (results.length === 0) {
-      console.log("User not found:", email);
-      return res.status(400).json({ error: "User not found" });
-    }
+    
 
-    const user = results[0];
-    console.log("User found:", user);
+      if (results.length === 0) {
+        console.log("User not found:", email);
+        return res.status(400).json({ error: "User not found" });
+      }
 
-    if (password !== user.Password) {
-      console.log("Invalid password for user:", email);
-      return res.status(400).json({ error: "Invalid password" });
-    }
+      const user = results[0];
+     
+
+      if (password !== user.Password) {
+        console.log("Invalid password for user:", email);
+        return res.status(400).json({ error: "Invalid password" });
+      }
 
     // Generate JWT token
     const token = jwt.sign(
