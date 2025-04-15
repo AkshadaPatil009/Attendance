@@ -27,6 +27,11 @@ const UpdateAttendance = () => {
   const [fullDay, setFullDay] = useState(false);
   const [manualSelection, setManualSelection] = useState(false);
 
+  // NEW: States for toggling each field update
+  const [updateApprovedBy, setUpdateApprovedBy] = useState(false);
+  const [updateReason, setUpdateReason] = useState(false);
+  const [updateLocation, setUpdateLocation] = useState(false);
+
   // New state to control update confirmation modal
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
@@ -111,8 +116,14 @@ const UpdateAttendance = () => {
             setLocation(latestRecord.location || "");
             setClockIn(convertToDatetimeLocal(latestRecord.in_time));
             setClockOut(convertToDatetimeLocal(latestRecord.out_time));
-            setUpdateClockIn(!!latestRecord.in_time);
-            setUpdateClockOut(!!latestRecord.out_time);
+
+            // NEW: do not auto-check clock-in/out
+            setUpdateClockIn(false);
+            setUpdateClockOut(false);
+            // reset other toggles
+            setUpdateApprovedBy(false);
+            setUpdateReason(false);
+            setUpdateLocation(false);
           } else {
             setSelectedRecord(null);
             setApprovedBy("");
@@ -122,6 +133,9 @@ const UpdateAttendance = () => {
             setClockOut("");
             setUpdateClockIn(false);
             setUpdateClockOut(false);
+            setUpdateApprovedBy(false);
+            setUpdateReason(false);
+            setUpdateLocation(false);
           }
         })
         .catch((error) => {
@@ -140,8 +154,14 @@ const UpdateAttendance = () => {
     setLocation(record.location || "");
     setClockIn(convertToDatetimeLocal(record.in_time));
     setClockOut(convertToDatetimeLocal(record.out_time));
-    setUpdateClockIn(!!record.in_time);
-    setUpdateClockOut(!!record.out_time);
+
+    // NEW: do not auto-check clock-in/out
+    setUpdateClockIn(false);
+    setUpdateClockOut(false);
+    // reset other toggles
+    setUpdateApprovedBy(false);
+    setUpdateReason(false);
+    setUpdateLocation(false);
   };
 
   // This function performs the actual update operation.
@@ -160,13 +180,24 @@ const UpdateAttendance = () => {
         ? `${recordDate} ${moment(clockOut).format("h:mmA")}`
         : selectedRecord.out_time || "";
 
+    // conditionally include each field
+    const formattedApprovedBy = updateApprovedBy
+      ? approvedBy
+      : selectedRecord.approved_by || "";
+    const formattedReason = updateReason
+      ? reason
+      : selectedRecord.reason || "";
+    const formattedLocation = updateLocation
+      ? location
+      : selectedRecord.location || "";
+
     const requestBody = {
       inTime: formattedClockIn,
       outTime: formattedClockOut,
-      location,
+      location: formattedLocation,
       date: recordDate,
-      approved_by: approvedBy,
-      reason,
+      approved_by: formattedApprovedBy,
+      reason: formattedReason,
     };
 
     try {
@@ -183,7 +214,6 @@ const UpdateAttendance = () => {
   };
 
   // Show confirmation modal when update is clicked.
-  // If no record is selected, alert the user.
   const handleUpdateClick = () => {
     if (!selectedEmployee || !selectedRecord) {
       alert("Please select an employee record to update attendance.");
@@ -200,29 +230,23 @@ const UpdateAttendance = () => {
 
   // Filter the attendanceRecords based on filter criteria.
   const filteredRecords = attendanceRecords.filter((record) => {
-    // Filter by Approved By.
     let approvedByMatch = true;
     if (filterApprovedBy) {
       approvedByMatch =
         record.approved_by &&
         record.approved_by.toLowerCase().includes(filterApprovedBy.toLowerCase());
     }
-
-    // Filter by Employee.
     let employeeMatch = true;
     if (filterEmployee) {
       employeeMatch =
         record.emp_name &&
         record.emp_name.toLowerCase().includes(filterEmployee.toLowerCase());
     }
-
-    // Filter by Date / Week / Month.
     let dateMatch = true;
     if (filterDate) {
       if (filterType === "date") {
         dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM-DD"), "day");
       } else if (filterType === "week") {
-        // HTML week input returns a value like "2025-W10".
         dateMatch = moment(record.date).format("GGGG-[W]WW") === filterDate;
       } else if (filterType === "month") {
         dateMatch = moment(record.date).isSame(moment(filterDate, "YYYY-MM"), "month");
@@ -460,24 +484,35 @@ const UpdateAttendance = () => {
               </Form.Select>
             </Form.Group>
 
+            {/* NEW: Approved By */}
             <Form.Group controlId="approvedBy" className="mb-1">
-              <Form.Label style={{ fontSize: "0.75rem" }}>
-                Approved by:
-              </Form.Label>
+              <Form.Check
+                type="checkbox"
+                label="Update Approved By"
+                checked={updateApprovedBy}
+                onChange={(e) => setUpdateApprovedBy(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
+              />
               <Form.Control
                 size="sm"
                 type="text"
                 placeholder="Enter name"
                 value={approvedBy}
                 onChange={(e) => setApprovedBy(e.target.value)}
+                disabled={!updateApprovedBy}
                 style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
+            {/* NEW: Reason */}
             <Form.Group controlId="reason" className="mb-1">
-              <Form.Label style={{ fontSize: "0.75rem" }}>
-                Reason:
-              </Form.Label>
+              <Form.Check
+                type="checkbox"
+                label="Update Reason"
+                checked={updateReason}
+                onChange={(e) => setUpdateReason(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
+              />
               <Form.Control
                 size="sm"
                 as="textarea"
@@ -485,20 +520,27 @@ const UpdateAttendance = () => {
                 placeholder="Enter reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
+                disabled={!updateReason}
                 style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
 
+            {/* NEW: Location */}
             <Form.Group controlId="location" className="mb-1">
-              <Form.Label style={{ fontSize: "0.75rem" }}>
-                Location:
-              </Form.Label>
+              <Form.Check
+                type="checkbox"
+                label="Update Location"
+                checked={updateLocation}
+                onChange={(e) => setUpdateLocation(e.target.checked)}
+                style={{ fontSize: "0.75rem" }}
+              />
               <Form.Control
                 size="sm"
                 type="text"
                 placeholder="Location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                disabled={!updateLocation}
                 style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
