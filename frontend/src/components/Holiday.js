@@ -66,6 +66,8 @@ const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
   const [offices, setOffices] = useState([]);
   const [showOfficeModal, setShowOfficeModal] = useState(false);
+  // NEW: Office confirmation modal state
+  const [showOfficeConfirmModal, setShowOfficeConfirmModal] = useState(false);
   const [newOfficeName, setNewOfficeName] = useState("");
 
   // existing states...
@@ -113,6 +115,7 @@ const Holidays = () => {
       .then(() => {
         fetchOffices();
         setNewOfficeName("");
+        setShowOfficeConfirmModal(false);
         setShowOfficeModal(false);
       })
       .catch((err) => console.error("Error adding office:", err));
@@ -433,8 +436,35 @@ const Holidays = () => {
           <Button variant="secondary" onClick={() => setShowOfficeModal(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleAddOffice}>
+          <Button
+            variant="primary"
+            onClick={() => setShowOfficeConfirmModal(true)}
+          >
             Add Office
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Add Office Confirmation Modal */}
+      <Modal
+        show={showOfficeConfirmModal}
+        onHide={() => setShowOfficeConfirmModal(false)}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Add Office</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to add the office "{newOfficeName}"?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowOfficeConfirmModal(false)}
+          >
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddOffice}>
+            Confirm
           </Button>
         </Modal.Footer>
       </Modal>
@@ -702,9 +732,7 @@ const Leaves = () => {
               type="number"
               placeholder="Enter unplanned leaves"
               value={allocatedUnplannedLeave}
-              onChange={(e) =>
-                setAllocatedUnplannedLeave(handleValueChange(e.target.value))
-              }
+              onChange={(e) => setAllocatedUnplannedLeave(handleValueChange(e.target.value))}
               min="0"
             />
           </Form.Group>
@@ -716,9 +744,7 @@ const Leaves = () => {
               type="number"
               placeholder="Enter planned leaves"
               value={allocatedPlannedLeave}
-              onChange={(e) =>
-                setAllocatedPlannedLeave(handleValueChange(e.target.value))
-              }
+              onChange={(e) => setAllocatedPlannedLeave(handleValueChange(e.target.value))}
               min="0"
             />
           </Form.Group>
@@ -760,10 +786,7 @@ const Leaves = () => {
           <strong>Total Leaves:</strong> {totalLeaves}
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowSaveConfirmModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowSaveConfirmModal(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleConfirmSave}>
@@ -782,10 +805,7 @@ const Leaves = () => {
         </Modal.Header>
         <Modal.Body>{errorMessage}</Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="primary"
-            onClick={() => setShowValidationErrorModal(false)}
-          >
+          <Button variant="primary" onClick={() => setShowValidationErrorModal(false)}>
             OK
           </Button>
         </Modal.Footer>
