@@ -142,13 +142,18 @@ const EmployeeLeaves = () => {
     }
   };
 
-  // 2) fetch employees by office
+  // 2) fetch employees by office and map employee id from logincrd table
   const fetchOfficeEmployees = async (office) => {
     try {
       const { data } = await axios.get(
         `${API_URL}/api/logincrd?office=${office}`
       );
-      setEmployees(data);
+      // Mapping employee id from database field (assuming 'employee_id' is returned)
+      const employeesWithId = data.map((e) => ({
+        ...e,
+        id: e.employee_id, // change this field name if necessary
+      }));
+      setEmployees(employeesWithId);
     } catch (e) {
       console.error(e);
     }
@@ -282,7 +287,8 @@ const EmployeeLeaves = () => {
         <Table striped bordered hover responsive>
           <thead>
             <tr>
-              <th>ID</th>
+              <th>Sr.No</th>
+              <th>Employee Id</th>
               <th>Employee Name</th>
               <th>Leave Date</th>
               <th>Leave Type</th>
@@ -292,6 +298,7 @@ const EmployeeLeaves = () => {
             {filteredLeaves.map((l) => (
               <tr key={l.id}>
                 <td>{l.id}</td>
+                <td>{l.employee_id}</td>
                 <td>{l.employee_name}</td>
                 <td>{l.leave_date}</td>
                 <td>{l.leave_type}</td>
