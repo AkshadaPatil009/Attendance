@@ -233,7 +233,6 @@ const EmployeeLeaves = () => {
                 as="select"
                 value={selectedOffice}
                 onChange={handleOfficeChange}
-                custom
               >
                 <option value="">All Offices</option>
                 <option value="DO">DO</option>

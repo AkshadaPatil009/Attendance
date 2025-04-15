@@ -596,17 +596,17 @@ const Holidays = () => {
   );
 };
 
-// Leaves component (unchanged)
+// Leaves component (merged “Add” + “Update” into one)
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
-  const [showAddConfirmModal, setShowAddConfirmModal] = useState(false);
-  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const totalLeaves =
-    (parseInt(allocatedUnplannedLeave, 10) || 0) + (parseInt(allocatedPlannedLeave, 10) || 0);
+    (parseInt(allocatedUnplannedLeave, 10) || 0) +
+    (parseInt(allocatedPlannedLeave, 10) || 0);
 
   const handleValueChange = (value) => {
     const num = parseInt(value, 10);
@@ -616,15 +616,27 @@ const Leaves = () => {
     return value;
   };
 
-  const handleAddLeaves = () => {
-    if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
+  // When user clicks the single “Save Leaves” button
+  const handleSaveLeaves = () => {
+    if (
+      !allocatedUnplannedLeave.toString().trim() ||
+      !allocatedPlannedLeave.toString().trim()
+    ) {
       setErrorMessage("Please fill out both leave fields.");
       setShowValidationErrorModal(true);
       return;
     }
+    setShowSaveConfirmModal(true);
+  };
+
+  // After confirming in the modal, do POST then PUT
+  const handleConfirmSave = () => {
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
+    setShowSaveConfirmModal(false);
+
+    // 1) POST to add any missing records
     fetch(`${API_URL}/api/employee-leaves`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -644,57 +656,38 @@ const Leaves = () => {
         }
         return res.json();
       })
-      .then((data) => {
-        console.log("Added leaves for all employees:", data);
-        alert(
-          `Leaves added for employees who have no record:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
-        );
-        setShowAddConfirmModal(false);
-      })
-      .catch((error) => {
-        console.error("Error adding leaves:", error);
-        alert("Error adding leaves");
-      });
-  };
-
-  const handleUpdateLeaves = () => {
-    if (!allocatedUnplannedLeave.toString().trim() || !allocatedPlannedLeave.toString().trim()) {
-      setErrorMessage("Please fill out both leave fields.");
-      setShowValidationErrorModal(true);
-      return;
-    }
-    const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
-    const planned = parseInt(allocatedPlannedLeave, 10) || 0;
-
-    fetch(`${API_URL}/api/employee-leaves`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        allocatedUnplannedLeave: unplanned,
-        allocatedPlannedLeave: planned,
-        remainingUnplannedLeave: unplanned,
-        remainingPlannedLeave: planned,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.text().then((text) => {
-            console.error("Server error text:", text);
-            throw new Error(`Server error: ${res.status}`);
+      .then((postData) => {
+        // 2) PUT to update allocations & remaining for everyone
+        return fetch(`${API_URL}/api/employee-leaves`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allocatedUnplannedLeave: unplanned,
+            allocatedPlannedLeave: planned,
+            remainingUnplannedLeave: unplanned,
+            remainingPlannedLeave: planned,
+          }),
+        })
+          .then((res2) => {
+            if (!res2.ok) {
+              return res2.text().then((text) => {
+                console.error("Server error text:", text);
+                throw new Error(`Server error: ${res2.status}`);
+              });
+            }
+            return res2.json();
+          })
+          .then((putData) => {
+            alert(
+              `Leaves saved successfully!\n` +
+                `New records added: ${postData.insertedCount || 0}\n` +
+                `Records updated: ${putData.affectedRows || 0}`
+            );
           });
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Updated leaves for all employees:", data);
-        alert(
-          `Leaves updated for all employees:\nUnplanned: ${unplanned}, Planned: ${planned}, Total: ${unplanned + planned}`
-        );
-        setShowUpdateConfirmModal(false);
       })
       .catch((error) => {
-        console.error("Error updating leaves:", error);
-        alert("Error updating leaves");
+        console.error("Error saving leaves:", error);
+        alert("Error saving leaves");
       });
   };
 
@@ -709,7 +702,9 @@ const Leaves = () => {
               type="number"
               placeholder="Enter unplanned leaves"
               value={allocatedUnplannedLeave}
-              onChange={(e) => setAllocatedUnplannedLeave(handleValueChange(e.target.value))}
+              onChange={(e) =>
+                setAllocatedUnplannedLeave(handleValueChange(e.target.value))
+              }
               min="0"
             />
           </Form.Group>
@@ -721,7 +716,9 @@ const Leaves = () => {
               type="number"
               placeholder="Enter planned leaves"
               value={allocatedPlannedLeave}
-              onChange={(e) => setAllocatedPlannedLeave(handleValueChange(e.target.value))}
+              onChange={(e) =>
+                setAllocatedPlannedLeave(handleValueChange(e.target.value))
+              }
               min="0"
             />
           </Form.Group>
@@ -734,23 +731,27 @@ const Leaves = () => {
       </Row>
       <Row className="justify-content-center mt-4">
         <Col md={2} className="text-center">
-          <Button variant="primary" onClick={() => setShowAddConfirmModal(true)} className="w-100">
-            Add Leaves
-          </Button>
-        </Col>
-        <Col md={2} className="text-center">
-          <Button variant="success" onClick={() => setShowUpdateConfirmModal(true)} className="w-100">
-            Update Leaves
+          <Button
+            variant="primary"
+            onClick={handleSaveLeaves}
+            className="w-100"
+          >
+            Save Leaves
           </Button>
         </Col>
       </Row>
-      {/* Add Confirmation Modal */}
-      <Modal show={showAddConfirmModal} onHide={() => setShowAddConfirmModal(false)}>
+
+      {/* Single Confirm Modal */}
+      <Modal
+        show={showSaveConfirmModal}
+        onHide={() => setShowSaveConfirmModal(false)}
+      >
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Add Leaves</Modal.Title>
+          <Modal.Title>Confirm Save Leaves</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to add leaves for all employees with the following details?
+          Are you sure you want to save leaves for all employees with the
+          following details?
           <br />
           <strong>Unplanned Leaves:</strong> {allocatedUnplannedLeave || 0}
           <br />
@@ -759,45 +760,32 @@ const Leaves = () => {
           <strong>Total Leaves:</strong> {totalLeaves}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddConfirmModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowSaveConfirmModal(false)}
+          >
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleAddLeaves}>
-            Confirm Add
+          <Button variant="primary" onClick={handleConfirmSave}>
+            Confirm
           </Button>
         </Modal.Footer>
       </Modal>
-      {/* Update Confirmation Modal */}
-      <Modal show={showUpdateConfirmModal} onHide={() => setShowUpdateConfirmModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Confirm Update Leaves</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Are you sure you want to update leaves for all employees with the following details?
-          <br />
-          <strong>Unplanned Leaves:</strong> {allocatedUnplannedLeave || 0}
-          <br />
-          <strong>Planned Leaves:</strong> {allocatedPlannedLeave || 0}
-          <br />
-          <strong>Total Leaves:</strong> {totalLeaves}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowUpdateConfirmModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="success" onClick={handleUpdateLeaves}>
-            Confirm Update
-          </Button>
-        </Modal.Footer>
-      </Modal>
+
       {/* Validation Error Modal */}
-      <Modal show={showValidationErrorModal} onHide={() => setShowValidationErrorModal(false)}>
+      <Modal
+        show={showValidationErrorModal}
+        onHide={() => setShowValidationErrorModal(false)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Validation Error</Modal.Title>
         </Modal.Header>
         <Modal.Body>{errorMessage}</Modal.Body>
         <Modal.Footer>
-          <Button variant="primary" onClick={() => setShowValidationErrorModal(false)}>
+          <Button
+            variant="primary"
+            onClick={() => setShowValidationErrorModal(false)}
+          >
             OK
           </Button>
         </Modal.Footer>
@@ -812,7 +800,11 @@ const HolidayAndLeavesTabs = () => {
 
   return (
     <div className="container-fluid mt-4" style={{ minHeight: "600px" }}>
-      <Tabs activeKey={activeTab} onSelect={(tab) => setActiveTab(tab)} className="mb-3">
+      <Tabs
+        activeKey={activeTab}
+        onSelect={(tab) => setActiveTab(tab)}
+        className="mb-3"
+      >
         <Tab eventKey="holidays" title="Holidays">
           <Holidays />
         </Tab>
