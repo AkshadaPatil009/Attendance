@@ -36,16 +36,13 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
 });
 
-
 // Login Route (No Encryption - remember to hash passwords in production) 
 app.post("/login", (req, res) => {
   // Extract the Base64‐encoded password from the request
-  const { email, password} = req.body;
-
+  const { email, password } = req.body;
 
   // Decode it back to plain text
   //let password;
- 
 
   db.query(
     "SELECT * FROM logincrd WHERE Email = ?",
@@ -56,29 +53,27 @@ app.post("/login", (req, res) => {
         return res.status(500).json({ error: "Database error" });
       }
 
-    
-
       if (results.length === 0) {
         console.log("User not found:", email);
         return res.status(400).json({ error: "User not found" });
       }
 
       const user = results[0];
-     
 
       if (password !== user.Password) {
         console.log("Invalid password for user:", email);
         return res.status(400).json({ error: "Invalid password" });
       }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, name: user.Name, type: user.Type, location: user.Location || "" },
-      "secret",
-      { expiresIn: "1h" }
-    );
-    res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, location: user.Location || "" });
-  });
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user.id, name: user.Name, type: user.Type, location: user.Location || "" },
+        "secret",
+        { expiresIn: "1h" }
+      );
+      res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, location: user.Location || "" });
+    }
+  );
 });
 
 // GET Holidays API - Fetch all holidays sorted by date
@@ -154,8 +149,6 @@ app.put("/api/holidays/approve/:id", (req, res) => {
     }
   );
 });
-
-
 
 // GET Employees API - Fetch distinct employee names from attendance table
 app.get("/api/employees", (req, res) => {
@@ -677,10 +670,10 @@ app.put("/api/employee-leaves/:id", (req, res) => {
   });
 });
 
-/**
- * GET /api/employees-leaves/:id
- * Fetch used & remaining leaves for the given employee ID
- */
+// ======================================================================
+// GET /api/employees-leaves/:id
+// Fetch used & remaining leaves for the given employee ID
+// ======================================================================
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
 
@@ -741,7 +734,7 @@ app.get("/api/employee_holidays", (req, res) => {
 });
 // ======================================================================
 // (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
-// Add a new leave record for ONE employee, or update if already exists
+// Add a new leave record for ONE employee, or update if already exists.
 // ======================================================================
 app.post("/api/employee-leaves/add", (req, res) => {
   const {
@@ -752,12 +745,28 @@ app.post("/api/employee-leaves/add", (req, res) => {
     usedPlannedLeave,
     remainingUnplannedLeave,
     remainingPlannedLeave,
+    joiningDate,
   } = req.body;
 
   if (!employeeId) {
     return res
       .status(400)
       .json({ error: "employeeId is required to add a leave record." });
+  }
+
+  let finalRemainingUnplanned = remainingUnplannedLeave;
+  let finalRemainingPlanned = remainingPlannedLeave;
+
+  // If joiningDate is provided, automatically compute remaining leaves for the year.
+  if (joiningDate && allocatedUnplannedLeave && allocatedPlannedLeave) {
+    const joinDate = new Date(joiningDate);
+    const year = joinDate.getFullYear();
+    const endOfYear = new Date(year, 11, 31);
+    const totalDaysInYear = ((new Date(year, 11, 31) - new Date(year, 0, 1)) / (1000 * 60 * 60 * 24)) + 1;
+    const remainingDays = Math.floor((endOfYear.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const fraction = remainingDays / totalDaysInYear;
+    finalRemainingUnplanned = Math.floor(allocatedUnplannedLeave * fraction);
+    finalRemainingPlanned = Math.floor(allocatedPlannedLeave * fraction);
   }
 
   // Check if there's already a record for this employee
@@ -787,8 +796,8 @@ app.post("/api/employee-leaves/add", (req, res) => {
           allocatedPlannedLeave || 0,
           usedUnplannedLeave || 0,
           usedPlannedLeave || 0,
-          remainingUnplannedLeave || 0,
-          remainingPlannedLeave || 0,
+          finalRemainingUnplanned || 0,
+          finalRemainingPlanned || 0,
           employeeId,
         ];
         db.query(updateSql, updateParams, (err2) => {
@@ -822,8 +831,8 @@ app.post("/api/employee-leaves/add", (req, res) => {
           allocatedPlannedLeave || 0,
           usedUnplannedLeave || 0,
           usedPlannedLeave || 0,
-          remainingUnplannedLeave || 0,
-          remainingPlannedLeave || 0,
+          finalRemainingUnplanned || 0,
+          finalRemainingPlanned || 0,
         ];
         db.query(insertSql, insertParams, (err3) => {
           if (err3) {
@@ -970,6 +979,31 @@ app.get("/api/employeeleavesdate", (req, res) => {
     }
     res.json(results);
   });
+});
+
+// NEW: Leave Application API Endpoint
+// This endpoint saves the data from the leave application form to the database.
+app.post("/api/leave/apply-leave", (req, res) => {
+  const { employee_id, leave_type, to_email, cc_email, subject, body } = req.body;
+  if (!employee_id || !leave_type || !to_email) {
+    return res.status(400).json({ error: "employee_id, leave_type, and to_email are required." });
+  }
+  const sql = `
+    INSERT INTO leave_applications (employee_id, leave_type, to_email, cc_email, subject, body)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  db.query(sql, [employee_id, leave_type, to_email, cc_email, subject, body], (err, result) => {
+    if (err) {
+      console.error("Error inserting leave application:", err);
+      return res.status(500).json({ error: "Database error while submitting leave application." });
+    }
+    res.status(201).json({ message: "Leave application submitted successfully", id: result.insertId });
+  });
+});
+
+app.post('/api/leave/apply-leave', (req, res) => {
+  // your logic here
+  res.json({ message: 'Leave applied successfully' });
 });
 
 // NEW: Listen for socket connections.

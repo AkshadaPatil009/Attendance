@@ -38,6 +38,8 @@ const AdminEmployeeView = () => {
   const [usedPlannedLeaveAdd, setUsedPlannedLeaveAdd] = useState(0);
   const [remainingUnplannedLeaveAdd, setRemainingUnplannedLeaveAdd] = useState(0);
   const [remainingPlannedLeaveAdd, setRemainingPlannedLeaveAdd] = useState(0);
+  // New state for Joining Date
+  const [joiningDate, setJoiningDate] = useState("");
 
   // State for confirmation popup for update and add
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
@@ -53,6 +55,7 @@ const AdminEmployeeView = () => {
           const firstEmployee = data[0];
           setSelectedEmployeeId(firstEmployee.id);
           populateLeaveFields(firstEmployee);
+          setSelectedAddEmployeeId(firstEmployee.id);
         }
       })
       .catch((error) => {
@@ -157,6 +160,24 @@ const AdminEmployeeView = () => {
     }
   };
 
+  // Effect to automatically compute remaining leaves for the "Add" tab when the joining date changes
+  useEffect(() => {
+    if (joiningDate && allocatedPlannedLeaveAdd && allocatedUnplannedLeaveAdd) {
+      const join = new Date(joiningDate);
+      const year = join.getFullYear();
+      const endOfYear = new Date(year, 11, 31);
+      const totalDaysInYear =
+        (new Date(year, 11, 31) - new Date(year, 0, 1)) / (1000 * 60 * 60 * 24) + 1;
+      const remainingDays =
+        Math.floor((endOfYear.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const fraction = remainingDays / totalDaysInYear;
+
+      // Automatically update the remaining leave states (rounded down)
+      setRemainingPlannedLeaveAdd(Math.floor(allocatedPlannedLeaveAdd * fraction));
+      setRemainingUnplannedLeaveAdd(Math.floor(allocatedUnplannedLeaveAdd * fraction));
+    }
+  }, [joiningDate, allocatedPlannedLeaveAdd, allocatedUnplannedLeaveAdd]);
+
   // Update employee leaves (aggregate update + multiple leave date records)
   const updateEmployeeLeaves = () => {
     setMessage(null);
@@ -226,7 +247,12 @@ const AdminEmployeeView = () => {
 
   const handleAddEmployeeLeaves = () => {
     setMessage(null);
-    // Only add the employee's aggregate record
+    // Validate that an employee is selected
+    if (!selectedAddEmployeeId) {
+      setMessage("Please select an employee before adding leave data.");
+      return;
+    }
+    // Only add the employee's aggregate record along with joining date
     fetch(`${API_URL}/api/employee-leaves/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -238,6 +264,7 @@ const AdminEmployeeView = () => {
         usedPlannedLeave: usedPlannedLeaveAdd,
         remainingUnplannedLeave: remainingUnplannedLeaveAdd,
         remainingPlannedLeave: remainingPlannedLeaveAdd,
+        joiningDate: joiningDate
       }),
     })
       .then((response) => {
@@ -314,6 +341,19 @@ const AdminEmployeeView = () => {
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
+                    <Form.Label>Joining Date</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={joiningDate}
+                      onChange={(e) => setJoiningDate(e.target.value)}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Row>
+                <Col>
+                  <Form.Group className="mb-3">
                     <Form.Label>Allocated Unplanned Leave</Form.Label>
                     <Form.Control
                       type="number"
@@ -352,89 +392,7 @@ const AdminEmployeeView = () => {
                 </Col>
               </Row>
 
-              <Row>
-                <Col>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Used Unplanned Leave</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={usedUnplannedLeaveAdd}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value, 10) || 0;
-                        if (val < 0) {
-                          setMessage("Negative values are not allowed for Used Unplanned Leave.");
-                          val = 0;
-                        } else {
-                          setMessage(null);
-                        }
-                        setUsedUnplannedLeaveAdd(val);
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Used Planned Leave</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={usedPlannedLeaveAdd}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value, 10) || 0;
-                        if (val < 0) {
-                          setMessage("Negative values are not allowed for Used Planned Leave.");
-                          val = 0;
-                        } else {
-                          setMessage(null);
-                        }
-                        setUsedPlannedLeaveAdd(val);
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Row>
-                <Col>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Remaining Unplanned Leave</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={remainingUnplannedLeaveAdd}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value, 10) || 0;
-                        if (val < 0) {
-                          setMessage("Negative values are not allowed for Remaining Unplanned Leave.");
-                          val = 0;
-                        } else {
-                          setMessage(null);
-                        }
-                        setRemainingUnplannedLeaveAdd(val);
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Remaining Planned Leave</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={remainingPlannedLeaveAdd}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value, 10) || 0;
-                        if (val < 0) {
-                          setMessage("Negative values are not allowed for Remaining Planned Leave.");
-                          val = 0;
-                        } else {
-                          setMessage(null);
-                        }
-                        setRemainingPlannedLeaveAdd(val);
-                      }}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              {/* No Leave Date Records section in Add tab */}
+              {/* No fields for Used or Remaining Leaves in the Add tab */}
               <Button variant="primary" onClick={handleAddConfirmation} className="w-100">
                 Add Employee Leave Record
               </Button>
@@ -447,7 +405,7 @@ const AdminEmployeeView = () => {
           <Card style={{ maxWidth: "600px", margin: "auto" }}>
             <Card.Body>
               <Card.Title>Update Employee Leave Details</Card.Title>
-              {/* Moved Select Employee dropdown inside the card */}
+              {/* Employee selection */}
               <Form.Group className="mb-3">
                 <Form.Label>
                   <b>Select Employee (Update Record)</b>
@@ -510,7 +468,7 @@ const AdminEmployeeView = () => {
                   </Col>
                 </Row>
 
-                {/* Multiple leave date records for Update tab with plus and minus icons */}
+                {/* Multiple leave date records for update */}
                 <Card className="mb-3">
                   <Card.Body>
                     <Card.Title>Leave Date Records</Card.Title>

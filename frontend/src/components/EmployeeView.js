@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Card, Table, Tabs, Tab } from "react-bootstrap";
+import {
+  Card,
+  Table,
+  Tabs,
+  Tab,
+  Button,
+  Form,
+  Row,
+  Col,
+  Modal,
+} from "react-bootstrap";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-
 const EmployeeDashboard = () => {
-  // Retrieve stored user info from localStorage (must contain employeeId and location from login)
   const storedUser = JSON.parse(localStorage.getItem("user"));
   const employeeId = storedUser?.employeeId;
-  // Employee's location from login response is assumed to be "Ratnagiri", "Mumbai", or "Delhi"
   const employeeLocation = storedUser?.location || "";
 
-  // State for employee leaves
   const [employeeLeaves, setEmployeeLeaves] = useState({
     unplannedLeave: "",
     plannedLeave: "",
@@ -19,10 +25,20 @@ const EmployeeDashboard = () => {
     remainingPlannedLeave: "",
   });
 
-  // State for holidays (each holiday displayed separately)
   const [holidays, setHolidays] = useState([]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  // Fetch the employee's leave details
+  const [leaveForm, setLeaveForm] = useState({
+    leaveType: "",
+    to: "",       // No hardcoded email now
+    cc: "",       // No hardcoded CC
+    subject: "",
+    body: "",
+  });
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
   useEffect(() => {
     if (!employeeId) {
       console.error("No employeeId found in localStorage user data.");
@@ -31,13 +47,11 @@ const EmployeeDashboard = () => {
 
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
       .then((response) => {
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error("No leave record found or server error.");
-        }
         return response.json();
       })
       .then((data) => {
-        // Data contains: usedUnplannedLeave, usedPlannedLeave, remainingUnplannedLeave, remainingPlannedLeave
         setEmployeeLeaves({
           unplannedLeave: data.usedUnplannedLeave || 0,
           plannedLeave: data.usedPlannedLeave || 0,
@@ -45,27 +59,18 @@ const EmployeeDashboard = () => {
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
         });
       })
-      .catch((error) => {
-        console.error("Error fetching employee leaves:", error);
-      });
+      .catch((error) => console.error("Error fetching employee leaves:", error));
   }, [employeeId]);
 
-  // Fetch holiday list on mount using the employee's location as a query parameter.
-  // Then filter to show only holidays with an "Approved" status.
   useEffect(() => {
     let url = `${API_URL}/api/employee_holidays`;
-    if (employeeLocation) {
-      url += `?location=${employeeLocation}`;
-    }
+    if (employeeLocation) url += `?location=${employeeLocation}`;
     fetch(url)
       .then((response) => {
-        if (!response.ok) {
-          throw new Error("Error fetching holidays");
-        }
+        if (!response.ok) throw new Error("Error fetching holidays");
         return response.json();
       })
       .then((data) => {
-        // Filter for approved holidays
         const approvedHolidays = data.filter(
           (holiday) => holiday.approval_status === "Approved"
         );
@@ -74,60 +79,186 @@ const EmployeeDashboard = () => {
       .catch((error) => console.error("Error fetching holidays:", error));
   }, [employeeLocation]);
 
-  // Get today's date without time for comparison
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setLeaveForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSendMail = () => {
+    setShowConfirmModal(true);
+  };
+
+  // Submit leave application to backend.
+  const confirmSend = async () => {
+    const payload = {
+      employee_id: employeeId,
+      leave_type: leaveForm.leaveType,
+      to_email: leaveForm.to,
+      cc_email: leaveForm.cc,
+      subject: leaveForm.subject,
+      body: leaveForm.body,
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/leave/apply-leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(
+          "Leave request sent successfully! Your application ID is: " + result.id
+        );
+        // Reset the form (all fields to empty)
+        setLeaveForm({
+          leaveType: "",
+          to: "",
+          cc: "",
+          subject: "",
+          body: "",
+        });
+      } else {
+        alert("Error: " + (result.error || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error sending leave request:", error);
+      alert("Failed to connect to server.");
+    } finally {
+      setShowConfirmModal(false);
+    }
+  };
 
   return (
     <div className="container-fluid mt-4">
       <Tabs defaultActiveKey="leaves" id="employee-dashboard-tabs" className="mb-3">
         <Tab eventKey="leaves" title="Leaves">
-          {/* Leave Details Card - compressed width and centered */}
-          <Card className="p-3 shadow-sm mt-3 mx-auto" style={{ maxWidth: "400px" }}>
-            <h5><b>Used Leaves</b></h5>
-            <div className="d-flex justify-content-between align-items-center">
-              <span>Unplanned Leave</span>
-              <input
-                type="text"
-                className="form-control w-50"
-                value={employeeLeaves.unplannedLeave}
-                readOnly
-              />
-            </div>
-            <div className="d-flex justify-content-between align-items-center mt-2">
-              <span>Planned Leave</span>
-              <input
-                type="text"
-                className="form-control w-50"
-                value={employeeLeaves.plannedLeave}
-                readOnly
-              />
-            </div>
-            <h5 className="mt-3"><b>Remaining Leaves</b></h5>
-            <div className="d-flex justify-content-between align-items-center">
-              <span>Unplanned Leave</span>
-              <input
-                type="text"
-                className="form-control w-50"
-                value={employeeLeaves.remainingUnplannedLeave}
-                readOnly
-              />
-            </div>
-            <div className="d-flex justify-content-between align-items-center mt-2">
-              <span>Planned Leave</span>
-              <input
-                type="text"
-                className="form-control w-50"
-                value={employeeLeaves.remainingPlannedLeave}
-                readOnly
-              />
-            </div>
-          </Card>
+          <Row className="mt-3">
+            {/* Leave Info */}
+            <Col md={6}>
+              <Card className="p-4 shadow-sm">
+                <h5>
+                  <b>Used Leaves</b>
+                </h5>
+                <Form.Group className="mb-3">
+                  <Form.Label>Unplanned Leave</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={employeeLeaves.unplannedLeave}
+                    readOnly
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Planned Leave</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={employeeLeaves.plannedLeave}
+                    readOnly
+                  />
+                </Form.Group>
+
+                <h5 className="mt-4">
+                  <b>Remaining Leaves</b>
+                </h5>
+                <Form.Group className="mb-3">
+                  <Form.Label>Unplanned Leave</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={employeeLeaves.remainingUnplannedLeave}
+                    readOnly
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Planned Leave</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={employeeLeaves.remainingPlannedLeave}
+                    readOnly
+                  />
+                </Form.Group>
+              </Card>
+            </Col>
+
+            {/* Leave Application Form */}
+            <Col md={6}>
+              <Card className="p-4 shadow-sm">
+                <h5>
+                  <b>Apply for Leave</b>
+                </h5>
+                <Form>
+                  <Form.Group className="mb-3 mt-2">
+                    <Form.Label>Leave Type</Form.Label>
+                    <Form.Select
+                      name="leaveType"
+                      value={leaveForm.leaveType}
+                      onChange={handleFormChange}
+                    >
+                      <option value="">-- Select Leave Type --</option>
+                      <option value="Planned Leave">Planned Leave</option>
+                      <option value="Unplanned Leave">Unplanned Leave</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>To</Form.Label>
+                    <Form.Control
+                      type="email"
+                      name="to"
+                      value={leaveForm.to}
+                      onChange={handleFormChange}
+                      placeholder="Enter recipient email"
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>CC</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="cc"
+                      value={leaveForm.cc}
+                      onChange={handleFormChange}
+                      placeholder="Enter CC email addresses, if any"
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Subject</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="subject"
+                      value={leaveForm.subject}
+                      onChange={handleFormChange}
+                      placeholder="Enter email subject"
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Body</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      name="body"
+                      value={leaveForm.body}
+                      onChange={handleFormChange}
+                      rows={4}
+                      placeholder="Enter email body text"
+                    />
+                  </Form.Group>
+
+                  <Button variant="primary" onClick={handleSendMail}>
+                    Send Mail
+                  </Button>
+                </Form>
+              </Card>
+            </Col>
+          </Row>
         </Tab>
+
         <Tab eventKey="holidays" title="Holidays">
-          {/* Holiday List Table */}
           <div className="mt-4">
-            <h5 className="text-center"><b>Holiday List</b></h5>
+            <h5 className="text-center">
+              <b>Holiday List</b>
+            </h5>
             <Table striped bordered hover responsive>
               <thead>
                 <tr>
@@ -162,6 +293,42 @@ const EmployeeDashboard = () => {
           </div>
         </Tab>
       </Tabs>
+
+      {/* Confirmation Modal with Email Preview */}
+      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Email Preview</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            <strong>To:</strong> {leaveForm.to}
+          </p>
+          <p>
+            <strong>CC:</strong> {leaveForm.cc}
+          </p>
+          <p>
+            <strong>Subject:</strong> {leaveForm.subject}
+          </p>
+          <p>
+            <strong>Body:</strong>
+          </p>
+          <div className="border rounded p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
+            {leaveForm.body}
+          </div>
+          <hr />
+          <p className="text-danger fw-bold">
+            Are you sure you want to send this mail?
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={confirmSend}>
+            Yes, Send
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
