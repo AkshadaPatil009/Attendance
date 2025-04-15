@@ -14,9 +14,13 @@ import {
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const EmployeeDashboard = () => {
+  // Get the logged-in user info from localStorage.
   const storedUser = JSON.parse(localStorage.getItem("user"));
   const employeeId = storedUser?.employeeId;
   const employeeLocation = storedUser?.location || "";
+  
+  // Make sure your storedUser has email and name for sender info.
+  // For example: storedUser.email and storedUser.name
 
   const [employeeLeaves, setEmployeeLeaves] = useState({
     unplannedLeave: "",
@@ -31,20 +35,20 @@ const EmployeeDashboard = () => {
 
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
-    to: "",       // No hardcoded email now
-    cc: "",       // No hardcoded CC
+    to: "",
+    cc: "",
     subject: "",
     body: "",
   });
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  // Fetch employee leave data.
   useEffect(() => {
     if (!employeeId) {
       console.error("No employeeId found in localStorage user data.");
       return;
     }
-
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
       .then((response) => {
         if (!response.ok)
@@ -59,9 +63,12 @@ const EmployeeDashboard = () => {
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
         });
       })
-      .catch((error) => console.error("Error fetching employee leaves:", error));
+      .catch((error) =>
+        console.error("Error fetching employee leaves:", error)
+      );
   }, [employeeId]);
 
+  // Fetch approved holidays.
   useEffect(() => {
     let url = `${API_URL}/api/employee_holidays`;
     if (employeeLocation) url += `?location=${employeeLocation}`;
@@ -76,22 +83,29 @@ const EmployeeDashboard = () => {
         );
         setHolidays(approvedHolidays);
       })
-      .catch((error) => console.error("Error fetching holidays:", error));
+      .catch((error) =>
+        console.error("Error fetching holidays:", error)
+      );
   }, [employeeLocation]);
 
+  // Handle form input changes.
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setLeaveForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Open confirmation modal when employee clicks "Send Mail".
   const handleSendMail = () => {
     setShowConfirmModal(true);
   };
 
-  // Submit leave application to backend.
+  // Confirm and send email (leave application).
   const confirmSend = async () => {
+    // Build payload including logged-in user's info for dynamic "From"
     const payload = {
       employee_id: employeeId,
+      from_email: storedUser?.email,         // dynamic sender email
+      from_name: storedUser?.name || "",       // dynamic sender name
       leave_type: leaveForm.leaveType,
       to_email: leaveForm.to,
       cc_email: leaveForm.cc,
@@ -111,7 +125,7 @@ const EmployeeDashboard = () => {
         alert(
           "Leave request sent successfully! Your application ID is: " + result.id
         );
-        // Reset the form (all fields to empty)
+        // Reset the form fields
         setLeaveForm({
           leaveType: "",
           to: "",
@@ -132,10 +146,14 @@ const EmployeeDashboard = () => {
 
   return (
     <div className="container-fluid mt-4">
-      <Tabs defaultActiveKey="leaves" id="employee-dashboard-tabs" className="mb-3">
+      <Tabs
+        defaultActiveKey="leaves"
+        id="employee-dashboard-tabs"
+        className="mb-3"
+      >
         <Tab eventKey="leaves" title="Leaves">
           <Row className="mt-3">
-            {/* Leave Info */}
+            {/* Leave Info Card */}
             <Col md={6}>
               <Card className="p-4 shadow-sm">
                 <h5>
@@ -200,6 +218,16 @@ const EmployeeDashboard = () => {
                     </Form.Select>
                   </Form.Group>
 
+                  {/* Display the logged-in employee's email as the sender */}
+                  <Form.Group className="mb-3">
+                    <Form.Label>From</Form.Label>
+                    <Form.Control
+                      type="email"
+                      readOnly
+                      value={storedUser?.email || ""}
+                    />
+                  </Form.Group>
+
                   <Form.Group className="mb-3">
                     <Form.Label>To</Form.Label>
                     <Form.Control
@@ -208,6 +236,7 @@ const EmployeeDashboard = () => {
                       value={leaveForm.to}
                       onChange={handleFormChange}
                       placeholder="Enter recipient email"
+                      required
                     />
                   </Form.Group>
 
@@ -230,6 +259,7 @@ const EmployeeDashboard = () => {
                       value={leaveForm.subject}
                       onChange={handleFormChange}
                       placeholder="Enter email subject"
+                      required
                     />
                   </Form.Group>
 
@@ -242,6 +272,7 @@ const EmployeeDashboard = () => {
                       onChange={handleFormChange}
                       rows={4}
                       placeholder="Enter email body text"
+                      required
                     />
                   </Form.Group>
 
@@ -300,25 +331,16 @@ const EmployeeDashboard = () => {
           <Modal.Title>Email Preview</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            <strong>To:</strong> {leaveForm.to}
-          </p>
-          <p>
-            <strong>CC:</strong> {leaveForm.cc}
-          </p>
-          <p>
-            <strong>Subject:</strong> {leaveForm.subject}
-          </p>
-          <p>
-            <strong>Body:</strong>
-          </p>
+          <p><strong>From:</strong> {storedUser?.email}</p>
+          <p><strong>To:</strong> {leaveForm.to}</p>
+          <p><strong>CC:</strong> {leaveForm.cc}</p>
+          <p><strong>Subject:</strong> {leaveForm.subject}</p>
+          <p><strong>Body:</strong></p>
           <div className="border rounded p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
             {leaveForm.body}
           </div>
           <hr />
-          <p className="text-danger fw-bold">
-            Are you sure you want to send this mail?
-          </p>
+          <p className="text-danger fw-bold">Are you sure you want to send this mail?</p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>

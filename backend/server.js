@@ -138,7 +138,10 @@ app.delete("/api/holidays/:id", (req, res) => {
 app.put("/api/holidays/approve/:id", (req, res) => {
   const { id } = req.params;
   const { approved_by } = req.body;
-  const approved_date = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const localDate = new Date(now.getTime() - offsetMs);
+  const approved_date = localDate.toISOString().slice(0, 19).replace('T', ' ');
   db.query(
     "UPDATE holidays SET approval_status = 'Approved', approved_by = ?, approved_date = ? WHERE id = ?",
     [approved_by, approved_date, id],
@@ -1004,6 +1007,30 @@ app.post("/api/leave/apply-leave", (req, res) => {
 app.post('/api/leave/apply-leave', (req, res) => {
   // your logic here
   res.json({ message: 'Leave applied successfully' });
+});
+
+
+/**
+ * GET Offices API - Fetch all offices
+ */
+app.get("/api/offices", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  db.query("SELECT * FROM offices ORDER BY name ASC", (err, results) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    res.json(results);
+  });
+});
+
+/**
+ * POST Office API - Add a new office
+ */
+app.post("/api/offices", (req, res) => {
+  const { name } = req.body;
+  db.query("INSERT INTO offices (name) VALUES (?)", [name], (err, result) => {
+    if (err) return res.status(500).json({ error: "Failed to add office" });
+    const insertedOffice = { id: result.insertId, name };
+    res.json(insertedOffice);
+  });
 });
 
 // NEW: Listen for socket connections.

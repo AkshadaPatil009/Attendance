@@ -1,3 +1,4 @@
+// src/components/HolidayAndLeavesTabs.jsx
 import React, { useState, useEffect } from "react";
 import { Button, Form, Modal, Table, Tabs, Tab, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
@@ -6,8 +7,7 @@ import "../pages/Dashboard.css"; // Ensure your CSS is applied
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Custom component for multi-select location dropdown
-const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
-  const locationOptions = ["Ratnagiri Office", "Mumbai Office", "Delhi Office"];
+const LocationMultiSelect = ({ options, selectedLocations, setSelectedLocations }) => {
   const [open, setOpen] = useState(false);
 
   const toggleOption = (option) => {
@@ -19,27 +19,34 @@ const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedLocations.length === locationOptions.length) {
+    if (selectedLocations.length === options.length) {
       setSelectedLocations([]);
     } else {
-      setSelectedLocations([...locationOptions]);
+      setSelectedLocations([...options]);
     }
   };
 
   return (
     <div className="position-relative">
-      <Button variant="outline-secondary" onClick={() => setOpen(!open)} className="w-100 text-start">
+      <Button
+        variant="outline-secondary"
+        onClick={() => setOpen(!open)}
+        className="w-100 text-start"
+      >
         {selectedLocations.length > 0 ? selectedLocations.join(", ") : "Select Locations"}
       </Button>
       {open && (
-        <div className="border position-absolute bg-white p-2" style={{ zIndex: 1000, width: "100%" }}>
+        <div
+          className="border position-absolute bg-white p-2"
+          style={{ zIndex: 1000, width: "100%" }}
+        >
           <Form.Check
             type="checkbox"
             label="Select All"
-            checked={selectedLocations.length === locationOptions.length}
+            checked={selectedLocations.length === options.length}
             onChange={toggleSelectAll}
           />
-          {locationOptions.map((option) => (
+          {options.map((option) => (
             <Form.Check
               key={option}
               type="checkbox"
@@ -57,25 +64,23 @@ const LocationMultiSelect = ({ selectedLocations, setSelectedLocations }) => {
 // Holidays component
 const Holidays = () => {
   const [holidays, setHolidays] = useState([]);
+  const [offices, setOffices] = useState([]);
+  const [showOfficeModal, setShowOfficeModal] = useState(false);
+  const [newOfficeName, setNewOfficeName] = useState("");
+
+  // existing states...
   const [showAddModal, setShowAddModal] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
-
-  // For editing
   const [editingHoliday, setEditingHoliday] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-
-  // For deletion
   const [holidayToDelete, setHolidayToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  // For Approve All confirmation
   const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
   const [approvalName, setApprovalName] = useState("");
-
-  // For date‐validation error popup
   const [showDateErrorModal, setShowDateErrorModal] = useState(false);
   const [dateErrorMessage, setDateErrorMessage] = useState("");
 
+  // Fetch holidays
   const fetchHolidays = () => {
     fetch(`${API_URL}/api/holidays`)
       .then((res) => res.json())
@@ -83,12 +88,38 @@ const Holidays = () => {
       .catch((error) => console.error("Error fetching holidays:", error));
   };
 
+  // Fetch offices
+  const fetchOffices = () => {
+    fetch(`${API_URL}/api/offices`)
+      .then((res) => res.json())
+      .then((data) => setOffices(data.map((o) => o.name)))
+      .catch((err) => console.error("Error fetching offices:", err));
+  };
+
   useEffect(() => {
     fetchHolidays();
+    fetchOffices();
   }, []);
 
+  // Add a new office
+  const handleAddOffice = () => {
+    if (!newOfficeName.trim()) return;
+    fetch(`${API_URL}/api/offices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newOfficeName.trim() }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        fetchOffices();
+        setNewOfficeName("");
+        setShowOfficeModal(false);
+      })
+      .catch((err) => console.error("Error adding office:", err));
+  };
+
+  // Add holiday
   const handleAddHoliday = () => {
-    // Validate: date must not be in the past
     const todayOnly = new Date();
     todayOnly.setHours(0, 0, 0, 0);
     const selectedDate = new Date(newHoliday.date);
@@ -98,7 +129,6 @@ const Holidays = () => {
       setShowDateErrorModal(true);
       return;
     }
-
     if (newHoliday.date && newHoliday.name && newHoliday.locations.length > 0) {
       const addHolidayPromises = newHoliday.locations.map((location) =>
         fetch(`${API_URL}/api/holidays`, {
@@ -111,7 +141,6 @@ const Holidays = () => {
           }),
         }).then((res) => res.json())
       );
-
       Promise.all(addHolidayPromises)
         .then(() => {
           fetchHolidays();
@@ -122,33 +151,7 @@ const Holidays = () => {
     }
   };
 
-  // Group holidays by date and holiday name, preserving a mapping of location to its record ID and approval info
-  const groupedHolidays = Object.values(
-    holidays.reduce((acc, holiday) => {
-      const key = `${holiday.holiday_date}-${holiday.holiday_name}`;
-      if (!acc[key]) {
-        acc[key] = {
-          holiday_date: holiday.holiday_date,
-          holiday_name: holiday.holiday_name,
-          locations: new Set([holiday.location]),
-          ids: [holiday.id],
-          locationMap: { [holiday.location]: holiday.id },
-          approval_status: holiday.approval_status,
-          approved_by: holiday.approved_by,
-          approved_date: holiday.approved_date,
-        };
-      } else {
-        acc[key].locations.add(holiday.location);
-        acc[key].ids.push(holiday.id);
-        acc[key].locationMap[holiday.location] = holiday.id;
-      }
-      return acc;
-    }, {})
-  ).map((item) => ({
-    ...item,
-    locations: Array.from(item.locations),
-  }));
-
+  // Edit handlers...
   const handleEdit = (holiday) => {
     const date = new Date(holiday.holiday_date);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
@@ -161,14 +164,11 @@ const Holidays = () => {
     });
     setShowEditModal(true);
   };
-
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditingHoliday((prev) => ({ ...prev, [name]: value }));
   };
-
   const handleUpdateHoliday = () => {
-    // Validate: new date must not be in the past
     const todayOnly = new Date();
     todayOnly.setHours(0, 0, 0, 0);
     const updatedDate = new Date(editingHoliday.holiday_date);
@@ -178,24 +178,16 @@ const Holidays = () => {
       setShowDateErrorModal(true);
       return;
     }
-
     if (editingHoliday && editingHoliday.locations.length > 0) {
       const newLocations = editingHoliday.locations;
       const originalLocations = editingHoliday.groupLocations;
       const locationMap = editingHoliday.locationMap;
-
       const promises = [];
-
       originalLocations.forEach((loc) => {
+        const id = locationMap[loc];
         if (!newLocations.includes(loc)) {
-          const id = locationMap[loc];
-          promises.push(
-            fetch(`${API_URL}/api/holidays/${id}`, {
-              method: "DELETE",
-            })
-          );
+          promises.push(fetch(`${API_URL}/api/holidays/${id}`, { method: "DELETE" }));
         } else {
-          const id = locationMap[loc];
           promises.push(
             fetch(`${API_URL}/api/holidays/${id}`, {
               method: "PUT",
@@ -204,7 +196,7 @@ const Holidays = () => {
                 holiday_date: editingHoliday.holiday_date,
                 holiday_name: editingHoliday.holiday_name,
                 location: loc,
-                approval_status: "Pending", // Reset approval to pending on edit
+                approval_status: "Pending",
                 approved_by: "",
                 approved_date: ""
               }),
@@ -212,7 +204,6 @@ const Holidays = () => {
           );
         }
       });
-
       newLocations.forEach((loc) => {
         if (!originalLocations.includes(loc)) {
           promises.push(
@@ -228,7 +219,6 @@ const Holidays = () => {
           );
         }
       });
-
       Promise.all(promises)
         .then(() => {
           fetchHolidays();
@@ -239,16 +229,14 @@ const Holidays = () => {
     }
   };
 
+  // Delete handlers...
   const handleDelete = (holiday) => {
     setHolidayToDelete(holiday);
     setShowDeleteModal(true);
   };
-
   const handleConfirmDelete = () => {
     const deletePromises = holidayToDelete.ids.map((id) =>
-      fetch(`${API_URL}/api/holidays/${id}`, {
-        method: "DELETE",
-      })
+      fetch(`${API_URL}/api/holidays/${id}`, { method: "DELETE" })
     );
     Promise.all(deletePromises)
       .then(() => {
@@ -259,20 +247,20 @@ const Holidays = () => {
       .catch((error) => console.error("Error deleting holiday:", error));
   };
 
+  // Approve All handlers...
   const handleApproveAll = () => {
-    const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
+    const pendingHolidays = holidays.filter((h) => h.approval_status === "Pending");
     if (pendingHolidays.length === 0) {
       alert("No pending holidays to approve.");
       return;
     }
     setShowApproveConfirmModal(true);
   };
-
   const handleConfirmApproveAll = () => {
     if (!approvalName) return;
-    const pendingHolidays = holidays.filter((holiday) => holiday.approval_status === "Pending");
-    const approvePromises = pendingHolidays.map((holiday) =>
-      fetch(`${API_URL}/api/holidays/approve/${holiday.id}`, {
+    const pendingHolidays = holidays.filter((h) => h.approval_status === "Pending");
+    const approvePromises = pendingHolidays.map((h) =>
+      fetch(`${API_URL}/api/holidays/approve/${h.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ approved_by: approvalName }),
@@ -288,13 +276,40 @@ const Holidays = () => {
       .catch((error) => console.error("Error approving holidays:", error));
   };
 
-  // Get today's date without time for comparison
+  // Group holidays by date/name
+  const groupedHolidays = Object.values(
+    holidays.reduce((acc, holiday) => {
+      const key = `${holiday.holiday_date}-${holiday.holiday_name}`;
+      if (!acc[key]) {
+        acc[key] = {
+          holiday_date: holiday.holiday_date,
+          holiday_name: holiday.holiday_name,
+          locations: new Set([holiday.location]),
+          ids: [holiday.id],
+          locationMap: { [holiday.location]: holiday.id },
+          approval_status: holiday.approval_status,
+          approved_by: holiday.approved_by,
+          approved_date: holiday.approved_datetime,
+        };
+      } else {
+        acc[key].locations.add(holiday.location);
+        acc[key].ids.push(holiday.id);
+        acc[key].locationMap[holiday.location] = holiday.id;
+      }
+      return acc;
+    }, {})
+  ).map((item) => ({
+    ...item,
+    locations: Array.from(item.locations),
+  }));
+
+  // Today's date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return (
     <div className="container-fluid mt-4">
-      {/* Table of Holidays */}
+      {/* Holidays table */}
       <div className="border p-3 mt-3">
         {groupedHolidays.length > 0 ? (
           <Table bordered striped hover responsive>
@@ -302,9 +317,9 @@ const Holidays = () => {
               <tr>
                 <th>Date</th>
                 <th>Holiday</th>
-                <th>Ratnagiri Office</th>
-                <th>Mumbai Office</th>
-                <th>Delhi Office</th>
+                {offices.map((office) => (
+                  <th key={office}>{office}</th>
+                ))}
                 <th>Actions</th>
                 <th>Approval</th>
                 <th>Status</th>
@@ -313,50 +328,38 @@ const Holidays = () => {
             <tbody>
               {groupedHolidays.map((holiday) => {
                 const holidayDate = new Date(holiday.holiday_date);
-                const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                 const holidayDateOnly = new Date(
                   holidayDate.getFullYear(),
                   holidayDate.getMonth(),
                   holidayDate.getDate()
                 );
-
-                // compute 7 days out
-                const sevenDaysLater = new Date(todayOnly);
+                const sevenDaysLater = new Date(today);
                 sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-
-                // disable if past OR within next 7 days
-                const isPast = holidayDateOnly < todayOnly;
+                const isPast = holidayDateOnly < today;
                 const isWithin7Days =
-                  holidayDateOnly >= todayOnly && holidayDateOnly <= sevenDaysLater;
+                  holidayDateOnly >= today && holidayDateOnly <= sevenDaysLater;
                 const isDisabled = isPast || isWithin7Days;
-
                 const formattedDate = holidayDate.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 });
-                const ratnagiriCheck = holiday.locations.includes("Ratnagiri Office") ? "✓" : "";
-                const mumbaiCheck = holiday.locations.includes("Mumbai Office") ? "✓" : "";
-                const delhiCheck = holiday.locations.includes("Delhi Office") ? "✓" : "";
-
                 const actionStyle = isDisabled
                   ? { opacity: 0.5, pointerEvents: "none" }
                   : { cursor: "pointer", marginRight: "10px" };
-
                 return (
                   <tr
                     key={holiday.ids[0]}
                     className={isPast ? "completedHoliday" : ""}
-                    style={{
-                      backgroundColor: !isPast ? "#ff0000" : undefined,
-                      color: "#fff",
-                    }}
+                    style={{ backgroundColor: !isPast ? "#ff0000" : undefined, color: "#fff" }}
                   >
                     <td className="text-center">{formattedDate}</td>
                     <td>{holiday.holiday_name}</td>
-                    <td className="text-center">{ratnagiriCheck}</td>
-                    <td className="text-center">{mumbaiCheck}</td>
-                    <td className="text-center">{delhiCheck}</td>
+                    {offices.map((office) => (
+                      <td key={office} className="text-center">
+                        {holiday.locations.includes(office) ? "✓" : ""}
+                      </td>
+                    ))}
                     <td className="text-center">
                       <FaPencilAlt
                         onClick={() => !isDisabled && handleEdit(holiday)}
@@ -385,7 +388,7 @@ const Holidays = () => {
         )}
       </div>
 
-      {/* Common Approve All Button */}
+      {/* Action buttons */}
       <div className="d-flex justify-content-center mt-3">
         <Button
           variant="primary"
@@ -394,10 +397,47 @@ const Holidays = () => {
         >
           Approve All Holidays
         </Button>
-        <Button variant="primary" onClick={() => setShowAddModal(true)} style={{ width: "200px" }}>
+        <Button
+          variant="primary"
+          onClick={() => setShowOfficeModal(true)}
+          style={{ width: "200px", marginRight: "10px" }}
+        >
+          Add Office
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => setShowAddModal(true)}
+          style={{ width: "200px" }}
+        >
           Add Holiday
         </Button>
       </div>
+
+      {/* Add Office Modal */}
+      <Modal show={showOfficeModal} onHide={() => setShowOfficeModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Add New Office</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Office Name</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Enter office name"
+              value={newOfficeName}
+              onChange={(e) => setNewOfficeName(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowOfficeModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddOffice}>
+            Add Office
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Add Holiday Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
@@ -426,6 +466,7 @@ const Holidays = () => {
             <Form.Group className="mt-2">
               <Form.Label>Locations</Form.Label>
               <LocationMultiSelect
+                options={offices}
                 selectedLocations={newHoliday.locations}
                 setSelectedLocations={(locations) =>
                   setNewHoliday({ ...newHoliday, locations })
@@ -473,6 +514,7 @@ const Holidays = () => {
               <Form.Group className="mt-2">
                 <Form.Label>Locations</Form.Label>
                 <LocationMultiSelect
+                  options={offices}
                   selectedLocations={editingHoliday.locations}
                   setSelectedLocations={(locations) =>
                     setEditingHoliday((prev) => ({ ...prev, locations }))
@@ -554,7 +596,7 @@ const Holidays = () => {
   );
 };
 
-// Leaves component with input restrictions (max 3 digits enforced via onChange)
+// Leaves component (unchanged)
 const Leaves = () => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
@@ -566,7 +608,6 @@ const Leaves = () => {
   const totalLeaves =
     (parseInt(allocatedUnplannedLeave, 10) || 0) + (parseInt(allocatedPlannedLeave, 10) || 0);
 
-  // Helper function to enforce maximum of 999
   const handleValueChange = (value) => {
     const num = parseInt(value, 10);
     if (!isNaN(num)) {
