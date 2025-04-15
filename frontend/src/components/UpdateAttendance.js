@@ -24,7 +24,6 @@ const UpdateAttendance = () => {
   const [clockOut, setClockOut] = useState("");
   const [updateClockIn, setUpdateClockIn] = useState(false);
   const [updateClockOut, setUpdateClockOut] = useState(false);
-  const [fullDay, setFullDay] = useState(false);
   const [manualSelection, setManualSelection] = useState(false);
 
   // NEW: States for toggling each field update
@@ -580,17 +579,6 @@ const UpdateAttendance = () => {
                 style={{ fontSize: "0.75rem" }}
               />
             </Form.Group>
-
-            <Form.Group controlId="fullDay" className="mb-2">
-              <Form.Check
-                type="checkbox"
-                label="Display Full day in Monthly Attendance"
-                checked={fullDay}
-                onChange={(e) => setFullDay(e.target.checked)}
-                style={{ fontSize: "0.75rem" }}
-              />
-            </Form.Group>
-
             <Button
               variant="warning"
               size="sm"

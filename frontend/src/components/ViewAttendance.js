@@ -7,6 +7,9 @@ import { io } from "socket.io-client";
 
 // Define API_URL from environment variable (fallback to localhost for development)
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// Determine if the record is a site visit.
+
+
 
 /**
  * Return the text code and style for a combined record based on its total work_hour and day.
@@ -43,7 +46,20 @@ function getDisplayForRecord(record) {
       }
     }
   }
-
+  const validCodes = ["ro", "mo", "rso", "do", "wfh"];
+  const locationText = record.location ? record.location.toLowerCase().trim() : "";
+  const isSiteVisit = record.location && !locationText.split(/\s+/).some((word) => validCodes.includes(word));
+  
+  // Show "I" only for valid working employees missing CI or CO, and who didn't work less than 5 hours
+  if (
+    !isSiteVisit &&
+    record.day !== "Absent" &&
+    (!record.work_hour || record.work_hour >= 5) &&
+    (!record.in_time || !record.out_time)
+  ) {
+    return { text: "I", style: { backgroundColor: "#ffffff", color: "#000" } };
+  }
+  
   // Updated Site Visit Logic: if location exists and the day is not Sunday or Holiday.
   if (record.day !== "Sunday" && record.day !== "Holiday" && record.location) {
     const validCodes = ["ro", "mo", "rso", "do", "wfh"];
@@ -709,6 +725,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 padding: "35px 20px",
               }}
             >
+              {/* Updated legend items */}
               <div
                 style={{
                   display: "grid",
@@ -717,9 +734,148 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   fontSize: "1rem",
                 }}
               >
-                {/* ... legend items unchanged ... */}
+                {/* Half Day (4.5 Hrs) */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#B0E0E6",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Half Day (4.5 Hrs)</span>
+                </div>
+
+                {/* Full Day (8.5 Hrs) */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#90EE90",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Full Day (8.5 Hrs)</span>
+                </div>
+
+                {/* Absent */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#FFC0CB",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Absent</span>
+                </div>
+
+                {/* Sunday */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#ff9900",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Sunday</span>
+                </div>
+
+               
+                {/* Late Mark with _ in white box */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#ffffff",
+                      marginRight: "5px",
+                      border: "2px solid black",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px", color: "black" }}>_</span>
+                  </div>
+                  <span style={{ fontSize: "0.8rem" }}>Late Mark</span>
+                </div>
+
+                {/* Working < 5 Hrs with AB in box */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#ffffff",
+                      marginRight: "5px",
+                      border: "1px solid #000",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px", color: "black" }}>AB</span>
+                  </div>
+                  <span style={{ fontSize: "0.8rem" }}>Working &lt; 5 Hrs</span>
+                </div>
+                 
+                  {/* Incomplete Attendances*/}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#ffffff",
+                      marginRight: "5px",
+                      border: "1px solid #000",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px", color: "black" }}>I</span>
+                  </div>
+                  <span style={{ fontSize: "0.8rem" }}>Incomplete Attendance</span>
+                </div>
+
+                {/* Site Visit */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#FFFF00",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Site Visit</span>
+                </div>
+
+                {/* Holiday */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "15px",
+                      height: "15px",
+                      backgroundColor: "#ff0000",
+                      marginRight: "5px",
+                    }}
+                  ></div>
+                  <span style={{ fontSize: "0.8rem" }}>Holiday</span>
+                </div>
               </div>
-              <Button onClick={handleDownload} id="downloadReport" style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
+
+              <Button
+                onClick={handleDownload}
+                id="downloadReport"
+                style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+              >
                 Download Report
               </Button>
             </div>
@@ -730,13 +886,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           <Col style={{ fontSize: "0.75rem" }}>
             {viewMode === "datewise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>Datewise Attendance</h5>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                  Datewise Attendance
+                </h5>
                 {renderDatewiseTable()}
               </>
             )}
             {viewMode === "monthwise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>Monthwise Attendance</h5>
+                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
+                  Monthwise Attendance
+                </h5>
                 {renderMonthwiseTable()}
               </>
             )}
