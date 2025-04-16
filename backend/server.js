@@ -623,6 +623,65 @@ app.put("/api/employee-leaves", (req, res) => {
   );
 });
 
+
+// ======================================================================
+// POST /api/employee-leaves-midyear
+//   – allocated… come in as full‑year
+//   – remaining… are prorated and stored
+// ======================================================================
+app.post("/api/employee-leaves-midyear", (req, res) => {
+  const {
+    employeeId,
+    joinDate,
+    allocatedUnplannedLeave,
+    allocatedPlannedLeave
+  } = req.body;
+
+  const join = new Date(joinDate);
+  if (isNaN(join)) {
+    return res.status(400).json({ error: "Invalid join date" });
+  }
+
+  const year        = join.getFullYear();
+  const startOfYear = new Date(year, 0, 1);
+  const endOfYear   = new Date(year, 11, 31);
+  const msPerDay    = 1000 * 60 * 60 * 24;
+  const totalDays   = Math.floor((endOfYear - startOfYear) / msPerDay) + 1;
+  const remainingDays = Math.floor((endOfYear - join) / msPerDay) + 1;
+
+  // prorate only the *remaining* balances
+  const proratedPlanned   = Math.floor((allocatedPlannedLeave   * remainingDays) / totalDays);
+  const proratedUnplanned = Math.floor((allocatedUnplannedLeave * remainingDays) / totalDays);
+
+  const sql = `
+    INSERT INTO employee_leaves (
+      employee_id,
+      allocatedUnplannedLeave,
+      allocatedPlannedLeave,
+      usedUnplannedLeave,
+      usedPlannedLeave,
+      remainingUnplannedLeave,
+      remainingPlannedLeave
+    ) VALUES (?, ?, ?, 0, 0, ?, ?)
+  `;
+  db.query(sql, [
+    employeeId,
+    allocatedUnplannedLeave,  // full‑year stays here
+    allocatedPlannedLeave,    // full‑year stays here
+    proratedUnplanned,        // prorated remaining
+    proratedPlanned           // prorated remaining
+  ], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Database error inserting leave record" });
+    }
+    res.json({
+      message: `Leave record added for employee ${employeeId}.`,
+      insertedId: result.insertId
+    });
+  });
+});
+
 // ======================================================================
 // 4) PUT /api/employee-leaves/:id
 //    Update used & remaining leaves for a single employee (if needed).
