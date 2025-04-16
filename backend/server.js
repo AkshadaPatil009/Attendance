@@ -165,7 +165,6 @@ app.get("/api/employees", (req, res) => {
   });
 });
 
-// Updated calculateWorkHoursAndDay function
 const calculateWorkHoursAndDay = (inTime, outTime) => {
   let work_hour = 0;
   if (inTime && outTime) {
@@ -182,10 +181,10 @@ const calculateWorkHoursAndDay = (inTime, outTime) => {
   let dayStatus = "";
   if (work_hour >= 8.5) {
     dayStatus = "Full Day";
-  } else if (work_hour >= 4.5) {
+  } else if (work_hour >= 5) { // updated threshold from 4.5 to 5 hours
     dayStatus = "Half Day";
   } else {
-    dayStatus = "Less than 4.5";
+    dayStatus = "Less than 5";
   }
 
   return { work_hour, dayStatus };

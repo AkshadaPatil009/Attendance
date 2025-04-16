@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Form,
@@ -29,9 +29,7 @@ const EmployeeDropdownFilter = ({
 
   // filter list by search
   const filtered = employees.filter((emp) =>
-    (emp.name || emp.Name)
-      .toLowerCase()
-      .includes(search.toLowerCase())
+    (emp.name || emp.Name).toLowerCase().includes(search.toLowerCase())
   );
 
   const allSelected = selectedIds.length === employees.length;
@@ -128,22 +126,36 @@ const EmployeeLeaves = () => {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // New state for dynamic offices
+  const [offices, setOffices] = useState([]);
+
   const [selectedOffice, setSelectedOffice] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [selectedLeaveTypes, setSelectedLeaveTypes] = useState([]);
 
+  // Helper: sort employees by name A -> Z
+  const sortByNameAscending = useCallback((data) => {
+    return data.sort((a, b) => {
+      const nameA = (a.name || a.Name || "").toLowerCase();
+      const nameB = (b.name || b.Name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, []);
+
   // 1) fetch all employees
-  const fetchEmployeesList = async () => {
+  const fetchEmployeesList = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API_URL}/api/employees-list`);
-      setEmployees(data);
+      // Sort the employees alphabetically
+      const sorted = sortByNameAscending(data);
+      setEmployees(sorted);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [sortByNameAscending]);
 
   // 2) fetch employees by office and map employee id from logincrd table
-  const fetchOfficeEmployees = async (office) => {
+  const fetchOfficeEmployees = useCallback(async (office) => {
     try {
       const { data } = await axios.get(
         `${API_URL}/api/logincrd?office=${office}`
@@ -153,14 +165,16 @@ const EmployeeLeaves = () => {
         ...e,
         id: e.employee_id, // change this field name if necessary
       }));
-      setEmployees(employeesWithId);
+      // Sort the employees alphabetically
+      const sorted = sortByNameAscending(employeesWithId);
+      setEmployees(sorted);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [sortByNameAscending]);
 
   // 3) fetch leaves (server‑side filter by office)
-  const fetchLeaves = async (office = "") => {
+  const fetchLeaves = useCallback(async (office = "") => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/employeeleavesdate`;
@@ -171,13 +185,24 @@ const EmployeeLeaves = () => {
       console.error(e);
     }
     setLoading(false);
-  };
+  }, []);
+
+  // New: fetch the list of offices from the separate table
+  const fetchOffices = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API_URL}/api/offices`);
+      setOffices(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // initial load
   useEffect(() => {
+    fetchOffices();
     fetchEmployeesList();
     fetchLeaves();
-  }, []);
+  }, [fetchOffices, fetchEmployeesList, fetchLeaves]);
 
   // when office changes
   const handleOfficeChange = async (e) => {
@@ -235,9 +260,11 @@ const EmployeeLeaves = () => {
                 onChange={handleOfficeChange}
               >
                 <option value="">All Offices</option>
-                <option value="DO">DO</option>
-                <option value="MO">MO</option>
-                <option value="RO">RO</option>
+                {offices.map((office) => (
+                  <option key={office.id} value={office.code}>
+                    {office.name}
+                  </option>
+                ))}
               </Form.Control>
             </Form.Group>
           </Col>
@@ -294,9 +321,9 @@ const EmployeeLeaves = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredLeaves.map((l) => (
+            {filteredLeaves.map((l, index) => (
               <tr key={l.id}>
-                <td>{l.id}</td>
+                <td>{index + 1}</td>
                 <td>{l.employee_id}</td>
                 <td>{l.employee_name}</td>
                 <td>{l.leave_date}</td>
