@@ -75,11 +75,11 @@ function getDisplayForRecord(record) {
     }
   }
 
-  // If work_hour is less than 4.5 and record is not absent, show "AB".
+  // If work_hour is less than 5 and record is not absent, show "AB".
   if (
     record.day !== "Absent" &&
     record.work_hour !== undefined &&
-    record.work_hour < 4.5
+    record.work_hour < 5
   ) {
     return {
       text: "AB",
@@ -346,7 +346,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           rec.day !== "Absent" &&
           rec.day !== "Holiday"
         ) {
-          if (rec.work_hour < 4.5) {
+          if (rec.work_hour < 5) {
             rec.displayStatus = "AB";
           } else if (rec.work_hour < 8.5) {
             rec.displayStatus = "Half Day";
@@ -382,7 +382,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         } else if (currentDay.day === "SV.I") {
           // Do not count as present if site visit is incomplete
           pivotData[emp].totalHours += currentDay.work_hour;
-        } else if (currentDay.day !== "Absent" && currentDay.work_hour >= 4.5) {
+        } else if (currentDay.day !== "Absent" && currentDay.work_hour >= 5) {
           if (currentDay.day === "Half Day") {
             pivotData[emp].presentDays += 0.5;
             pivotData[emp].daysWorked += 0.5;
@@ -734,7 +734,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   fontSize: "1rem",
                 }}
               >
-                {/* Half Day (4.5 Hrs) */}
+                {/* Half Day (5 Hrs) */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -744,7 +744,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       marginRight: "5px",
                     }}
                   ></div>
-                  <span style={{ fontSize: "0.8rem" }}>Half Day (4.5 Hrs)</span>
+                  <span style={{ fontSize: "0.8rem" }}>Half Day (5 Hrs)</span>
                 </div>
 
                 {/* Full Day (8.5 Hrs) */}
