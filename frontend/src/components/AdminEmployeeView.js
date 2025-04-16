@@ -19,7 +19,7 @@ const AdminEmployeeView = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [message, setMessage] = useState(null);
 
-  // "Update" states for aggregated leave values
+  // "Update" states for aggregated leave values (hidden input but now displayed read-only)
   const [usedUnplannedLeave, setUsedUnplannedLeave] = useState(0);
   const [usedPlannedLeave, setUsedPlannedLeave] = useState(0);
   const [remainingUnplannedLeave, setRemainingUnplannedLeave] = useState(0);
@@ -41,7 +41,7 @@ const AdminEmployeeView = () => {
   // New state for Joining Date
   const [joiningDate, setJoiningDate] = useState("");
 
-  // State for confirmation popup for update and add
+  // State for confirmation popups for update and add
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
   const [showAddConfirmation, setShowAddConfirmation] = useState(false);
 
@@ -95,44 +95,6 @@ const AdminEmployeeView = () => {
     }
   };
 
-  // Update used unplanned leave and recalculate remaining leave with negative value validation
-  const handleUsedUnplannedChange = (e) => {
-    let value = parseInt(e.target.value, 10) || 0;
-    if (value < 0) {
-      setMessage("Negative values are not allowed for Used Unplanned Leave.");
-      value = 0;
-    } else {
-      setMessage(null);
-    }
-    setUsedUnplannedLeave(value);
-    const employee = employees.find(
-      (emp) => emp.id.toString() === selectedEmployeeId.toString()
-    );
-    if (employee) {
-      const allocated = employee.allocatedUnplannedLeave || 0;
-      setRemainingUnplannedLeave(allocated - value);
-    }
-  };
-
-  // Update used planned leave and recalculate remaining leave with negative value validation
-  const handleUsedPlannedChange = (e) => {
-    let value = parseInt(e.target.value, 10) || 0;
-    if (value < 0) {
-      setMessage("Negative values are not allowed for Used Planned Leave.");
-      value = 0;
-    } else {
-      setMessage(null);
-    }
-    setUsedPlannedLeave(value);
-    const employee = employees.find(
-      (emp) => emp.id.toString() === selectedEmployeeId.toString()
-    );
-    if (employee) {
-      const allocated = employee.allocatedPlannedLeave || 0;
-      setRemainingPlannedLeave(allocated - value);
-    }
-  };
-
   // Handle change in individual update leave record (for multiple dates)
   const handleUpdateLeaveRecordChange = (index, field, value) => {
     const updatedRecords = updateLeaveRecords.map((record, i) => {
@@ -178,39 +140,74 @@ const AdminEmployeeView = () => {
     }
   }, [joiningDate, allocatedPlannedLeaveAdd, allocatedUnplannedLeaveAdd]);
 
-  // Update employee leaves (aggregate update + multiple leave date records)
+  // Update employee leaves with auto-calculation and validation to prevent negative remaining leaves.
   const updateEmployeeLeaves = () => {
     setMessage(null);
-    // First, update the employee leave aggregate record
+    const employee = employees.find(
+      (emp) => emp.id.toString() === selectedEmployeeId.toString()
+    );
+    if (!employee) {
+      setMessage("Selected employee not found.");
+      return;
+    }
+    const allocatedUnplanned = employee.allocatedUnplannedLeave || 0;
+    const allocatedPlanned = employee.allocatedPlannedLeave || 0;
+
+    // Count new leave records (only count if a valid date is provided)
+    const additionalUsedPlanned = updateLeaveRecords.filter(
+      (record) => record.leaveType === "Planned" && record.leaveDate
+    ).length;
+    const additionalUsedUnplanned = updateLeaveRecords.filter(
+      (record) => record.leaveType === "Unplanned" && record.leaveDate
+    ).length;
+
+    const newUsedPlanned = (employee.usedPlannedLeave || 0) + additionalUsedPlanned;
+    const newUsedUnplanned = (employee.usedUnplannedLeave || 0) + additionalUsedUnplanned;
+
+    const newRemainingPlanned = allocatedPlanned - newUsedPlanned;
+    const newRemainingUnplanned = allocatedUnplanned - newUsedUnplanned;
+
+    // Validation: if either remaining leaves become negative, then the employee does not have enough leave balance.
+    if (newRemainingPlanned < 0 || newRemainingUnplanned < 0) {
+      window.alert(
+        "Insufficient leave balance. The update would use more leaves than allocated. Please verify the leave records and ensure that the employee has available leave."
+      );
+      return;
+    }
+
+    // First, update the employee leave aggregate record with auto-calculated values.
     fetch(`${API_URL}/api/employee-leaves/${selectedEmployeeId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        usedUnplannedLeave,
-        usedPlannedLeave,
-        remainingUnplannedLeave,
-        remainingPlannedLeave,
+        usedUnplannedLeave: newUsedUnplanned,
+        usedPlannedLeave: newUsedPlanned,
+        remainingUnplannedLeave: newRemainingUnplanned,
+        remainingPlannedLeave: newRemainingPlanned,
       }),
     })
       .then((response) => {
         if (!response.ok) {
           throw new Error("Error: Failed to update employee leaves.");
         }
-        // Optionally sync local state
+        // Optionally sync local state and update the displayed remaining leaves
         setEmployees((prev) =>
           prev.map((emp) => {
             if (emp.id.toString() === selectedEmployeeId.toString()) {
               return {
                 ...emp,
-                usedUnplannedLeave,
-                usedPlannedLeave,
-                remainingUnplannedLeave,
-                remainingPlannedLeave,
+                usedUnplannedLeave: newUsedUnplanned,
+                usedPlannedLeave: newUsedPlanned,
+                remainingUnplannedLeave: newRemainingUnplanned,
+                remainingPlannedLeave: newRemainingPlanned,
               };
             }
             return emp;
           })
         );
+        // Update the state so the UI reflects the new remaining leaves immediately.
+        setRemainingUnplannedLeave(newRemainingUnplanned);
+        setRemainingPlannedLeave(newRemainingPlanned);
         // Now add each leave date record
         return Promise.all(
           updateLeaveRecords.map((record) =>
@@ -422,124 +419,94 @@ const AdminEmployeeView = () => {
                   ))}
                 </Form.Control>
               </Form.Group>
-              <Form>
-                <Row>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Used Unplanned Leave</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={usedUnplannedLeave}
-                        onChange={handleUsedUnplannedChange}
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Used Planned Leave</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={usedPlannedLeave}
-                        onChange={handleUsedPlannedChange}
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
-                <Row>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Remaining Unplanned Leave</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={remainingUnplannedLeave}
-                        readOnly
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Remaining Planned Leave</Form.Label>
-                      <Form.Control
-                        type="number"
-                        value={remainingPlannedLeave}
-                        readOnly
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
 
-                {/* Multiple leave date records for update */}
-                <Card className="mb-3">
-                  <Card.Body>
-                    <Card.Title>Leave Date Records</Card.Title>
-                    {updateLeaveRecords.map((record, index) => (
-                      <Row key={index} className="mb-2 align-items-center">
-                        <Col xs={5}>
-                          <Form.Group>
-                            <Form.Label>Date</Form.Label>
-                            <Form.Control
-                              type="date"
-                              value={record.leaveDate}
-                              onChange={(e) =>
-                                handleUpdateLeaveRecordChange(
-                                  index,
-                                  "leaveDate",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col xs={5}>
-                          <Form.Group>
-                            <Form.Label>Type</Form.Label>
-                            <Form.Control
-                              as="select"
-                              value={record.leaveType}
-                              onChange={(e) =>
-                                handleUpdateLeaveRecordChange(
-                                  index,
-                                  "leaveType",
-                                  e.target.value
-                                )
-                              }
-                            >
-                              <option value="Planned">Planned</option>
-                              <option value="Unplanned">Unplanned</option>
-                            </Form.Control>
-                          </Form.Group>
-                        </Col>
-                        <Col xs={2} className="text-center">
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => removeUpdateLeaveRecord(index)}
-                            disabled={updateLeaveRecords.length === 1}
-                            style={{ fontSize: "0.6rem", padding: "0.1rem 0.2rem" }}
+              {/* Display current remaining leaves to admin */}
+              <Row>
+                <Col>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Remaining Unplanned Leave</Form.Label>
+                    <Form.Control type="number" value={remainingUnplannedLeave} readOnly />
+                  </Form.Group>
+                </Col>
+                <Col>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Remaining Planned Leave</Form.Label>
+                    <Form.Control type="number" value={remainingPlannedLeave} readOnly />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* Multiple leave date records for update */}
+              <Card className="mb-3">
+                <Card.Body>
+                  <Card.Title>Leave Date Records</Card.Title>
+                  {updateLeaveRecords.map((record, index) => (
+                    <Row key={index} className="mb-2 align-items-center">
+                      <Col xs={5}>
+                        <Form.Group>
+                          <Form.Label>Date</Form.Label>
+                          <Form.Control
+                            type="date"
+                            value={record.leaveDate}
+                            onChange={(e) =>
+                              handleUpdateLeaveRecordChange(
+                                index,
+                                "leaveDate",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col xs={5}>
+                        <Form.Group>
+                          <Form.Label>Type</Form.Label>
+                          <Form.Control
+                            as="select"
+                            value={record.leaveType}
+                            onChange={(e) =>
+                              handleUpdateLeaveRecordChange(
+                                index,
+                                "leaveType",
+                                e.target.value
+                              )
+                            }
                           >
-                            <FaMinus />
-                          </Button>
-                        </Col>
-                      </Row>
-                    ))}
-                    <Row className="mt-2">
-                      <Col className="text-center">
+                            <option value="Planned">Planned</option>
+                            <option value="Unplanned">Unplanned</option>
+                          </Form.Control>
+                        </Form.Group>
+                      </Col>
+                      <Col xs={2} className="text-center">
                         <Button
-                          variant="success"
-                          onClick={addUpdateLeaveRecord}
+                          variant="danger"
                           size="sm"
+                          onClick={() => removeUpdateLeaveRecord(index)}
+                          disabled={updateLeaveRecords.length === 1}
+                          style={{ fontSize: "0.6rem", padding: "0.1rem 0.2rem" }}
                         >
-                          <FaPlus /> Add
+                          <FaMinus />
                         </Button>
                       </Col>
                     </Row>
-                  </Card.Body>
-                </Card>
+                  ))}
+                  <Row className="mt-2">
+                    <Col className="text-center">
+                      <Button
+                        variant="success"
+                        onClick={addUpdateLeaveRecord}
+                        size="sm"
+                      >
+                        <FaPlus /> Add
+                      </Button>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
 
-                <Button variant="primary" onClick={handleUpdateConfirmation} className="w-100">
-                  Update Employee Leaves
-                </Button>
-              </Form>
+              <Button variant="primary" onClick={handleUpdateConfirmation} className="w-100">
+                Update Employee Leaves
+              </Button>
             </Card.Body>
           </Card>
         </Tab>
