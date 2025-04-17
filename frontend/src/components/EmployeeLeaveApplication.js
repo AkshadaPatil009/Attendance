@@ -1,11 +1,8 @@
 // EmployeeLeaveApplication.js
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, Form, Row, Col, Button, Modal } from "react-bootstrap";
-import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-// initialize socket connection
-const socket = io(API_URL);
 
 const EmployeeLeaveApplication = ({ storedUser }) => {
   const employeeId = storedUser?.employeeId;
@@ -26,12 +23,19 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
   });
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [templates, setTemplates] = useState([]);
 
+  // ── Fetch templates from backend ──
   useEffect(() => {
-    if (!employeeId) {
-      console.error("No employeeId found in localStorage user data.");
-      return;
-    }
+    fetch(`${API_URL}/api/subject-templates`)
+      .then((res) => res.json())
+      .then(setTemplates)
+      .catch((err) => console.error("Error fetching templates:", err));
+  }, []);
+
+  // ── Fetch leave balance ──
+  useEffect(() => {
+    if (!employeeId) return;
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
       .then((res) => res.json())
       .then((data) =>
@@ -46,22 +50,6 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
         console.error("Error fetching employee leaves:", err)
       );
   }, [employeeId]);
-
-  useEffect(() => {
-    // initial fetch
-    fetchEmployeeLeaves();
-
-    // listen for leave-balance updates
-    socket.on("employeeLeavesUpdated", ({ employeeId: updatedId }) => {
-      if (updatedId.toString() === employeeId.toString()) {
-        fetchEmployeeLeaves();
-      }
-    });
-
-    return () => {
-      socket.off("employeeLeavesUpdated");
-    };
-  }, [employeeId, fetchEmployeeLeaves]);
 
   // ── When subject changes, check if it matches a template ──
   const handleFormChange = (e) => {
@@ -105,24 +93,19 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        alert(
-          "Leave request sent successfully! Your application ID is: " + result.id
-        );
-        setLeaveForm({
-          leaveType: "",
-          to: "",
-          cc: "",
-          subject: "",
-          body: "",
-        });
-      } else {
-        alert("Error: " + (result.error || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Error sending leave request:", error);
-      alert("Failed to connect to server.");
+      if (!res.ok) throw new Error("Failed to send email");
+
+      alert("Leave email sent successfully!");
+      setLeaveForm({
+        leaveType: "",
+        to: "",
+        cc: "",
+        subject: "",
+        body: "",
+      });
+    } catch (err) {
+      console.error("Send error:", err);
+      alert("Error sending leave email.");
     } finally {
       setShowConfirmModal(false);
     }
