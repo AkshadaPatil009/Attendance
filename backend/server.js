@@ -67,11 +67,11 @@ app.post("/login", (req, res) => {
 
       // Generate JWT token
       const token = jwt.sign(
-        { id: user.id, name: user.Name, type: user.Type, location: user.Location || "" },
+        { id: user.id, name: user.Name, type: user.Type, location: user.Location || "", email: user.Email },
         "secret",
         { expiresIn: "1h" }
       );
-      res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, location: user.Location || "" });
+      res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, email: user.Email, location: user.Location || "" });
     }
   );
 });

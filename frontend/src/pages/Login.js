@@ -21,6 +21,7 @@ const Login = ({ setUser }) => {
         name: res.data.name,
         token: res.data.token,
         employeeId: res.data.employeeId,
+        email: res.data.email,
         location: res.data.location,
       };
 
