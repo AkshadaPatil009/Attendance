@@ -9,8 +9,11 @@ import {
   Button,
   Spinner,
 } from "react-bootstrap";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 /**
  * A dropdown that lets you:
@@ -146,7 +149,6 @@ const EmployeeLeaves = () => {
   const fetchEmployeesList = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API_URL}/api/employees-list`);
-      // Sort the employees alphabetically
       const sorted = sortByNameAscending(data);
       setEmployees(sorted);
     } catch (e) {
@@ -154,18 +156,16 @@ const EmployeeLeaves = () => {
     }
   }, [sortByNameAscending]);
 
-  // 2) fetch employees by office and map employee id from logincrd table
+  // 2) fetch employees by office
   const fetchOfficeEmployees = useCallback(async (office) => {
     try {
       const { data } = await axios.get(
         `${API_URL}/api/logincrd?office=${office}`
       );
-      // Mapping employee id from database field (assuming 'employee_id' is returned)
       const employeesWithId = data.map((e) => ({
         ...e,
-        id: e.employee_id, // change this field name if necessary
+        id: e.employee_id,
       }));
-      // Sort the employees alphabetically
       const sorted = sortByNameAscending(employeesWithId);
       setEmployees(sorted);
     } catch (e) {
@@ -187,7 +187,7 @@ const EmployeeLeaves = () => {
     setLoading(false);
   }, []);
 
-  // New: fetch the list of offices from the separate table
+  // New: fetch the list of offices
   const fetchOffices = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API_URL}/api/offices`);
@@ -197,12 +197,31 @@ const EmployeeLeaves = () => {
     }
   }, []);
 
-  // initial load
+  // initial load + socket listeners
   useEffect(() => {
     fetchOffices();
     fetchEmployeesList();
     fetchLeaves();
-  }, [fetchOffices, fetchEmployeesList, fetchLeaves]);
+
+    socket.on("officesUpdated", fetchOffices);
+    socket.on("employeesListUpdated", () => {
+      if (selectedOffice) fetchOfficeEmployees(selectedOffice);
+      else fetchEmployeesList();
+    });
+    socket.on("leavesUpdated", () => fetchLeaves(selectedOffice));
+
+    return () => {
+      socket.off("officesUpdated", fetchOffices);
+      socket.off("employeesListUpdated");
+      socket.off("leavesUpdated");
+    };
+  }, [
+    fetchOffices,
+    fetchEmployeesList,
+    fetchOfficeEmployees,
+    fetchLeaves,
+    selectedOffice,
+  ]);
 
   // when office changes
   const handleOfficeChange = async (e) => {
@@ -227,12 +246,11 @@ const EmployeeLeaves = () => {
     );
   };
 
-  // build a set of selected names to filter by
+  // build selected names for client‑side filter
   const selectedNames = employees
     .filter((e) => selectedEmployeeIds.includes(e.id))
     .map((e) => e.name || e.Name);
 
-  // client‑side filter
   const filteredLeaves = leaves.filter((l) => {
     const byEmp =
       selectedEmployeeIds.length === 0 ||

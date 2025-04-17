@@ -11,8 +11,11 @@ import {
   Modal
 } from "react-bootstrap";
 import { FaPlus, FaMinus } from "react-icons/fa";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 const AdminEmployeeView = () => {
   const [employees, setEmployees] = useState([]);
@@ -35,7 +38,7 @@ const AdminEmployeeView = () => {
   const [addAllocatedPlanned, setAddAllocatedPlanned] = useState(0);
   const [addAllocatedUnplanned, setAddAllocatedUnplanned] = useState(0);
 
-  // fetch employees on mount
+  // fetch employees on mount + setup socket listeners
   useEffect(() => {
     const fetchEmployees = () => {
       fetch(`${API_URL}/api/employees-list`)
@@ -55,7 +58,35 @@ const AdminEmployeeView = () => {
         });
     };
     fetchEmployees();
-  }, []);
+
+    // listen for real‑time updates
+    socket.on("employeesListUpdated", (updatedList) => {
+      setEmployees(updatedList);
+      const emp = updatedList.find(e => e.id.toString() === selectedEmployeeId.toString());
+      if (emp) populateLeaveFields(emp);
+    });
+
+    socket.on("employeeLeavesUpdated", ({ employeeId, remainingPlanned, remainingUnplanned }) => {
+      setEmployees(prev =>
+        prev.map(x =>
+          x.id.toString() === employeeId.toString()
+            ? { ...x,
+                remainingPlannedLeave: remainingPlanned,
+                remainingUnplannedLeave: remainingUnplanned }
+            : x
+        )
+      );
+      if (employeeId.toString() === selectedEmployeeId.toString()) {
+        setRemainingPlannedLeave(remainingPlanned);
+        setRemainingUnplannedLeave(remainingUnplanned);
+      }
+    });
+
+    return () => {
+      socket.off("employeesListUpdated");
+      socket.off("employeeLeavesUpdated");
+    };
+  }, [selectedEmployeeId]);
 
   const populateLeaveFields = (emp) => {
     setRemainingUnplannedLeave(emp.remainingUnplannedLeave || 0);
@@ -128,6 +159,14 @@ const AdminEmployeeView = () => {
     })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to update aggregates");
+
+        // emit real‑time update
+        socket.emit("employeeLeavesUpdated", {
+          employeeId: selectedEmployeeId,
+          remainingPlanned: newRemPlanned,
+          remainingUnplanned: newRemUnplanned
+        });
+
         setEmployees((prev) =>
           prev.map((x) =>
             x.id.toString() === selectedEmployeeId
@@ -200,6 +239,10 @@ const AdminEmployeeView = () => {
           setJoinDate("");
           setAddAllocatedPlanned(0);
           setAddAllocatedUnplanned(0);
+
+          // emit real‑time notification
+          socket.emit("newEmployeeLeave", { employeeId: addEmployeeId });
+
           // refetch employees
           const fetchEmployees = () => {
             fetch(`${API_URL}/api/employees-list`)
@@ -350,7 +393,7 @@ const AdminEmployeeView = () => {
                 />
               </Form.Group>
               <Row>
-              <Col>
+                <Col>
                   <Form.Group className="mb-3">
                     <Form.Label>Allocated Unplanned Leave (Full Year)</Form.Label>
                     <Form.Control

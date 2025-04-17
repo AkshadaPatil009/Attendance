@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Tabs, Tab } from "react-bootstrap";
+import io from "socket.io-client";
 import AttendanceEntry from "./AttendanceEntry";
 import UpdateAttendance from "./UpdateAttendance";
 import ViewAttendance from "./ViewAttendance";
 import EmployeeLeaves from "./EmployeeLeaves";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 const AttendanceForm = () => {
   // -----------------------
@@ -65,7 +68,6 @@ const AttendanceForm = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        // GET all employees from the /api/employees endpoint
         const response = await axios.get(`${API_URL}/api/employees`);
         setEmployees(response.data);
       } catch (error) {
@@ -76,9 +78,9 @@ const AttendanceForm = () => {
   }, []);
 
   // -----------------------
-  // 1) Attendance Entry Logic
+  // Attendance Entry Logic
   // -----------------------
-  const handleFilter = () => {
+  const handleFilter = useCallback(() => {
     const lines = hangoutMessages
       .split("\n")
       .map((line) => line.trim())
@@ -126,9 +128,7 @@ const AttendanceForm = () => {
           timeStr = timeParts.length > 1 ? timeParts[1] : timeInfo;
         }
 
-        // Append date to time
         const dateTime = `${commonDate} ${timeStr}`;
-
         const detailParts = detailLine.split(" ").filter((p) => p !== "");
         const recordType = detailParts[0] || "";
         const loc = detailParts[1] || "";
@@ -214,7 +214,9 @@ const AttendanceForm = () => {
     setAttendanceTableData(attendanceRecords);
     setOtherMessagesTableData(otherMessagesData);
     setAttendanceToSave(attendanceRecords);
-  };
+
+    socket.emit("attendanceFiltered", { attendanceRecords });
+  }, [hangoutMessages]);
 
   const handleSave = async () => {
     if (attendanceToSave.length === 0) {
@@ -223,11 +225,11 @@ const AttendanceForm = () => {
     }
     setLoading(true);
     try {
-      // POST the attendance records to /api/attendance
       const response = await axios.post(`${API_URL}/api/attendance`, {
         attendanceRecords: attendanceToSave,
       });
       alert(response.data.message);
+      socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
     } catch (error) {
       console.error("Error saving records:", error);
       alert("Failed to save attendance records.");
@@ -248,7 +250,6 @@ const AttendanceForm = () => {
 
   const fetchEmployeeAttendance = async (empName) => {
     try {
-      // GET attendance for a specific employee by name
       const response = await axios.get(
         `${API_URL}/api/attendance?empName=${encodeURIComponent(empName)}`
       );
@@ -273,7 +274,6 @@ const AttendanceForm = () => {
       return;
     }
     try {
-      // PUT to /api/attendance/:id
       const requestBody = {
         inTime: clockIn,
         outTime: clockOut,
@@ -284,17 +284,38 @@ const AttendanceForm = () => {
       };
 
       await axios.put(
-       `${API_URL}/api/attendance/${selectedRecord.id}`,
+        `${API_URL}/api/attendance/${selectedRecord.id}`,
         requestBody
       );
       alert("Attendance updated successfully!");
-      // Refresh the table
+      socket.emit("attendanceUpdated", { recordId: selectedRecord.id });
       fetchEmployeeAttendance(selectedEmployee);
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert("Failed to update attendance record.");
     }
   };
+
+  // -----------------------
+  // Socket.IO listeners
+  // -----------------------
+  useEffect(() => {
+    socket.on("attendanceSaved", ({ attendanceRecords }) => {
+      alert("Attendance was just saved by another user.");
+      handleFilter();
+    });
+
+    socket.on("attendanceUpdated", ({ recordId }) => {
+      if (selectedEmployee) {
+        fetchEmployeeAttendance(selectedEmployee);
+      }
+    });
+
+    return () => {
+      socket.off("attendanceSaved");
+      socket.off("attendanceUpdated");
+    };
+  }, [selectedEmployee, handleFilter]);
 
   // -----------------------
   // Render

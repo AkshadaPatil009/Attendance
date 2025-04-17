@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Row, Col, Form, Button, Table, Alert, Modal } from "react-bootstrap";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 const AttendanceEntry = ({
   hangoutMessages,
@@ -16,6 +19,18 @@ const AttendanceEntry = ({
 }) => {
   const [errorMessage, setErrorMessage] = useState(""); // State for error message
   const [showConfirm, setShowConfirm] = useState(false);  // State for confirmation modal
+
+  // Listen for real‑time attendance saves by others
+  useEffect(() => {
+    socket.on("attendanceSaved", ({ attendanceRecords }) => {
+      // you could refresh your tables here,
+      // or show a notification that someone else saved
+      alert("Attendance was just saved by another user.");
+    });
+    return () => {
+      socket.off("attendanceSaved");
+    };
+  }, []);
 
   // This function performs the actual save operation
   const doSaveAttendance = async () => {
@@ -34,6 +49,8 @@ const AttendanceEntry = ({
       } else {
         setErrorMessage(""); // Clear any previous errors
         alert("Attendance records saved successfully!");
+        // emit real‑time notification
+        socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
       }
     } catch (error) {
       setErrorMessage("An unexpected error occurred: " + error.message);
@@ -167,7 +184,11 @@ const AttendanceEntry = ({
 
       <Row className="mt-3 text-center">
         <Col>
-          <Button variant="primary" className="me-3" onClick={handleFilter}>
+          <Button variant="primary" className="me-3" onClick={() => {
+            handleFilter();
+            // optionally emit a filter event:
+            socket.emit("attendanceFilterRequested");
+          }}>
             Filter
           </Button>
           <Button variant="success" onClick={handleSaveAttendance} disabled={loading}>
