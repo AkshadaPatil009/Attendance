@@ -723,7 +723,7 @@ const Leaves = () => {
 
   return (
     <div className="container mt-4" style={{ minHeight: "600px" }}>
-      <h3 className="text-center mb-4">Add / Update Leaves for All Employees</h3>
+      <h3 className="text-center mb-4">Leaves for All Employees</h3>
       <Row className="justify-content-center mt-3">
         <Col md={4}>
           <Form.Group>
