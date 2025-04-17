@@ -23,34 +23,51 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
   });
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [templates, setTemplates] = useState([]);
 
+  // ── Fetch templates from backend ──
   useEffect(() => {
-    if (!employeeId) {
-      console.error("No employeeId found in localStorage user data.");
-      return;
-    }
+    fetch(`${API_URL}/api/subject-templates`)
+      .then((res) => res.json())
+      .then(setTemplates)
+      .catch((err) => console.error("Error fetching templates:", err));
+  }, []);
+
+  // ── Fetch leave balance ──
+  useEffect(() => {
+    if (!employeeId) return;
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
-      .then((response) => {
-        if (!response.ok)
-          throw new Error("No leave record found or server error.");
-        return response.json();
-      })
-      .then((data) => {
+      .then((res) => res.json())
+      .then((data) =>
         setEmployeeLeaves({
           unplannedLeave: data.usedUnplannedLeave || 0,
           plannedLeave: data.usedPlannedLeave || 0,
           remainingUnplannedLeave: data.remainingUnplannedLeave || 0,
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
-        });
-      })
-      .catch((error) =>
-        console.error("Error fetching employee leaves:", error)
+        })
+      )
+      .catch((err) =>
+        console.error("Error fetching employee leaves:", err)
       );
   }, [employeeId]);
 
+  // ── When subject changes, check if it matches a template ──
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setLeaveForm((prev) => ({ ...prev, [name]: value }));
+    setLeaveForm((prev) => {
+      const updated = { ...prev, [name]: value };
+
+      if (name === "subject") {
+        const match = templates.find(
+          (t) => t.subject.toLowerCase() === value.toLowerCase()
+        );
+        if (match) {
+          updated.body = match.body;
+        }
+      }
+
+      return updated;
+    });
   };
 
   const handleSendMail = () => {
@@ -70,30 +87,25 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/leave/apply-leave`, {
+      const res = await fetch(`${API_URL}/api/send-leave-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        alert(
-          "Leave request sent successfully! Your application ID is: " + result.id
-        );
-        setLeaveForm({
-          leaveType: "",
-          to: "",
-          cc: "",
-          subject: "",
-          body: "",
-        });
-      } else {
-        alert("Error: " + (result.error || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Error sending leave request:", error);
-      alert("Failed to connect to server.");
+      if (!res.ok) throw new Error("Failed to send email");
+
+      alert("Leave email sent successfully!");
+      setLeaveForm({
+        leaveType: "",
+        to: "",
+        cc: "",
+        subject: "",
+        body: "",
+      });
+    } catch (err) {
+      console.error("Send error:", err);
+      alert("Error sending leave email.");
     } finally {
       setShowConfirmModal(false);
     }
@@ -103,9 +115,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
     <Row className="mt-3">
       <Col md={6}>
         <Card className="p-4 shadow-sm">
-          <h5>
-            <b>Used Leaves</b>
-          </h5>
+          <h5><b>Used Leaves</b></h5>
           <Form.Group className="mb-3">
             <Form.Label>Unplanned Leave</Form.Label>
             <Form.Control
@@ -123,9 +133,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
             />
           </Form.Group>
 
-          <h5 className="mt-4">
-            <b>Remaining Leaves</b>
-          </h5>
+          <h5 className="mt-4"><b>Remaining Leaves</b></h5>
           <Form.Group className="mb-3">
             <Form.Label>Unplanned Leave</Form.Label>
             <Form.Control
@@ -147,9 +155,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
 
       <Col md={6}>
         <Card className="p-4 shadow-sm">
-          <h5>
-            <b>Apply for Leave</b>
-          </h5>
+          <h5><b>Apply for Leave</b></h5>
           <Form>
             <Form.Group className="mb-3 mt-2">
               <Form.Label>Leave Type</Form.Label>
@@ -162,15 +168,6 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 <option value="Planned Leave">Planned Leave</option>
                 <option value="Unplanned Leave">Unplanned Leave</option>
               </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>From</Form.Label>
-              <Form.Control
-                type="email"
-                readOnly
-                value={storedUser?.email || ""}
-              />
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -199,13 +196,18 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
             <Form.Group className="mb-3">
               <Form.Label>Subject</Form.Label>
               <Form.Control
-                type="text"
+                list="subjectList"
                 name="subject"
                 value={leaveForm.subject}
                 onChange={handleFormChange}
-                placeholder="Enter email subject"
+                placeholder="Choose or type subject"
                 required
               />
+              <datalist id="subjectList">
+                {templates.map((tpl, i) => (
+                  <option key={i} value={tpl.subject} />
+                ))}
+              </datalist>
             </Form.Group>
 
             <Form.Group className="mb-3">
@@ -215,8 +217,8 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 name="body"
                 value={leaveForm.body}
                 onChange={handleFormChange}
-                rows={4}
-                placeholder="Enter email body text"
+                rows={5}
+                placeholder="Email body will appear here"
                 required
               />
             </Form.Group>
@@ -228,6 +230,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
         </Card>
       </Col>
 
+      {/* Confirmation Modal */}
       <Modal
         show={showConfirmModal}
         onHide={() => setShowConfirmModal(false)}
@@ -237,25 +240,11 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           <Modal.Title>Email Preview</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            <strong>From:</strong> {storedUser?.email}
-          </p>
-          <p>
-            <strong>To:</strong> {leaveForm.to}
-          </p>
-          <p>
-            <strong>CC:</strong> {leaveForm.cc}
-          </p>
-          <p>
-            <strong>Subject:</strong> {leaveForm.subject}
-          </p>
-          <p>
-            <strong>Body:</strong>
-          </p>
-          <div
-            className="border rounded p-2 bg-light"
-            style={{ whiteSpace: "pre-wrap" }}
-          >
+          <p><strong>To:</strong> {leaveForm.to}</p>
+          <p><strong>CC:</strong> {leaveForm.cc}</p>
+          <p><strong>Subject:</strong> {leaveForm.subject}</p>
+          <p><strong>Body:</strong></p>
+          <div className="border rounded p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
             {leaveForm.body}
           </div>
           <hr />

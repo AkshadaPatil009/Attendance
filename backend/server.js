@@ -5,6 +5,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
+const { sendLeaveEmail } = require("./mailer");
 
 // NEW: Import http and socket.io
 const http = require("http");
@@ -1088,6 +1089,64 @@ app.post("/api/offices", (req, res) => {
     if (err) return res.status(500).json({ error: "Failed to add office" });
     const insertedOffice = { id: result.insertId, name };
     res.json(insertedOffice);
+  });
+});
+
+
+app.post("/api/send-leave-email", async (req, res) => {
+  const {
+    employee_id,
+    from_email,
+    from_name,
+    leave_type,
+    to_email,
+    cc_email,
+    subject,
+    body,
+  } = req.body;
+
+  try {
+    await sendLeaveEmail({
+      from_email,
+      from_name,
+      to_email,
+      cc_email,
+      subject,
+      body,
+    });
+
+    // Save to DB (without from_email, cc_email, or body as per your earlier instruction)
+    const sql = `
+      INSERT INTO leave_mails (employee_id, from_name, leave_type, to_email, subject)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const values = [employee_id, from_name, leave_type, to_email, subject];
+
+    db.query(sql, values, (err, result) => {
+      if (err) {
+        console.error("DB insert error:", err);
+        return res.status(500).send("Database error");
+      }
+      res.status(200).send("Email sent and saved");
+    });
+  } catch (err) {
+    console.error("Send mail error:", err);
+    res.status(500).send("Failed to send email");
+  }
+});
+
+
+
+// ── Fetch subject templates from MySQL ──
+app.get("/api/subject-templates", (req, res) => {
+  const sql = "SELECT subject, body FROM subject_templates ORDER BY id";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching templates:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    // results is already an array of { subject, body }
+    res.json(results);
   });
 });
 
