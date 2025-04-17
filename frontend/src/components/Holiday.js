@@ -1,8 +1,9 @@
 // src/components/HolidayAndLeavesTabs.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import io from "socket.io-client";
 import { Button, Form, Modal, Table, Tabs, Tab, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
-import "../pages/Dashboard.css"; // Ensure your CSS is applied
+import "../pages/Dashboard.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -62,15 +63,12 @@ const LocationMultiSelect = ({ options, selectedLocations, setSelectedLocations 
 };
 
 // Holidays component
-const Holidays = () => {
+const Holidays = ({ socket }) => {
   const [holidays, setHolidays] = useState([]);
   const [offices, setOffices] = useState([]);
   const [showOfficeModal, setShowOfficeModal] = useState(false);
-  // NEW: Office confirmation modal state
   const [showOfficeConfirmModal, setShowOfficeConfirmModal] = useState(false);
   const [newOfficeName, setNewOfficeName] = useState("");
-
-  // existing states...
   const [showAddModal, setShowAddModal] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", locations: [] });
   const [editingHoliday, setEditingHoliday] = useState(null);
@@ -82,15 +80,13 @@ const Holidays = () => {
   const [showDateErrorModal, setShowDateErrorModal] = useState(false);
   const [dateErrorMessage, setDateErrorMessage] = useState("");
 
-  // Fetch holidays
+  // Fetch holidays and offices
   const fetchHolidays = () => {
     fetch(`${API_URL}/api/holidays`)
       .then((res) => res.json())
       .then((data) => setHolidays(data))
       .catch((error) => console.error("Error fetching holidays:", error));
   };
-
-  // Fetch offices
   const fetchOffices = () => {
     fetch(`${API_URL}/api/offices`)
       .then((res) => res.json())
@@ -102,6 +98,19 @@ const Holidays = () => {
     fetchHolidays();
     fetchOffices();
   }, []);
+
+  // Real‑time socket listeners
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("holidayAdded", fetchHolidays);
+    socket.on("holidayUpdated", fetchHolidays);
+    socket.on("holidayDeleted", fetchHolidays);
+    return () => {
+      socket.off("holidayAdded", fetchHolidays);
+      socket.off("holidayUpdated", fetchHolidays);
+      socket.off("holidayDeleted", fetchHolidays);
+    };
+  }, [socket]);
 
   // Add a new office
   const handleAddOffice = () => {
@@ -149,12 +158,13 @@ const Holidays = () => {
           fetchHolidays();
           setNewHoliday({ date: "", name: "", locations: [] });
           setShowAddModal(false);
+          socket.emit("holidayAdded");
         })
         .catch((error) => console.error("Error adding holiday(s):", error));
     }
   };
 
-  // Edit handlers...
+  // Edit holiday
   const handleEdit = (holiday) => {
     const date = new Date(holiday.holiday_date);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
@@ -186,6 +196,7 @@ const Holidays = () => {
       const originalLocations = editingHoliday.groupLocations;
       const locationMap = editingHoliday.locationMap;
       const promises = [];
+
       originalLocations.forEach((loc) => {
         const id = locationMap[loc];
         if (!newLocations.includes(loc)) {
@@ -201,12 +212,13 @@ const Holidays = () => {
                 location: loc,
                 approval_status: "Pending",
                 approved_by: "",
-                approved_date: ""
+                approved_date: "",
               }),
             }).then((res) => res.json())
           );
         }
       });
+
       newLocations.forEach((loc) => {
         if (!originalLocations.includes(loc)) {
           promises.push(
@@ -222,17 +234,19 @@ const Holidays = () => {
           );
         }
       });
+
       Promise.all(promises)
         .then(() => {
           fetchHolidays();
           setShowEditModal(false);
           setEditingHoliday(null);
+          socket.emit("holidayUpdated");
         })
         .catch((error) => console.error("Error updating holiday:", error));
     }
   };
 
-  // Delete handlers...
+  // Delete handlers
   const handleDelete = (holiday) => {
     setHolidayToDelete(holiday);
     setShowDeleteModal(true);
@@ -246,11 +260,12 @@ const Holidays = () => {
         fetchHolidays();
         setShowDeleteModal(false);
         setHolidayToDelete(null);
+        socket.emit("holidayDeleted");
       })
       .catch((error) => console.error("Error deleting holiday:", error));
   };
 
-  // Approve All handlers...
+  // Approve All handlers
   const handleApproveAll = () => {
     const pendingHolidays = holidays.filter((h) => h.approval_status === "Pending");
     if (pendingHolidays.length === 0) {
@@ -275,6 +290,7 @@ const Holidays = () => {
         setShowApproveConfirmModal(false);
         setApprovalName("");
         alert("All pending holidays approved successfully!");
+        socket.emit("holidayUpdated");
       })
       .catch((error) => console.error("Error approving holidays:", error));
   };
@@ -306,13 +322,11 @@ const Holidays = () => {
     locations: Array.from(item.locations),
   }));
 
-  // Today's date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return (
     <div className="container-fluid mt-4">
-      {/* Holidays table */}
       <div className="border p-3 mt-3">
         {groupedHolidays.length > 0 ? (
           <Table bordered striped hover responsive>
@@ -330,19 +344,14 @@ const Holidays = () => {
             </thead>
             <tbody>
               {groupedHolidays.map((holiday) => {
-                const holidayDate = new Date(holiday.holiday_date);
-                const holidayDateOnly = new Date(
-                  holidayDate.getFullYear(),
-                  holidayDate.getMonth(),
-                  holidayDate.getDate()
-                );
+                const hd = new Date(holiday.holiday_date);
+                const hdOnly = new Date(hd.getFullYear(), hd.getMonth(), hd.getDate());
                 const sevenDaysLater = new Date(today);
                 sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-                const isPast = holidayDateOnly < today;
-                const isWithin7Days =
-                  holidayDateOnly >= today && holidayDateOnly <= sevenDaysLater;
+                const isPast = hdOnly < today;
+                const isWithin7Days = hdOnly >= today && hdOnly <= sevenDaysLater;
                 const isDisabled = isPast || isWithin7Days;
-                const formattedDate = holidayDate.toLocaleDateString("en-US", {
+                const formattedDate = hd.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
@@ -350,6 +359,7 @@ const Holidays = () => {
                 const actionStyle = isDisabled
                   ? { opacity: 0.5, pointerEvents: "none" }
                   : { cursor: "pointer", marginRight: "10px" };
+
                 return (
                   <tr
                     key={holiday.ids[0]}
@@ -391,7 +401,6 @@ const Holidays = () => {
         )}
       </div>
 
-      {/* Action buttons */}
       <div className="d-flex justify-content-center mt-3">
         <Button
           variant="primary"
@@ -436,10 +445,7 @@ const Holidays = () => {
           <Button variant="secondary" onClick={() => setShowOfficeModal(false)}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowOfficeConfirmModal(true)}
-          >
+          <Button variant="primary" onClick={() => setShowOfficeConfirmModal(true)}>
             Add Office
           </Button>
         </Modal.Footer>
@@ -453,14 +459,9 @@ const Holidays = () => {
         <Modal.Header closeButton>
           <Modal.Title>Confirm Add Office</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          Are you sure you want to add the office "{newOfficeName}"?
-        </Modal.Body>
+        <Modal.Body>Are you sure you want to add the office "{newOfficeName}"?</Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowOfficeConfirmModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowOfficeConfirmModal(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleAddOffice}>
@@ -570,8 +571,7 @@ const Holidays = () => {
           <Modal.Title>Delete Holiday</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete the holiday "
-          {holidayToDelete && holidayToDelete.holiday_name}"?
+          Are you sure you want to delete the holiday "{holidayToDelete?.holiday_name}"?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
@@ -626,8 +626,8 @@ const Holidays = () => {
   );
 };
 
-// Leaves component (merged “Add” + “Update” into one)
-const Leaves = () => {
+// Leaves component
+const Leaves = ({ socket }) => {
   const [allocatedUnplannedLeave, setAllocatedUnplannedLeave] = useState("");
   const [allocatedPlannedLeave, setAllocatedPlannedLeave] = useState("");
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
@@ -646,7 +646,7 @@ const Leaves = () => {
     return value;
   };
 
-  // When user clicks the single “Save Leaves” button
+  // Save leaves handlers
   const handleSaveLeaves = () => {
     if (
       !allocatedUnplannedLeave.toString().trim() ||
@@ -659,14 +659,13 @@ const Leaves = () => {
     setShowSaveConfirmModal(true);
   };
 
-  // After confirming in the modal, do POST then PUT
   const handleConfirmSave = () => {
     const unplanned = parseInt(allocatedUnplannedLeave, 10) || 0;
     const planned = parseInt(allocatedPlannedLeave, 10) || 0;
 
     setShowSaveConfirmModal(false);
 
-    // 1) POST to add any missing records
+    // 1) POST
     fetch(`${API_URL}/api/employee-leaves`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -687,7 +686,7 @@ const Leaves = () => {
         return res.json();
       })
       .then((postData) => {
-        // 2) PUT to update allocations & remaining for everyone
+        // 2) PUT
         return fetch(`${API_URL}/api/employee-leaves`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -713,6 +712,7 @@ const Leaves = () => {
                 `New records added: ${postData.insertedCount || 0}\n` +
                 `Records updated: ${putData.affectedRows || 0}`
             );
+            socket.emit("leavesSaved", { unplanned, planned });
           });
       })
       .catch((error) => {
@@ -720,6 +720,17 @@ const Leaves = () => {
         alert("Error saving leaves");
       });
   };
+
+  // Real‑time notification
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("leavesSaved", ({ unplanned, planned }) => {
+      alert(`Leaves were updated in real time!\nUnplanned: ${unplanned}\nPlanned: ${planned}`);
+    });
+    return () => {
+      socket.off("leavesSaved");
+    };
+  }, [socket]);
 
   return (
     <div className="container mt-4" style={{ minHeight: "600px" }}>
@@ -757,21 +768,14 @@ const Leaves = () => {
       </Row>
       <Row className="justify-content-center mt-4">
         <Col md={2} className="text-center">
-          <Button
-            variant="primary"
-            onClick={handleSaveLeaves}
-            className="w-100"
-          >
+          <Button variant="primary" onClick={handleSaveLeaves} className="w-100">
             Save Leaves
           </Button>
         </Col>
       </Row>
 
-      {/* Single Confirm Modal */}
-      <Modal
-        show={showSaveConfirmModal}
-        onHide={() => setShowSaveConfirmModal(false)}
-      >
+      {/* Confirm Save Modal */}
+      <Modal show={showSaveConfirmModal} onHide={() => setShowSaveConfirmModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Confirm Save Leaves</Modal.Title>
         </Modal.Header>
@@ -817,6 +821,15 @@ const Leaves = () => {
 // Parent component with tabs for Holidays and Leaves
 const HolidayAndLeavesTabs = () => {
   const [activeTab, setActiveTab] = useState("holidays");
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    socketRef.current = io(API_URL);
+    socketRef.current.emit("join", { room: "holiday-leaves" });
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   return (
     <div className="container-fluid mt-4" style={{ minHeight: "600px" }}>
@@ -826,10 +839,10 @@ const HolidayAndLeavesTabs = () => {
         className="mb-3"
       >
         <Tab eventKey="holidays" title="Holidays">
-          <Holidays />
+          <Holidays socket={socketRef.current} />
         </Tab>
         <Tab eventKey="leaves" title="Leaves">
-          <Leaves />
+          <Leaves socket={socketRef.current} />
         </Tab>
       </Tabs>
     </div>

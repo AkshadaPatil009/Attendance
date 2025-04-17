@@ -1,8 +1,11 @@
 // EmployeeHolidays.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Table } from "react-bootstrap";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 const EmployeeHolidays = ({ storedUser }) => {
   const [holidays, setHolidays] = useState([]);
@@ -11,9 +14,12 @@ const EmployeeHolidays = ({ storedUser }) => {
 
   const employeeLocation = storedUser?.location || "";
 
-  useEffect(() => {
+  // fetch / re-fetch holidays
+  const fetchHolidays = useCallback(() => {
     let url = `${API_URL}/api/employee_holidays`;
-    if (employeeLocation) url += `?location=${employeeLocation}`;
+    if (employeeLocation) {
+      url += `?location=${employeeLocation}`;
+    }
     fetch(url)
       .then((response) => {
         if (!response.ok) throw new Error("Error fetching holidays");
@@ -27,6 +33,18 @@ const EmployeeHolidays = ({ storedUser }) => {
       })
       .catch((error) => console.error("Error fetching holidays:", error));
   }, [employeeLocation]);
+
+  useEffect(() => {
+    // initial fetch
+    fetchHolidays();
+
+    // listen for server-side holiday updates
+    socket.on("holidaysUpdated", fetchHolidays);
+
+    return () => {
+      socket.off("holidaysUpdated", fetchHolidays);
+    };
+  }, [fetchHolidays]);
 
   return (
     <div className="mt-4">
@@ -48,7 +66,10 @@ const EmployeeHolidays = ({ storedUser }) => {
               holidayDate.setHours(0, 0, 0, 0);
               const isPast = holidayDate < today;
               return (
-                <tr key={holiday.id} className={isPast ? "table-secondary" : ""}>
+                <tr
+                  key={holiday.id}
+                  className={isPast ? "table-secondary" : ""}
+                >
                   <td>{index + 1}</td>
                   <td>{holiday.holiday_name}</td>
                   <td>{holidayDate.toISOString().split("T")[0]}</td>

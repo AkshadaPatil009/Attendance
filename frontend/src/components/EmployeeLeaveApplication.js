@@ -1,8 +1,11 @@
 // EmployeeLeaveApplication.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Card, Form, Row, Col, Button, Modal } from "react-bootstrap";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// initialize socket connection
+const socket = io(API_URL);
 
 const EmployeeLeaveApplication = ({ storedUser }) => {
   const employeeId = storedUser?.employeeId;
@@ -24,11 +27,9 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  useEffect(() => {
-    if (!employeeId) {
-      console.error("No employeeId found in localStorage user data.");
-      return;
-    }
+  // fetch employee leave balances
+  const fetchEmployeeLeaves = useCallback(() => {
+    if (!employeeId) return;
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
       .then((response) => {
         if (!response.ok)
@@ -47,6 +48,22 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
         console.error("Error fetching employee leaves:", error)
       );
   }, [employeeId]);
+
+  useEffect(() => {
+    // initial fetch
+    fetchEmployeeLeaves();
+
+    // listen for leave-balance updates
+    socket.on("employeeLeavesUpdated", ({ employeeId: updatedId }) => {
+      if (updatedId.toString() === employeeId.toString()) {
+        fetchEmployeeLeaves();
+      }
+    });
+
+    return () => {
+      socket.off("employeeLeavesUpdated");
+    };
+  }, [employeeId, fetchEmployeeLeaves]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -88,6 +105,8 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           subject: "",
           body: "",
         });
+        // emit event so other components (e.g. admin view) can refresh
+        socket.emit("employeeLeavesUpdated", { employeeId });
       } else {
         alert("Error: " + (result.error || "Unknown error"));
       }
