@@ -51,18 +51,25 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
       );
   }, [employeeId]);
 
-  // ── When subject changes, check if it matches a template ──
+  // ── When form fields change ──
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setLeaveForm((prev) => {
-      const updated = { ...prev, [name]: value };
+      const updated = { ...prev };
 
-      if (name === "subject") {
-        const match = templates.find(
-          (t) => t.subject.toLowerCase() === value.toLowerCase()
-        );
-        if (match) {
-          updated.body = match.body;
+      if (name === "body") {
+        const wordCount = value.trim().split(/\s+/).length;
+        if (wordCount > 500) return prev; // Don't update if word count exceeds 500
+        updated.body = value;
+      } else {
+        updated[name] = value;
+        if (name === "subject") {
+          const match = templates.find(
+            (t) => t.subject.toLowerCase() === value.toLowerCase()
+          );
+          if (match) {
+            updated.body = match.body;
+          }
         }
       }
 
@@ -221,6 +228,9 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 placeholder="Email body will appear here"
                 required
               />
+              <Form.Text className="text-muted">
+                {leaveForm.body.trim().split(/\s+/).length} / 500 words
+              </Form.Text>
             </Form.Group>
 
             <Button variant="primary" onClick={handleSendMail}>
