@@ -174,6 +174,8 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 <option value="">-- Select Leave Type --</option>
                 <option value="Planned Leave">Planned Leave</option>
                 <option value="Unplanned Leave">Unplanned Leave</option>
+                <option value="Compup">Compup</option>
+                <option value="Work From Home">Work From Home</option>
               </Form.Select>
             </Form.Group>
 
