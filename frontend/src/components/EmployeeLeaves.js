@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Form,
@@ -13,7 +13,7 @@ import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 // initialize socket connection
-//const socket = io(API_URL);
+const socket = io(API_URL);
 
 /**
  * A dropdown that lets you:
@@ -30,19 +30,25 @@ const EmployeeDropdownFilter = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
+  // filter list by search
   const filtered = employees.filter((emp) =>
     (emp.name || emp.Name).toLowerCase().includes(search.toLowerCase())
   );
+
   const allSelected = selectedIds.length === employees.length;
 
+  // toggle the “All” checkbox
   const toggleAll = () => {
     if (allSelected) setSelectedIds([]);
     else setSelectedIds(employees.map((e) => e.id));
   };
-  const toggleOne = (id) =>
-    selectedIds.includes(id)
-      ? setSelectedIds(selectedIds.filter((i) => i !== id))
-      : setSelectedIds([...selectedIds, id]);
+
+  // toggle one employee
+  const toggleOne = (id) => {
+    if (selectedIds.includes(id))
+      setSelectedIds(selectedIds.filter((i) => i !== id));
+    else setSelectedIds([...selectedIds, id]);
+  };
 
   return (
     <Dropdown
@@ -62,6 +68,7 @@ const EmployeeDropdownFilter = ({
       </Dropdown.Toggle>
 
       <Dropdown.Menu style={{ minWidth: "100%", padding: "12px" }}>
+        {/* Search box */}
         <Form.Control
           type="text"
           placeholder="Search employees..."
@@ -69,12 +76,16 @@ const EmployeeDropdownFilter = ({
           onChange={(e) => setSearch(e.target.value)}
           className="mb-2"
         />
+
+        {/* “All” checkbox */}
         <Form.Check
           type="checkbox"
           label={`All (${employees.length})`}
           checked={allSelected}
           onChange={toggleAll}
         />
+
+        {/* List of filtered employees */}
         <div
           style={{
             maxHeight: 200,
@@ -93,6 +104,8 @@ const EmployeeDropdownFilter = ({
             />
           ))}
         </div>
+
+        {/* Apply button */}
         <div className="d-flex justify-content-end mt-2">
           <Button
             size="sm"
@@ -115,14 +128,15 @@ const EmployeeLeaves = () => {
   const [employees, setEmployees] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // New state for dynamic offices
   const [offices, setOffices] = useState([]);
+
   const [selectedOffice, setSelectedOffice] = useState("");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [selectedLeaveTypes, setSelectedLeaveTypes] = useState([]);
 
-  const socketRef = useRef(null);
-
-  // sort helper
+  // Helper: sort employees by name A -> Z
   const sortByNameAscending = useCallback((data) => {
     return data.sort((a, b) => {
       const nameA = (a.name || a.Name || "").toLowerCase();
@@ -131,46 +145,40 @@ const EmployeeLeaves = () => {
     });
   }, []);
 
-  // ← CHANGED: Fetch all employees from /api/logincrd (not /employees-list)
+  // 1) fetch all employees
   const fetchEmployeesList = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API_URL}/api/logincrd`);
-      // map the backend's employee_id → our local id
-      const employeesWithId = data.map((e) => ({
-        ...e,
-        id: e.employee_id,
-      }));
-      setEmployees(sortByNameAscending(employeesWithId));
+      const { data } = await axios.get(`${API_URL}/api/employees-list`);
+      const sorted = sortByNameAscending(data);
+      setEmployees(sorted);
     } catch (e) {
       console.error(e);
     }
   }, [sortByNameAscending]);
 
-  // fetch employees by office, same endpoint
-  const fetchOfficeEmployees = useCallback(
-    async (office) => {
-      try {
-        const { data } = await axios.get(
-          `${API_URL}/api/logincrd?office=${encodeURIComponent(office)}`
-        );
-        const employeesWithId = data.map((e) => ({
-          ...e,
-          id: e.employee_id,
-        }));
-        setEmployees(sortByNameAscending(employeesWithId));
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [sortByNameAscending]
-  );
+  // 2) fetch employees by office
+  const fetchOfficeEmployees = useCallback(async (office) => {
+    try {
+      const { data } = await axios.get(
+        `${API_URL}/api/logincrd?office=${office}`
+      );
+      const employeesWithId = data.map((e) => ({
+        ...e,
+        id: e.employee_id,
+      }));
+      const sorted = sortByNameAscending(employeesWithId);
+      setEmployees(sorted);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sortByNameAscending]);
 
-  // fetch leaves, optionally filtered by office
+  // 3) fetch leaves (server‑side filter by office)
   const fetchLeaves = useCallback(async (office = "") => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/employeeleavesdate`;
-      if (office) url += `?office=${encodeURIComponent(office)}`;
+      if (office) url += `?office=${office}`;
       const { data } = await axios.get(url);
       setLeaves(data);
     } catch (e) {
@@ -179,7 +187,7 @@ const EmployeeLeaves = () => {
     setLoading(false);
   }, []);
 
-  // fetch offices list
+  // New: fetch the list of offices
   const fetchOffices = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API_URL}/api/offices`);
@@ -189,24 +197,23 @@ const EmployeeLeaves = () => {
     }
   }, []);
 
-  // initial + sockets
+  // initial load + socket listeners
   useEffect(() => {
-    socketRef.current = io(API_URL);
     fetchOffices();
     fetchEmployeesList();
     fetchLeaves();
 
-    socketRef.current.on("officesUpdated", fetchOffices);
-    socketRef.current.on("employeesListUpdated", () =>
-      selectedOffice ? fetchOfficeEmployees(selectedOffice) : fetchEmployeesList()
-    );
-    socketRef.current.on("leavesUpdated", () => fetchLeaves(selectedOffice));
+    socket.on("officesUpdated", fetchOffices);
+    socket.on("employeesListUpdated", () => {
+      if (selectedOffice) fetchOfficeEmployees(selectedOffice);
+      else fetchEmployeesList();
+    });
+    socket.on("leavesUpdated", () => fetchLeaves(selectedOffice));
 
     return () => {
-      socketRef.current.off("officesUpdated");
-      socketRef.current.off("employeesListUpdated");
-      socketRef.current.off("leavesUpdated");
-      socketRef.current.disconnect();
+      socket.off("officesUpdated", fetchOffices);
+      socket.off("employeesListUpdated");
+      socket.off("leavesUpdated");
     };
   }, [
     fetchOffices,
@@ -216,6 +223,7 @@ const EmployeeLeaves = () => {
     selectedOffice,
   ]);
 
+  // when office changes
   const handleOfficeChange = async (e) => {
     const office = e.target.value;
     setSelectedOffice(office);
@@ -231,12 +239,14 @@ const EmployeeLeaves = () => {
     }
   };
 
+  // leave‑type toggle
   const toggleLeaveType = (type) => {
     setSelectedLeaveTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   };
 
+  // build selected names for client‑side filter
   const selectedNames = employees
     .filter((e) => selectedEmployeeIds.includes(e.id))
     .map((e) => e.name || e.Name);
@@ -269,7 +279,7 @@ const EmployeeLeaves = () => {
               >
                 <option value="">All Offices</option>
                 {offices.map((office) => (
-                  <option key={office.id} value={office.name}>
+                  <option key={office.id} value={office.code}>
                     {office.name}
                   </option>
                 ))}

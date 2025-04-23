@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Row, Col, Form, Button, Table, Modal } from "react-bootstrap";
@@ -9,26 +9,9 @@ import { FaFilter } from "react-icons/fa"; // Import for filter icon
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Connect to Socket.IO server using API_URL
-//const socket = io(API_URL);
+const socket = io(API_URL);
 
 const UpdateAttendance = () => {
-
-    // Create a ref to hold the socket instance
-    const socketRef = useRef(null);
-
-    // set up socket on mount, tear down on unmount
-    useEffect(() => {
-      socketRef.current = io(API_URL);
-  
-      socketRef.current.on("attendanceChanged", () => {
-        fetchAttendanceRecords();
-      });
-  
-      return () => {
-        socketRef.current.off("attendanceChanged");
-        socketRef.current.disconnect();  // ← properly closes the connection
-      };
-    }, []);
   // States for form fields and data
   const [employees, setEmployees] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -101,7 +84,14 @@ const UpdateAttendance = () => {
   }, []);
 
   // Listen for socket event to update attendance records.
- 
+  useEffect(() => {
+    socket.on("attendanceChanged", () => {
+      fetchAttendanceRecords();
+    });
+    return () => {
+      socket.off("attendanceChanged");
+    };
+  }, []);
 
   // When an employee is selected, fetch their records if not a manual row selection.
   useEffect(() => {

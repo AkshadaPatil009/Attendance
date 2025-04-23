@@ -24,8 +24,6 @@ const io = new Server(server, {
   },
 });
 
-app.set("socketio", io);
-
 // Emit a socket event helper function
 const emitAttendanceChange = () => {
   io.emit("attendanceChanged", { message: "Attendance data updated" });
@@ -151,12 +149,6 @@ app.put("/api/holidays/approve/:id", (req, res) => {
     (err, result) => {
       if (err) return res.status(500).json({ error: "Failed to approve holiday" });
       if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
-
-      // Emit socket event to notify clients
-      const io = req.app.get("socketio");
-      if (io) {
-        io.emit("holidaysUpdated");
-      }
       res.json({ message: "Holiday approved successfully", id, approved_by, approved_date });
     }
   );
@@ -320,12 +312,8 @@ app.post("/api/attendance", (req, res) => {
                   .status(500)
                   .json({ error: "Database error while saving attendance records" });
               }
-              // ✅ Emit real-time event
-    const io = req.app.get("io");
-    io.emit("attendanceSaved", {
-      message: "New attendance saved",
-      records: attendanceRecords
-    });
+              // NEW: Emit socket event when records are saved.
+              emitAttendanceChange();
               res.json({ message: "Attendance records saved successfully" });
             });
           }
@@ -738,9 +726,8 @@ app.put("/api/employee-leaves/:id", (req, res) => {
       // No record updated => no row found for this employee_id
       return res
         .status(404)
-.json({ error: "No leave record found for this employee." });
+        .json({ error: "No leave record found for this employee." });
     }
-   
     res.json({ message: "Employee leaves updated successfully." });
   });
 });
@@ -1100,6 +1087,7 @@ app.get("/api/offices", (req, res) => {
     res.json(results);
   });
 });
+
 
 /**
  * POST Office API - Add a new office
