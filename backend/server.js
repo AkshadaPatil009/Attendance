@@ -24,6 +24,8 @@ const io = new Server(server, {
   },
 });
 
+app.set("socketio", io);
+
 // Emit a socket event helper function
 const emitAttendanceChange = () => {
   io.emit("attendanceChanged", { message: "Attendance data updated" });
@@ -149,6 +151,12 @@ app.put("/api/holidays/approve/:id", (req, res) => {
     (err, result) => {
       if (err) return res.status(500).json({ error: "Failed to approve holiday" });
       if (result.affectedRows === 0) return res.status(404).json({ error: "Holiday not found" });
+
+      // Emit socket event to notify clients
+      const io = req.app.get("socketio");
+      if (io) {
+        io.emit("holidaysUpdated");
+      }
       res.json({ message: "Holiday approved successfully", id, approved_by, approved_date });
     }
   );
@@ -312,8 +320,12 @@ app.post("/api/attendance", (req, res) => {
                   .status(500)
                   .json({ error: "Database error while saving attendance records" });
               }
-              // NEW: Emit socket event when records are saved.
-              emitAttendanceChange();
+              // ✅ Emit real-time event
+    const io = req.app.get("io");
+    io.emit("attendanceSaved", {
+      message: "New attendance saved",
+      records: attendanceRecords
+    });
               res.json({ message: "Attendance records saved successfully" });
             });
           }
@@ -726,8 +738,9 @@ app.put("/api/employee-leaves/:id", (req, res) => {
       // No record updated => no row found for this employee_id
       return res
         .status(404)
-        .json({ error: "No leave record found for this employee." });
+.json({ error: "No leave record found for this employee." });
     }
+   
     res.json({ message: "Employee leaves updated successfully." });
   });
 });
@@ -972,72 +985,78 @@ app.put("/api/employee-leaves-date/:id", (req, res) => {
   });
 });
 
-// ======================================================================
-// NEW: GET /api/logincrd
-// Fetch employees from logincrd table and optionally filter by office code.
-// The office code is mapped as follows:
-//   RO => "Ratnagiri"
-//   DO => "Delhi"
-//   MO => "Mumbai"
-// Since there is no "office" column, we filter on the "Location" column.
+// ─── 2) GET /api/logincrd ───────────────────────────────────────────────────────
+// Returns all active employees, optionally filtered by office name.
+//   • Query params:
+//       office (string): exact office name to match logincrd.Location.
+// Example:
+//   GET /api/logincrd?office=Ratnagiri
 app.get("/api/logincrd", (req, res) => {
-  res.set("Cache-Control", "no-store");
-  let sql = "SELECT * FROM logincrd WHERE disableemp = 0";
+  let sql    = `
+    SELECT
+      id           AS employee_id,
+      Name,
+      fname,
+      lname,
+      Nickname,
+      Email,
+      Location     AS offices
+    FROM logincrd
+    WHERE disableemp = 0
+  `;
   const params = [];
+
   if (req.query.office) {
-    const officeMap = {
-      RO: "Ratnagiri",
-      DO: "Delhi",
-      MO: "Mumbai",
-    };
-    const locationFilter = officeMap[req.query.office] || req.query.office;
-    sql += " AND Location = ?";
-    params.push(locationFilter);
+    sql += " AND LOWER(Location) = LOWER(?)";
+    params.push(req.query.office);
   }
+
   db.query(sql, params, (err, results) => {
     if (err) {
-      console.error("Error fetching employees by office:", err);
-      return res.status(500).json({ error: "Database error while fetching employees by office." });
+      console.error("Error fetching employees:", err);
+      return res.status(500).json({ error: "Could not fetch employees" });
     }
     res.json(results);
   });
 });
 
-// GET /api/employeeleavesdate
-// Fetch all records from EmployeeLeavesDate along with employee names in dd-mm-yyyy format.
-// Optionally filter by employeeId and/or office.
+// ─── 3) GET /api/employeeleavesdate ────────────────────────────────────────────
+// Returns all leave records (with formatted date + employee name),
+// optionally filtered by office and/or employee.
+//   • Query params:
+//       office     (string): office name to filter logincrd.Location.
+//       employeeId (int)   : specific employee_id.
+// Example:
+//   GET /api/employeeleavesdate?office=Delhi&employeeId=42
 app.get("/api/employeeleavesdate", (req, res) => {
-  let sql = `
-    SELECT ed.id, ed.employee_id, l.Name AS employee_name,
-           DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date, ed.leave_type 
+  let sql    = `
+    SELECT
+      ed.id,
+      ed.employee_id,
+      l.Name             AS employee_name,
+      DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date,
+      ed.leave_type
     FROM employeeleavesdate ed
     JOIN logincrd l ON ed.employee_id = l.id
     WHERE 1=1
   `;
   const params = [];
 
-  // Filter by employeeId if provided.
+  if (req.query.office) {
+    sql += " AND LOWER(l.Location) = LOWER(?)";
+    params.push(req.query.office);
+  }
   if (req.query.employeeId) {
     sql += " AND ed.employee_id = ?";
     params.push(req.query.employeeId);
   }
-  // Filter by office if provided.
-  if (req.query.office) {
-    const officeMap = {
-      RO: "Ratnagiri",
-      DO: "Delhi",
-      MO: "Mumbai",
-    };
-    const locationFilter = officeMap[req.query.office] || req.query.office;
-    sql += " AND LOWER(l.Location) = LOWER(?)";
-    params.push(locationFilter);
-  }
 
   sql += " ORDER BY ed.id ASC";
+
   db.query(sql, params, (err, results) => {
     if (err) {
-      console.error("Error fetching employee leaves data:", err);
-      return res.status(500).json({ error: "Failed to fetch employee leaves data." });
+      console.error("Error fetching leaves:", err);
+      return res.status(500).json({ error: "Failed to fetch leaves" });
     }
     res.json(results);
   });
@@ -1069,13 +1088,15 @@ app.post('/api/leave/apply-leave', (req, res) => {
 });
 
 
-/**
- * GET Offices API - Fetch all offices
- */
+// ─── 1) GET /api/offices ────────────────────────────────────────────────────────
+// Returns all offices (id + name) for populating your dropdown.
 app.get("/api/offices", (req, res) => {
-  res.set("Cache-Control", "no-store");
-  db.query("SELECT * FROM offices ORDER BY name ASC", (err, results) => {
-    if (err) return res.status(500).json({ error: "Database error" });
+  const sql = "SELECT id, name FROM offices";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching offices:", err);
+      return res.status(500).json({ error: "Could not fetch offices" });
+    }
     res.json(results);
   });
 });
