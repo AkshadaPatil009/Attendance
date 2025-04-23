@@ -214,6 +214,7 @@ const EmployeeLeaves = () => {
       socket.off("officesUpdated", fetchOffices);
       socket.off("employeesListUpdated");
       socket.off("leavesUpdated");
+      socket.disconnect();
     };
   }, [
     fetchOffices,

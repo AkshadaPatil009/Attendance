@@ -29,6 +29,7 @@ const AttendanceEntry = ({
     });
     return () => {
       socket.off("attendanceSaved");
+      socket.disconnect();
     };
   }, []);
 

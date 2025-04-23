@@ -90,6 +90,7 @@ const UpdateAttendance = () => {
     });
     return () => {
       socket.off("attendanceChanged");
+      socket.disconnect();
     };
   }, []);
 

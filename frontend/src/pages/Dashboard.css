@@ -1,5 +1,3 @@
-/* src/pages/Dashboard.css */
-
 /* Force completed rows to use a light gray background */
 tr.completedHoliday td {
   background-color: rgb(212, 205, 205) !important;
@@ -10,7 +8,7 @@ tr.completedHoliday td {
   border: 2px solid black;
 }
 
-.custom-border-table th,
+.custom-border-table th
 .custom-border-table td {
   border: 1px solid black !important;
 }
@@ -38,21 +36,4 @@ tr.completedHoliday td {
   right: 1rem;
   transform: translateY(-50%);
   z-index: 1;
-}
-
-/* MOBILE FIX: wrap & shrink buttons when viewport < 576px */
-@media (max-width: 576px) {
-  .corner-buttons {
-    position: static !important;
-    transform: none !important;
-    margin-top: 0.5rem;
-    justify-content: flex-start;
-  }
-  .uniform-button {
-    width: auto !important;
-    flex: 0 0 auto;
-    margin: 0.25rem !important;
-    padding: 0.2rem 0.4rem !important;
-    font-size: 0.75rem !important;
-  }
 }

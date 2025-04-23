@@ -143,6 +143,8 @@ function areSameDate(date1, date2) {
 }
 
 const ViewAttendance = ({ viewMode, setViewMode }) => {
+  const [socket, setSocket] = useState(null);
+
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
@@ -236,29 +238,39 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     fetchAttendance();
   }, [fetchAttendance]);
 
-  // ------------------ Socket.io Integration ------------------
   useEffect(() => {
-    const socket = io(API_URL);
-    socket.on("attendanceChanged", (data) => {
+    const s = io(API_URL);
+    setSocket(s);
+    return () => s.disconnect();
+  }, []);
+  
+  // Second effect: listen to events once socket is available
+  useEffect(() => {
+    if (!socket) return;
+  
+    const handleAttendanceChanged = (data) => {
       console.log("Attendance changed event received:", data);
       fetchAttendance();
-    });
-    socket.on("holidayChanged", (data) => {
+    };
+  
+    const handleHolidayChanged = (data) => {
       console.log("Holiday changed event received:", data);
       axios
         .get(`${API_URL}/api/holidays`)
-        .then((response) => {
-          setHolidays(response.data);
-        })
-        .catch((error) => {
-          console.error("Error fetching holidays:", error);
-        });
+        .then((response) => setHolidays(response.data))
+        .catch((error) => console.error("Error fetching holidays:", error));
+  
       fetchAttendance();
-    });
-    return () => {
-      socket.disconnect();
     };
-  }, [fetchAttendance]);
+  
+    socket.on("attendanceChanged", handleAttendanceChanged);
+    socket.on("holidayChanged", handleHolidayChanged);
+  
+    return () => {
+      socket.off("attendanceChanged", handleAttendanceChanged);
+      socket.off("holidayChanged", handleHolidayChanged);
+    };
+  }, [socket, fetchAttendance]);
   // -----------------------------------------------------------
 
   // Group attendance records per employee per day.
@@ -722,7 +734,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                padding: "35px 20px",
+                padding: "45px 20px",
               }}
             >
               {/* Updated legend items */}
@@ -738,8 +750,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#B0E0E6",
                       marginRight: "5px",
                     }}
@@ -751,8 +763,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#90EE90",
                       marginRight: "5px",
                     }}
@@ -764,8 +776,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#FFC0CB",
                       marginRight: "5px",
                     }}
@@ -777,8 +789,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#ff9900",
                       marginRight: "5px",
                     }}
@@ -791,17 +803,17 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#ffffff",
                       marginRight: "5px",
-                      border: "2px solid black",
+                      border: "1px solid black",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: "10px", color: "black" }}>_</span>
+                    <span style={{ fontSize: "15px", color: "black" }}>_</span>
                   </div>
                   <span style={{ fontSize: "0.8rem" }}>Late Mark</span>
                 </div>
@@ -810,8 +822,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#ffffff",
                       marginRight: "5px",
                       border: "1px solid #000",
@@ -829,8 +841,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#ffffff",
                       marginRight: "5px",
                       border: "1px solid #000",
@@ -839,7 +851,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: "10px", color: "black" }}>I</span>
+                    <span style={{ fontSize: "15px", color: "black" }}>I</span>
                   </div>
                   <span style={{ fontSize: "0.8rem" }}>Incomplete Attendance</span>
                 </div>
@@ -848,8 +860,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#FFFF00",
                       marginRight: "5px",
                     }}
@@ -861,8 +873,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
-                      width: "15px",
-                      height: "15px",
+                      width: "20px",
+                      height: "20px",
                       backgroundColor: "#ff0000",
                       marginRight: "5px",
                     }}
@@ -874,7 +886,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <Button
                 onClick={handleDownload}
                 id="downloadReport"
-                style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                style={{ fontSize: "0.75rem", padding: "2px 2px" }}
               >
                 Download Report
               </Button>
