@@ -1,0 +1,34 @@
+/* src/pages/EmployeeDashboard.css */
+
+/* Add some breathing room around the dashboard */
+.employee-dashboard-container {
+    padding: 1rem;
+  }
+  
+  /* Space the tabs a bit lower */
+  #employee-dashboard-tabs {
+    margin-bottom: 1rem;
+  }
+  
+  /* Tweak the tab link appearance */
+  #employee-dashboard-tabs .nav-link {
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+  }
+  
+  /* Add padding inside each tab panel */
+  .tab-pane {
+    padding: 1rem;
+  }
+  
+  /* On very small screens, wrap the tabs into two columns */
+  @media (max-width: 576px) {
+    #employee-dashboard-tabs .nav-tabs {
+      flex-wrap: wrap;
+    }
+    #employee-dashboard-tabs .nav-item {
+      flex: 1 1 50%;
+      text-align: center;
+    }
+  }
+  
