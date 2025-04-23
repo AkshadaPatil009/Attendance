@@ -19,7 +19,7 @@ const socket = io(API_URL);
 
 const AdminEmployeeView = () => {
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(""); // start blank
   const [message, setMessage] = useState(null);
 
   // leave balances
@@ -32,8 +32,8 @@ const AdminEmployeeView = () => {
   ]);
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
 
-  // add‑new form
-  const [addEmployeeId, setAddEmployeeId] = useState("");
+  // add-new form
+  const [addEmployeeId, setAddEmployeeId] = useState(""); // start blank
   const [joinDate, setJoinDate] = useState("");
   const [addAllocatedPlanned, setAddAllocatedPlanned] = useState(0);
   const [addAllocatedUnplanned, setAddAllocatedUnplanned] = useState(0);
@@ -44,19 +44,14 @@ const AdminEmployeeView = () => {
     selectedEmployeeIdRef.current = selectedEmployeeId;
   }, [selectedEmployeeId]);
 
-  // 1) on‑mount: fetch employees + setup socket listeners
+  // 1) on-mount: fetch employees + setup socket listeners
   useEffect(() => {
     const fetchEmployees = () => {
       fetch(`${API_URL}/api/employees-list`)
         .then((res) => res.json())
         .then((data) => {
           setEmployees(data);
-          if (data.length) {
-            const first = data[0];
-            setSelectedEmployeeId(first.id);
-            setAddEmployeeId(first.id);
-            populateLeaveFields(first);
-          }
+          // no default-selection here; both selects start at placeholder
         })
         .catch((err) => {
           console.error(err);
@@ -65,7 +60,7 @@ const AdminEmployeeView = () => {
     };
     fetchEmployees();
 
-    // listen for real‑time list updates
+    // real-time list updates
     socket.on("employeesListUpdated", (updatedList) => {
       setEmployees(updatedList);
       const emp = updatedList.find(
@@ -74,7 +69,7 @@ const AdminEmployeeView = () => {
       if (emp) populateLeaveFields(emp);
     });
 
-    // listen for individual leave updates
+    // individual leave updates
     socket.on("employeeLeavesUpdated", ({ employeeId, remainingPlanned, remainingUnplanned }) => {
       setEmployees(prev =>
         prev.map(x =>
@@ -98,9 +93,9 @@ const AdminEmployeeView = () => {
       socket.off("employeeLeavesUpdated");
       socket.disconnect();
     };
-  }, []); // no missing‑deps warning now
+  }, []);
 
-  // 2) whenever selectedEmployeeId or employees list changes, populate the fields
+  // 2) when selectedEmployeeId or employees change, populate fields
   useEffect(() => {
     const emp = employees.find(
       x => x.id.toString() === selectedEmployeeId.toString()
@@ -123,42 +118,34 @@ const AdminEmployeeView = () => {
   };
 
   const handleUpdateLeaveRecordChange = (i, field, val) => {
-    setUpdateLeaveRecords((prev) =>
+    setUpdateLeaveRecords(prev =>
       prev.map((r, idx) => (idx === i ? { ...r, [field]: val } : r))
     );
   };
   const addUpdateLeaveRecord = () =>
-    setUpdateLeaveRecords((prev) => [
-      ...prev,
-      { leaveDate: "", leaveType: "Planned" }
-    ]);
+    setUpdateLeaveRecords(prev => [...prev, { leaveDate: "", leaveType: "Planned" }]);
   const removeUpdateLeaveRecord = (i) => {
     if (updateLeaveRecords.length > 1)
-      setUpdateLeaveRecords((prev) => prev.filter((_, idx) => idx !== i));
+      setUpdateLeaveRecords(prev => prev.filter((_, idx) => idx !== i));
   };
 
   const updateEmployeeLeaves = () => {
     setMessage(null);
-    const emp = employees.find((x) => x.id.toString() === selectedEmployeeId);
+    const emp = employees.find(x => x.id.toString() === selectedEmployeeId);
     if (!emp) {
       setMessage("Selected employee not found.");
       return;
     }
 
-    const currRemUnplanned = emp.remainingUnplannedLeave || 0;
-    const currRemPlanned = emp.remainingPlannedLeave || 0;
+    const currUnplanned = emp.remainingUnplannedLeave || 0;
+    const currPlanned = emp.remainingPlannedLeave || 0;
+    const addPlannedCount = updateLeaveRecords.filter(r => r.leaveType === "Planned" && r.leaveDate).length;
+    const addUnplannedCount = updateLeaveRecords.filter(r => r.leaveType === "Unplanned" && r.leaveDate).length;
 
-    const addPlanned = updateLeaveRecords.filter(
-      (r) => r.leaveType === "Planned" && r.leaveDate
-    ).length;
-    const addUnplanned = updateLeaveRecords.filter(
-      (r) => r.leaveType === "Unplanned" && r.leaveDate
-    ).length;
-
-    const newUsedPlanned = (emp.usedPlannedLeave || 0) + addPlanned;
-    const newUsedUnplanned = (emp.usedUnplannedLeave || 0) + addUnplanned;
-    const newRemPlanned = currRemPlanned - addPlanned;
-    const newRemUnplanned = currRemUnplanned - addUnplanned;
+    const newUsedPlanned = (emp.usedPlannedLeave || 0) + addPlannedCount;
+    const newUsedUnplanned = (emp.usedUnplannedLeave || 0) + addUnplannedCount;
+    const newRemPlanned = currPlanned - addPlannedCount;
+    const newRemUnplanned = currUnplanned - addUnplannedCount;
 
     if (newRemPlanned < 0 || newRemUnplanned < 0) {
       return window.alert("Insufficient leave balance.");
@@ -174,17 +161,15 @@ const AdminEmployeeView = () => {
         remainingPlannedLeave: newRemPlanned
       })
     })
-      .then((res) => {
+      .then(res => {
         if (!res.ok) throw new Error("Failed to update aggregates");
-
         socket.emit("employeeLeavesUpdated", {
           employeeId: selectedEmployeeId,
           remainingPlanned: newRemPlanned,
           remainingUnplanned: newRemUnplanned
         });
-
-        setEmployees((prev) =>
-          prev.map((x) =>
+        setEmployees(prev =>
+          prev.map(x =>
             x.id.toString() === selectedEmployeeId
               ? {
                   ...x,
@@ -199,7 +184,7 @@ const AdminEmployeeView = () => {
         setRemainingUnplannedLeave(newRemUnplanned);
         setRemainingPlannedLeave(newRemPlanned);
         return Promise.all(
-          updateLeaveRecords.map((r) =>
+          updateLeaveRecords.map(r =>
             fetch(`${API_URL}/api/employee-leaves-date`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -212,15 +197,15 @@ const AdminEmployeeView = () => {
           )
         );
       })
-      .then((responses) => {
-        if (responses.every((r) => r.ok)) {
+      .then(responses => {
+        if (responses.every(r => r.ok)) {
           setMessage("Employee leaves updated successfully.");
           setUpdateLeaveRecords([{ leaveDate: "", leaveType: "Planned" }]);
         } else {
-          setMessage("Error adding one or more leave‑date records.");
+          setMessage("Error adding one or more leave-date records.");
         }
       })
-      .catch((err) => {
+      .catch(err => {
         console.error(err);
         setMessage("Error: Could not update employee leaves.");
       });
@@ -248,35 +233,23 @@ const AdminEmployeeView = () => {
         allocatedPlannedLeave: Number(addAllocatedPlanned)
       })
     })
-      .then((res) => res.json().then((body) => ({ ok: res.ok, body })))
+      .then(res => res.json().then(body => ({ ok: res.ok, body })))
       .then(({ ok, body }) => {
         if (ok) {
           setMessage(body.message || "Leave record added.");
           setJoinDate("");
           setAddAllocatedPlanned(0);
           setAddAllocatedUnplanned(0);
-
           socket.emit("newEmployeeLeave", { employeeId: addEmployeeId });
-
           // refetch employees after add
-          const fetchEmployees = () => {
-            fetch(`${API_URL}/api/employees-list`)
-              .then((res) => res.json())
-              .then((data) => {
-                setEmployees(data);
-                if (data.length) {
-                  const first = data.find(e => e.id === addEmployeeId) || data[0];
-                  setSelectedEmployeeId(first.id);
-                  populateLeaveFields(first);
-                }
-              });
-          };
-          fetchEmployees();
+          fetch(`${API_URL}/api/employees-list`)
+            .then(r => r.json())
+            .then(data => setEmployees(data));
         } else {
           setMessage(body.error || "Error adding leave record.");
         }
       })
-      .catch((err) => {
+      .catch(err => {
         console.error(err);
         setMessage("Error: Could not add leave record.");
       });
@@ -298,13 +271,15 @@ const AdminEmployeeView = () => {
                   value={selectedEmployeeId}
                   onChange={handleEmployeeChange}
                 >
-                  {sortedEmployees.map((emp) => (
+                  <option value="">-- select an employee --</option>
+                  {sortedEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
                     </option>
                   ))}
                 </Form.Control>
               </Form.Group>
+
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
@@ -319,6 +294,7 @@ const AdminEmployeeView = () => {
                   </Form.Group>
                 </Col>
               </Row>
+
               <Card className="mb-3">
                 <Card.Body>
                   <Card.Title>Leave Date Records</Card.Title>
@@ -330,7 +306,7 @@ const AdminEmployeeView = () => {
                           <Form.Control
                             type="date"
                             value={r.leaveDate}
-                            onChange={(e) =>
+                            onChange={e =>
                               handleUpdateLeaveRecordChange(i, "leaveDate", e.target.value)
                             }
                           />
@@ -342,7 +318,7 @@ const AdminEmployeeView = () => {
                           <Form.Control
                             as="select"
                             value={r.leaveType}
-                            onChange={(e) =>
+                            onChange={e =>
                               handleUpdateLeaveRecordChange(i, "leaveType", e.target.value)
                             }
                           >
@@ -373,6 +349,7 @@ const AdminEmployeeView = () => {
                   </Row>
                 </Card.Body>
               </Card>
+
               <Button variant="primary" onClick={handleUpdateConfirmation} className="w-100">
                 Update Employee Leaves
               </Button>
@@ -384,29 +361,32 @@ const AdminEmployeeView = () => {
         <Tab eventKey="add" title="Add New Employee Leave">
           <Card style={{ maxWidth: "600px", margin: "auto" }}>
             <Card.Body>
-              <Card.Title>Add Leave Record for Mid‑Year Joiner</Card.Title>
+              <Card.Title>Add Leave Record for Mid-Year Joiner</Card.Title>
               <Form.Group className="mb-3">
                 <Form.Label><b>Select Employee</b></Form.Label>
                 <Form.Control
                   as="select"
                   value={addEmployeeId}
-                  onChange={(e) => setAddEmployeeId(e.target.value)}
+                  onChange={e => setAddEmployeeId(e.target.value)}
                 >
-                  {sortedEmployees.map((emp) => (
+                  <option value="">-- select an employee --</option>
+                  {sortedEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name}
                     </option>
                   ))}
                 </Form.Control>
               </Form.Group>
+
               <Form.Group className="mb-3">
                 <Form.Label>Joining Date</Form.Label>
                 <Form.Control
                   type="date"
                   value={joinDate}
-                  onChange={(e) => setJoinDate(e.target.value)}
+                  onChange={e => setJoinDate(e.target.value)}
                 />
               </Form.Group>
+
               <Row>
                 <Col>
                   <Form.Group className="mb-3">
@@ -414,7 +394,7 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={addAllocatedUnplanned}
-                      onChange={(e) => setAddAllocatedUnplanned(e.target.value)}
+                      onChange={e => setAddAllocatedUnplanned(e.target.value)}
                     />
                   </Form.Group>
                 </Col>
@@ -424,11 +404,12 @@ const AdminEmployeeView = () => {
                     <Form.Control
                       type="number"
                       value={addAllocatedPlanned}
-                      onChange={(e) => setAddAllocatedPlanned(e.target.value)}
+                      onChange={e => setAddAllocatedPlanned(e.target.value)}
                     />
                   </Form.Group>
                 </Col>
               </Row>
+
               <Button variant="success" onClick={addEmployeeLeave} className="w-100">
                 Add Leave Record
               </Button>
