@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Form,
   Button,
@@ -38,7 +38,13 @@ const AdminEmployeeView = () => {
   const [addAllocatedPlanned, setAddAllocatedPlanned] = useState(0);
   const [addAllocatedUnplanned, setAddAllocatedUnplanned] = useState(0);
 
-  // fetch employees on mount + setup socket listeners
+  // ref to always hold the latest selectedEmployeeId
+  const selectedEmployeeIdRef = useRef(selectedEmployeeId);
+  useEffect(() => {
+    selectedEmployeeIdRef.current = selectedEmployeeId;
+  }, [selectedEmployeeId]);
+
+  // 1) on‑mount: fetch employees + setup socket listeners
   useEffect(() => {
     const fetchEmployees = () => {
       fetch(`${API_URL}/api/employees-list`)
@@ -59,24 +65,29 @@ const AdminEmployeeView = () => {
     };
     fetchEmployees();
 
-    // listen for real‑time updates
+    // listen for real‑time list updates
     socket.on("employeesListUpdated", (updatedList) => {
       setEmployees(updatedList);
-      const emp = updatedList.find(e => e.id.toString() === selectedEmployeeId.toString());
+      const emp = updatedList.find(
+        e => e.id.toString() === selectedEmployeeIdRef.current.toString()
+      );
       if (emp) populateLeaveFields(emp);
     });
 
+    // listen for individual leave updates
     socket.on("employeeLeavesUpdated", ({ employeeId, remainingPlanned, remainingUnplanned }) => {
       setEmployees(prev =>
         prev.map(x =>
           x.id.toString() === employeeId.toString()
-            ? { ...x,
+            ? {
+                ...x,
                 remainingPlannedLeave: remainingPlanned,
-                remainingUnplannedLeave: remainingUnplanned }
+                remainingUnplannedLeave: remainingUnplanned
+              }
             : x
         )
       );
-      if (employeeId.toString() === selectedEmployeeId.toString()) {
+      if (employeeId.toString() === selectedEmployeeIdRef.current.toString()) {
         setRemainingPlannedLeave(remainingPlanned);
         setRemainingUnplannedLeave(remainingUnplanned);
       }
@@ -85,8 +96,17 @@ const AdminEmployeeView = () => {
     return () => {
       socket.off("employeesListUpdated");
       socket.off("employeeLeavesUpdated");
+      socket.disconnect();
     };
-  }, [selectedEmployeeId]);
+  }, []); // no missing‑deps warning now
+
+  // 2) whenever selectedEmployeeId or employees list changes, populate the fields
+  useEffect(() => {
+    const emp = employees.find(
+      x => x.id.toString() === selectedEmployeeId.toString()
+    );
+    if (emp) populateLeaveFields(emp);
+  }, [selectedEmployeeId, employees]);
 
   const populateLeaveFields = (emp) => {
     setRemainingUnplannedLeave(emp.remainingUnplannedLeave || 0);
@@ -99,10 +119,7 @@ const AdminEmployeeView = () => {
 
   const handleEmployeeChange = (e) => {
     setMessage(null);
-    const id = e.target.value;
-    setSelectedEmployeeId(id);
-    const emp = employees.find((x) => x.id.toString() === id.toString());
-    if (emp) populateLeaveFields(emp);
+    setSelectedEmployeeId(e.target.value);
   };
 
   const handleUpdateLeaveRecordChange = (i, field, val) => {
@@ -160,7 +177,6 @@ const AdminEmployeeView = () => {
       .then((res) => {
         if (!res.ok) throw new Error("Failed to update aggregates");
 
-        // emit real‑time update
         socket.emit("employeeLeavesUpdated", {
           employeeId: selectedEmployeeId,
           remainingPlanned: newRemPlanned,
@@ -240,10 +256,9 @@ const AdminEmployeeView = () => {
           setAddAllocatedPlanned(0);
           setAddAllocatedUnplanned(0);
 
-          // emit real‑time notification
           socket.emit("newEmployeeLeave", { employeeId: addEmployeeId });
 
-          // refetch employees
+          // refetch employees after add
           const fetchEmployees = () => {
             fetch(`${API_URL}/api/employees-list`)
               .then((res) => res.json())

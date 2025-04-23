@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Row, Col, Form, Button, Table, Alert, Modal } from "react-bootstrap";
 import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 // initialize socket connection
-const socket = io(API_URL);
+//const socket = io(API_URL);
 
 const AttendanceEntry = ({
   hangoutMessages,
@@ -20,15 +20,21 @@ const AttendanceEntry = ({
   const [errorMessage, setErrorMessage] = useState(""); // State for error message
   const [showConfirm, setShowConfirm] = useState(false);  // State for confirmation modal
 
-  // Listen for real‑time attendance saves by others
+  // → Create socketRef instead of top‑level socket
+  const socketRef = useRef(null);
+
   useEffect(() => {
-    socket.on("attendanceSaved", ({ attendanceRecords }) => {
-      // you could refresh your tables here,
-      // or show a notification that someone else saved
+    // 1️⃣ Initialize socket on mount
+    socketRef.current = io(API_URL);
+
+    // 2️⃣ Listen for real‑time attendance saves by others
+    socketRef.current.on("attendanceSaved", ({ attendanceRecords }) => {
       alert("Attendance was just saved by another user.");
     });
+    // 3️⃣ Cleanup: remove listener + disconnect on unmount
     return () => {
-      socket.off("attendanceSaved");
+      socketRef.current.off("attendanceSaved");
+      socketRef.current.disconnect();
     };
   }, []);
 
@@ -50,7 +56,7 @@ const AttendanceEntry = ({
         setErrorMessage(""); // Clear any previous errors
         alert("Attendance records saved successfully!");
         // emit real‑time notification
-        socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
+        socketRef.current.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
       }
     } catch (error) {
       setErrorMessage("An unexpected error occurred: " + error.message);
@@ -187,7 +193,7 @@ const AttendanceEntry = ({
           <Button variant="primary" className="me-3" onClick={() => {
             handleFilter();
             // optionally emit a filter event:
-            socket.emit("attendanceFilterRequested");
+            socketRef.current.emit("attendanceFilterRequested");
           }}>
             Filter
           </Button>
