@@ -314,6 +314,7 @@ const AttendanceForm = () => {
     return () => {
       socket.off("attendanceSaved");
       socket.off("attendanceUpdated");
+      socket.disconnect();
     };
   }, [selectedEmployee, handleFilter]);
 

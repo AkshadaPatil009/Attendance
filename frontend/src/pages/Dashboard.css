@@ -1,4 +1,5 @@
-/* Force completed rows to use a light gray background */
+/* src/pages/Dashboard.css */
+/* Force completed rows to use a light gray background */ 
 tr.completedHoliday td {
   background-color: rgb(212, 205, 205) !important;
 }
@@ -8,7 +9,7 @@ tr.completedHoliday td {
   border: 2px solid black;
 }
 
-.custom-border-table th,
+.custom-border-table th
 .custom-border-table td {
   border: 1px solid black !important;
 }
@@ -36,4 +37,15 @@ tr.completedHoliday td {
   right: 1rem;
   transform: translateY(-50%);
   z-index: 1;
+}
+
+/* ───── COLLAPSED NAV FIX (below lg breakpoint) ───── */
+@media (max-width: 991.98px) {
+  /* Let the buttons flow in the collapsed menu instead of staying absolute */
+  .corner-buttons {
+    position: static !important;
+    transform: none !important;
+    margin-top: 0.5rem;
+    justify-content: center;
+  }
 }
