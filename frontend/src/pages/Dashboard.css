@@ -5,10 +5,35 @@ tr.completedHoliday td {
 
 /* Custom styling for the monthwise attendance table */
 .custom-border-table {
-  border: 2px solid black; /* Black border around the table */
+  border: 2px solid black;
 }
 
 .custom-border-table th,
 .custom-border-table td {
-  border: 1px solid black !important; /* Black borders for each cell */
+  border: 1px solid black !important;
+}
+
+/* Uniform button size: fixed width, reduced height, and smaller padding */
+.uniform-button {
+  width: 120px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  height: 32px;
+  line-height: 1.2;
+}
+
+/* Smaller navbar height */
+.custom-navbar {
+  padding-top: 0.3rem !important;
+  padding-bottom: 0.3rem !important;
+  font-size: 0.9rem;
+}
+
+/* Float the Admin buttons group into the top-right corner */
+.corner-buttons {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  z-index: 1;
 }
