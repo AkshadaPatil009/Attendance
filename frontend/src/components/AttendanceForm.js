@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import moment from "moment";
 import { Container, Tabs, Tab } from "react-bootstrap";
@@ -10,23 +10,9 @@ import EmployeeLeaves from "./EmployeeLeaves";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 // initialize socket connection
-//const socket = io(API_URL);
+const socket = io(API_URL);
 
 const AttendanceForm = () => {
-
-  // -----------------------
-  // socket ref setup
-  // -----------------------
-  const socketRef = useRef(null);
-
-  useEffect(() => {
-    socketRef.current = io(API_URL);
-
-    return () => {
-      socketRef.current.disconnect();
-    };
-  }, []);
-
   // -----------------------
   // 1) Attendance Entry
   // -----------------------
@@ -229,7 +215,7 @@ const AttendanceForm = () => {
     setOtherMessagesTableData(otherMessagesData);
     setAttendanceToSave(attendanceRecords);
 
-    socketRef.current.emit("attendanceFiltered", { attendanceRecords });
+    socket.emit("attendanceFiltered", { attendanceRecords });
   }, [hangoutMessages]);
 
   const handleSave = async () => {
@@ -243,7 +229,7 @@ const AttendanceForm = () => {
         attendanceRecords: attendanceToSave,
       });
       alert(response.data.message);
-       socketRef.current.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
+      socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
     } catch (error) {
       console.error("Error saving records:", error);
       alert("Failed to save attendance records.");
@@ -302,7 +288,7 @@ const AttendanceForm = () => {
         requestBody
       );
       alert("Attendance updated successfully!");
-      socketRef.current.emit("attendanceUpdated", { recordId: selectedRecord.id });
+      socket.emit("attendanceUpdated", { recordId: selectedRecord.id });
       fetchEmployeeAttendance(selectedEmployee);
     } catch (error) {
       console.error("Error updating attendance:", error);
@@ -314,23 +300,20 @@ const AttendanceForm = () => {
   // Socket.IO listeners
   // -----------------------
   useEffect(() => {
-    const socket = socketRef.current;
-  
     socket.on("attendanceSaved", ({ attendanceRecords }) => {
       alert("Attendance was just saved by another user.");
       handleFilter();
     });
-  
+
     socket.on("attendanceUpdated", ({ recordId }) => {
       if (selectedEmployee) {
         fetchEmployeeAttendance(selectedEmployee);
       }
     });
-  
+
     return () => {
       socket.off("attendanceSaved");
       socket.off("attendanceUpdated");
-      socket.disconnect(); // ✅ This line ensures proper cleanup!
     };
   }, [selectedEmployee, handleFilter]);
 
