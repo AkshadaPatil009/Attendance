@@ -5,23 +5,11 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 import { io } from "socket.io-client";
 
-// Define API_URL from environment variable (fallback to localhost for development)
+// fallback to localhost for development
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-// Determine if the record is a site visit.
 
 
-
-/**
- * Return the text code and style for a combined record based on its total work_hour and day.
- * Late Mark Logic: If an employee’s CI time is after 10:00 AM and day is "Full Day"
- * (and if the record is not for a Sunday or a site visit), then change the day to "Late Mark".
- * 
- * Updated Site Visit Logic: If the record qualifies as site visit (location exists and does not include
- * any valid code), check the CI/CO. If missing either check‑in or check‑out, show SV.I (Site Visit Incomplete);
- * if both are present then show SV.P (Site Visit Present).
- */
 function getDisplayForRecord(record) {
-  // If the record is for Holiday, immediately return holiday style.
   if (record.day === "Holiday") {
     return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
   }
@@ -50,7 +38,7 @@ function getDisplayForRecord(record) {
   const locationText = record.location ? record.location.toLowerCase().trim() : "";
   const isSiteVisit = record.location && !locationText.split(/\s+/).some((word) => validCodes.includes(word));
   
-  // Show "I" only for valid working employees missing CI or CO, and who didn't work less than 5 hours
+  // work less than 5 hours
   if (
     !isSiteVisit &&
     record.day !== "Absent" &&
@@ -75,7 +63,7 @@ function getDisplayForRecord(record) {
     }
   }
 
-  // If work_hour is less than 5 and record is not absent, show "AB".
+  //  show "AB".
   if (
     record.day !== "Absent" &&
     record.work_hour !== undefined &&
@@ -86,8 +74,6 @@ function getDisplayForRecord(record) {
       style: { backgroundColor: "#ffffff", color: "#000", fontWeight: "bold" },
     };
   }
-
-  // Determine display based on the (possibly updated) day value.
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } };
@@ -155,10 +141,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
-  // Ref for the container (for PNG download)
+  // for PNG download
   const attendanceRef = useRef(null);
 
-  // Download PNG function (temporarily hides the download button)
+  // temporarily hides the download button
   const handleDownload = async () => {
     try {
       // Hide the download button using its ID ("downloadReport")
@@ -271,16 +257,14 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       socket.off("holidayChanged", handleHolidayChanged);
     };
   }, [socket, fetchAttendance]);
-  // -----------------------------------------------------------
 
   // Group attendance records per employee per day.
   const groupAttendanceByDay = () => {
     const pivotData = {};
     attendanceData.forEach((rec) => {
-      // First, apply late mark logic.
       applyLateMarkLogic(rec);
 
-      // Updated Site Visit Logic in grouping: if location exists and the record is not for Sunday/Holiday.
+      //  if location exists and the record is not for Sunday/Holiday.
       if (rec.location && rec.day !== "Sunday" && rec.day !== "Holiday") {
         const validCodes = ["ro", "mo", "rso", "do", "wfh"];
         const words = rec.location.toLowerCase().trim().split(/\s+/);
@@ -382,7 +366,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       });
     });
 
-    // Calculate summary stats per employee.
+    // Calculate summary status per employee.
     Object.keys(pivotData).forEach((emp) => {
       const days = pivotData[emp].days;
       Object.keys(days).forEach((dayKey) => {
@@ -443,47 +427,37 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               // Determine full text for Day column,
               // with site‑visit detail if applicable:
               let fullText = "";
-              const validCodes = ["ro", "mo", "rso", "do", "wfh"];
-              const hasValidCode =
+
+              // 1) If getDisplayForRecord flagged it as “I”, show Incomplete Attendance:
+              if (dayDisplay.text === "I") {
+                fullText = "Incomplete Attendance";
+              }
+              // 2) else if it’s a site-visit without a location code, use your existing SV logic:
+              else if (
                 rec.location &&
-                rec.location
+                !rec.location
                   .toLowerCase()
                   .trim()
                   .split(/\s+/)
-                  .some((word) => validCodes.includes(word));
-
-              if (rec.location && !hasValidCode) {
-                // Site Visit
-                if (!rec.in_time || !rec.out_time) {
-                  fullText = "Site Visit Incomplete";
-                } else {
-                  fullText = "Site Visit Present";
-                }
-              } else {
-                // All other cases
+                  .some((w) => ["ro","mo","rso","do","wfh"].includes(w))
+              ) {
+                fullText = !rec.in_time || !rec.out_time
+                  ? "Site Visit Incomplete"
+                  : "Site Visit Present";
+              }
+              // 3) otherwise fall back to your switch on rec.day:
+              else {
                 switch (rec.day) {
-                  case "Holiday":
-                    fullText = "Holiday";
-                    break;
-                  case "Full Day":
-                    fullText = "Full Day";
-                    break;
-                  case "Half Day":
-                    fullText = "Half Day";
-                    break;
-                  case "Late Mark":
-                    fullText = "Full Day (Late Mark)";
-                    break;
-                  case "Absent":
-                    fullText = "Absent";
-                    break;
-                  case "Sunday":
-                    fullText = "Sunday";
-                    break;
-                  default:
-                    fullText = rec.day;
+                  case "Holiday":     fullText = "Holiday"; break;
+                  case "Full Day":    fullText = "Full Day"; break;
+                  case "Half Day":    fullText = "Half Day"; break;
+                  case "Late Mark":   fullText = "Full Day (Late Mark)"; break;
+                  case "Absent":      fullText = "Absent"; break;
+                  case "Sunday":      fullText = "Sunday"; break;
+                  default:            fullText = rec.day; break;
                 }
               }
+              
 
               return (
                 <tr key={idx}>

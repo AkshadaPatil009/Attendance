@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Form,
@@ -136,6 +136,9 @@ const EmployeeLeaves = () => {
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [selectedLeaveTypes, setSelectedLeaveTypes] = useState([]);
 
+  // New sorting state
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+
   // Helper: sort employees by name A -> Z
   const sortByNameAscending = useCallback((data) => {
     return data.sort((a, b) => {
@@ -173,7 +176,7 @@ const EmployeeLeaves = () => {
     }
   }, [sortByNameAscending]);
 
-  // 3) fetch leaves (server‑side filter by office)
+  // 3) fetch leaves (server-side filter by office)
   const fetchLeaves = useCallback(async (office = "") => {
     setLoading(true);
     try {
@@ -240,14 +243,14 @@ const EmployeeLeaves = () => {
     }
   };
 
-  // leave‑type toggle
+  // leave-type toggle
   const toggleLeaveType = (type) => {
     setSelectedLeaveTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   };
 
-  // build selected names for client‑side filter
+  // build selected names for client-side filter
   const selectedNames = employees
     .filter((e) => selectedEmployeeIds.includes(e.id))
     .map((e) => e.name || e.Name);
@@ -261,6 +264,35 @@ const EmployeeLeaves = () => {
       selectedLeaveTypes.includes(l.leave_type);
     return byEmp && byType;
   });
+
+  // Sorting logic
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedLeaves = useMemo(() => {
+    if (!sortConfig.key) return filteredLeaves;
+    const sorted = [...filteredLeaves].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [filteredLeaves, sortConfig]);
+
+  // always show a single arrow; direction flips on click
+  const getArrow = (key) =>
+    sortConfig.key === key
+      ? sortConfig.direction === "ascending"
+        ? " ↑"
+        : " ↓"
+      : " ↑";
 
   return (
     <div style={{ padding: 16, maxWidth: 900, margin: "auto" }}>
@@ -333,14 +365,34 @@ const EmployeeLeaves = () => {
           <thead>
             <tr>
               <th>Sr.No</th>
-              <th>Employee Id</th>
-              <th>Employee Name</th>
-              <th>Leave Date</th>
-              <th>Leave Type</th>
+              <th
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("employee_id")}
+              >
+                Employee Id{getArrow("employee_id")}
+              </th>
+              <th
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("employee_name")}
+              >
+                Employee Name{getArrow("employee_name")}
+              </th>
+              <th
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("leave_date")}
+              >
+                Leave Date{getArrow("leave_date")}
+              </th>
+              <th
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("leave_type")}
+              >
+                Leave Type{getArrow("leave_type")}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {filteredLeaves.map((l, index) => (
+            {sortedLeaves.map((l, index) => (
               <tr key={l.id}>
                 <td>{index + 1}</td>
                 <td>{l.employee_id}</td>
