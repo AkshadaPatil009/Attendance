@@ -236,7 +236,7 @@ app.post("/api/attendance", (req, res) => {
 
           // Use UNION query to combine allowed employees from both tables
           db.query(
-            "SELECT Name FROM logincrd WHERE disableemp = 0 UNION SELECT Name FROM employee_master",
+            "SELECT Name FROM logincrd WHERE disableemp = 0 AND Type != 'admin' UNION SELECT Name FROM employee_master",
             (err, allowedResults) => {
               if (err || allowedResults.length === 0) {
                 console.error(err);
