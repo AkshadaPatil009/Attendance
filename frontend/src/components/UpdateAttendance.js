@@ -8,8 +8,7 @@ import { FaFilter } from "react-icons/fa"; // Import for filter icon
 // Define API_URL from environment variable (fallback to localhost)
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// Connect to Socket.IO server using API_URL
-const socket = io(API_URL);
+
 
 const UpdateAttendance = () => {
   // States for form fields and data
@@ -83,16 +82,20 @@ const UpdateAttendance = () => {
     fetchEmployees();
   }, []);
 
-  // Listen for socket event to update attendance records.
   useEffect(() => {
-    socket.on("attendanceChanged", () => {
-      fetchAttendanceRecords();
-    });
+    // establish a fresh socket connection when the component mounts
+    const socket = io(API_URL);
+  
+    // re-fetch whenever the server signals a change
+    socket.on("attendanceChanged", fetchAttendanceRecords);
+  
+    // clean up on unmount
     return () => {
-      socket.off("attendanceChanged");
+      socket.off("attendanceChanged", fetchAttendanceRecords);
       socket.disconnect();
     };
   }, []);
+  
 
   // When an employee is selected, fetch their records if not a manual row selection.
   useEffect(() => {
