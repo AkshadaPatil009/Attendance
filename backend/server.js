@@ -1183,6 +1183,141 @@ app.get("/api/subject-templates", (req, res) => {
   });
 });
 
+app.get("/api/attendancecalendar", (req, res) => {
+  const { year, empName = "" } = req.query;
+  const y = parseInt(year, 10);
+  if (isNaN(y)) {
+    return res.status(400).json({ error: "Invalid year parameter" });
+  }
+
+  // 1) Fetch raw attendance rows for that employee & year
+  let sql = `
+    SELECT
+      DATE_FORMAT(a.date, '%Y-%m-%d') AS date,
+      a.in_time,
+      a.out_time,
+      a.work_hour,
+      a.location,
+      a.day
+    FROM attendance a
+    WHERE YEAR(a.date) = ?
+  `;
+  const params = [y];
+  if (empName.trim()) {
+    sql += " AND a.emp_name = ?";
+    params.push(empName.trim());
+  }
+  sql += " ORDER BY a.date";
+
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    // 2) Apply your display logic
+    const mapped = rows.map(r => {
+      let dayCode = r.day;
+      const loc    = (r.location || "").toLowerCase();
+      const isSV   = r.location && !loc.split(/\s+/).some(w => ["ro","mo","rso","do","wfh"].includes(w));
+      const dateObj = new Date(r.date);
+
+      // Late-mark logic
+      if (
+        r.in_time &&
+        dayCode === "Full Day" &&
+        !loc.includes("sv") &&
+        dateObj.getDay() !== 0
+      ) {
+        const checkIn   = moment(r.in_time, "YYYY-MM-DD HH:mm:ss");
+        const threshold = moment(r.date,       "YYYY-MM-DD").hour(10);
+        if (checkIn.isAfter(threshold)) {
+          dayCode = "Late Mark";
+        }
+      }
+
+      // Site-visit logic
+      if (isSV && dayCode !== "Holiday" && dayCode !== "Sunday") {
+        dayCode = (!r.in_time || !r.out_time) ? "SV.I" : "SV.P";
+      }
+
+      // Incomplete attendance (<5h or missing in/out, non-SV)
+      if (
+        !isSV &&
+        dayCode !== "Absent" &&
+        dayCode !== "Holiday" &&
+        dayCode !== "Sunday" &&
+        (r.work_hour < 5 || !r.in_time || !r.out_time)
+      ) {
+        return { ...r, status: "incomplete", color: "#ffffff" };
+      }
+
+      // Map final status → color
+      let status, color;
+      switch (dayCode) {
+        case "Holiday":
+          status = "Holiday";              color = "#ff0000"; break;
+        case "Full Day":
+          status = "Present";              color = "#90EE90"; break;
+        case "Late Mark":
+          status = "Late_mark";            color = "#90EE90"; break;
+        case "Half Day":
+          status = "Half_day";             color = "#B0E0E6"; break;
+        case "SV.P":
+          status = "Site_visit_present";   color = "#FFFF00"; break;
+        case "SV.I":
+          status = "Site_visit_incomplete";color = "#FFFF00"; break;
+        case "Sunday":
+          status = "Sunday";               color = "#ff9900"; break;
+        case "Absent":
+        default:
+          status = "Absent";               color = "#FFC0CB"; break;
+      }
+
+      return {
+        date:       r.date,
+        in_time:    r.in_time,
+        out_time:   r.out_time,
+        work_hour:  r.work_hour,
+        location:   r.location,
+        status,
+        color
+      };
+    });
+
+    // 2.1) Dedupe: keep only the first record for each date
+    const uniqueByDate = {};
+    mapped.forEach(rec => {
+      if (!uniqueByDate[rec.date]) {
+        uniqueByDate[rec.date] = rec;
+      }
+    });
+    const deduped = Object.values(uniqueByDate);
+
+    // 3) Back-fill all Sundays of the year if missing
+    const hasDates = new Set(deduped.map(e => e.date));
+    for (let d = new Date(`${y}-01-01`); d.getFullYear() === y; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === 0) {
+        const iso = d.toISOString().slice(0,10);
+        if (!hasDates.has(iso)) {
+          deduped.push({
+            date:      iso,
+            in_time:   null,
+            out_time:  null,
+            work_hour: 0,
+            location:  null,
+            status:    "sunday",
+            color:     "#ff9900"
+          });
+        }
+      }
+    }
+
+    // 4) Sort and return
+    deduped.sort((a, b) => new Date(a.date) - new Date(b.date));
+    res.json(deduped);
+  });
+});
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);

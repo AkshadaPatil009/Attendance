@@ -1,0 +1,64 @@
+/* background colors for statuses */
+.att-present {
+    background-color: #d4edda;
+  }
+  .att-absent {
+    background-color: #f8d7da;
+  }
+  .att-leave {
+    background-color: #fff3cd;
+  }
+  .holiday {
+    background-color: #f5c6cb;
+  }
+  
+  /* small colored box for legend */
+  .legend {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+  }
+  .legend .box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    vertical-align: middle;
+    border: 1px solid #ccc;
+  }
+  .legend .att-present { background-color: #d4edda; }
+  .legend .att-absent { background-color: #f8d7da; }
+  .legend .att-leave   { background-color: #fff3cd; }
+  .legend .holiday     { background-color: #f5c6cb; }
+  .calendar-table td {
+    vertical-align: top;
+    height: 100px;
+    padding: 4px;
+    position: relative;
+  }
+  
+  .day-number {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  
+  .event {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    margin-top: 2px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .holiday {
+    background-color: #ff0000;
+    color: #fff;
+  }
+  
+  .calendar-day-cell {
+    cursor: pointer;
+  }
+  
