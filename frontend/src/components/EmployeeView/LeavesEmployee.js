@@ -1,19 +1,20 @@
-// EmployeeLeaveApplication.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Card, Form, Row, Col, Button, Modal } from "react-bootstrap";
+import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-const EmployeeLeaveApplication = ({ storedUser }) => {
-  const employeeId = storedUser?.employeeId;
+const EmployeeLeaveApplication = () => {
+  const storedUser = JSON.parse(localStorage.getItem("user")) || {};
+  const employeeId = storedUser.employeeId;
+  const socketRef = useRef(null);
 
   const [employeeLeaves, setEmployeeLeaves] = useState({
-    unplannedLeave: "",
-    plannedLeave: "",
-    remainingUnplannedLeave: "",
-    remainingPlannedLeave: "",
+    unplannedLeave: 0,
+    plannedLeave: 0,
+    remainingUnplannedLeave: 0,
+    remainingPlannedLeave: 0,
   });
-
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
     to: "",
@@ -21,11 +22,17 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
     subject: "",
     body: "",
   });
-
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [templates, setTemplates] = useState([]);
 
-  // ── Fetch templates from backend ──
+  // socket init & join
+  useEffect(() => {
+    socketRef.current = io(API_URL, { transports: ["polling"] });
+    socketRef.current.emit("join", { userId: storedUser.id });
+    return () => socketRef.current.disconnect();
+  }, [storedUser.id]);
+
+  // fetch subject templates
   useEffect(() => {
     fetch(`${API_URL}/api/subject-templates`)
       .then((res) => res.json())
@@ -33,7 +40,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
       .catch((err) => console.error("Error fetching templates:", err));
   }, []);
 
-  // ── Fetch leave balance ──
+  // fetch leave balances
   useEffect(() => {
     if (!employeeId) return;
     fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
@@ -46,20 +53,16 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
         })
       )
-      .catch((err) =>
-        console.error("Error fetching employee leaves:", err)
-      );
+      .catch((err) => console.error("Error fetching employee leaves:", err));
   }, [employeeId]);
 
-  // ── When form fields change ──
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setLeaveForm((prev) => {
       const updated = { ...prev };
-
       if (name === "body") {
         const wordCount = value.trim().split(/\s+/).length;
-        if (wordCount > 500) return prev; // Don't update if word count exceeds 500
+        if (wordCount > 500) return prev;
         updated.body = value;
       } else {
         updated[name] = value;
@@ -67,49 +70,35 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           const match = templates.find(
             (t) => t.subject.toLowerCase() === value.toLowerCase()
           );
-          if (match) {
-            updated.body = match.body;
-          }
+          if (match) updated.body = match.body;
         }
       }
-
       return updated;
     });
   };
 
-  const handleSendMail = () => {
-    setShowConfirmModal(true);
-  };
+  const handleSendMail = () => setShowConfirmModal(true);
 
   const confirmSend = async () => {
     const payload = {
       employee_id: employeeId,
-      from_email: storedUser?.email,
-      from_name: storedUser?.name || "",
+      from_email: storedUser.email,
+      from_name: storedUser.name || "",
       leave_type: leaveForm.leaveType,
       to_email: leaveForm.to,
       cc_email: leaveForm.cc,
       subject: leaveForm.subject,
       body: leaveForm.body,
     };
-
     try {
       const res = await fetch(`${API_URL}/api/send-leave-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) throw new Error("Failed to send email");
-
       alert("Leave email sent successfully!");
-      setLeaveForm({
-        leaveType: "",
-        to: "",
-        cc: "",
-        subject: "",
-        body: "",
-      });
+      setLeaveForm({ leaveType: "", to: "", cc: "", subject: "", body: "" });
     } catch (err) {
       console.error("Send error:", err);
       alert("Error sending leave email.");
@@ -125,37 +114,20 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           <h5><b>Used Leaves</b></h5>
           <Form.Group className="mb-3">
             <Form.Label>Unplanned Leave</Form.Label>
-            <Form.Control
-              type="text"
-              value={employeeLeaves.unplannedLeave}
-              readOnly
-            />
+            <Form.Control type="text" value={employeeLeaves.unplannedLeave} readOnly />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Planned Leave</Form.Label>
-            <Form.Control
-              type="text"
-              value={employeeLeaves.plannedLeave}
-              readOnly
-            />
+            <Form.Control type="text" value={employeeLeaves.plannedLeave} readOnly />
           </Form.Group>
-
           <h5 className="mt-4"><b>Remaining Leaves</b></h5>
           <Form.Group className="mb-3">
             <Form.Label>Unplanned Leave</Form.Label>
-            <Form.Control
-              type="text"
-              value={employeeLeaves.remainingUnplannedLeave}
-              readOnly
-            />
+            <Form.Control type="text" value={employeeLeaves.remainingUnplannedLeave} readOnly />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Planned Leave</Form.Label>
-            <Form.Control
-              type="text"
-              value={employeeLeaves.remainingPlannedLeave}
-              readOnly
-            />
+            <Form.Control type="text" value={employeeLeaves.remainingPlannedLeave} readOnly />
           </Form.Group>
         </Card>
       </Col>
@@ -166,11 +138,7 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           <Form>
             <Form.Group className="mb-3 mt-2">
               <Form.Label>Leave Type</Form.Label>
-              <Form.Select
-                name="leaveType"
-                value={leaveForm.leaveType}
-                onChange={handleFormChange}
-              >
+              <Form.Select name="leaveType" value={leaveForm.leaveType} onChange={handleFormChange}>
                 <option value="">-- Select Leave Type --</option>
                 <option value="Planned Leave">Planned Leave</option>
                 <option value="Unplanned Leave">Unplanned Leave</option>
@@ -178,7 +146,6 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 <option value="CI/CO Correction">CI/CO Correction</option>
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>To</Form.Label>
               <Form.Control
@@ -190,7 +157,6 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 required
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>CC</Form.Label>
               <Form.Control
@@ -201,7 +167,6 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 placeholder="Enter CC email addresses, if any"
               />
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Subject</Form.Label>
               <Form.Control
@@ -213,12 +178,9 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 required
               />
               <datalist id="subjectList">
-                {templates.map((tpl, i) => (
-                  <option key={i} value={tpl.subject} />
-                ))}
+                {templates.map((tpl, i) => <option key={i} value={tpl.subject} />)}
               </datalist>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Body</Form.Label>
               <Form.Control
@@ -231,23 +193,15 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
                 required
               />
               <Form.Text className="text-muted">
-                {leaveForm.body.trim().split(/\s+/).length} / 500 words
+                {leaveForm.body.trim().split(/\s+/).filter(Boolean).length} / 500 words
               </Form.Text>
             </Form.Group>
-
-            <Button variant="primary" onClick={handleSendMail}>
-              Send Mail
-            </Button>
+            <Button variant="primary" onClick={handleSendMail}>Send Mail</Button>
           </Form>
         </Card>
       </Col>
 
-      {/* Confirmation Modal */}
-      <Modal
-        show={showConfirmModal}
-        onHide={() => setShowConfirmModal(false)}
-        centered
-      >
+      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Email Preview</Modal.Title>
         </Modal.Header>
@@ -259,18 +213,12 @@ const EmployeeLeaveApplication = ({ storedUser }) => {
           <div className="border rounded p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
             {leaveForm.body}
           </div>
-          <hr />
-          <p className="text-danger fw-bold">
-            Are you sure you want to send this mail?
-          </p>
+          <hr/>
+          <p className="text-danger fw-bold">Are you sure you want to send this mail?</p>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={confirmSend}>
-            Yes, Send
-          </Button>
+          <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={confirmSend}>Yes, Send</Button>
         </Modal.Footer>
       </Modal>
     </Row>

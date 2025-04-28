@@ -5,14 +5,21 @@ import Footer from "../components/Footer";
 import AttendanceForm from "../components/AttendanceForm";
 import Holidays from "../components/Holiday";
 import AdminEmployeeView from "../components/AdminEmployeeView";
-import EmployeeDashboard from "../components/EmployeeView";
+
+
+// newly added imports for employee-specific sections
+import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
+import LeavesEmployee from "../components/EmployeeView/LeavesEmployee";
+import HolidaysEmployee from "../components/EmployeeView/HolidaysEmployee";
+import MailRequest from "../components/EmployeeView/MailRequest";
+
 import { Navbar, Nav, Container, Button, Row, Col } from "react-bootstrap";
 import "./Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [activeSection, setActiveSection] = useState("employeeView");
+  const [activeSection, setActiveSection] = useState("employeeAttendance");
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -61,6 +68,8 @@ const Dashboard = () => {
                 {/* nothing here; buttons floated via CSS */}
               </Col>
             </Row>
+
+            {/* Admin buttons */}
             {user.role === "Admin" && (
               <Nav className="d-flex flex-wrap corner-buttons">
                 <Button
@@ -68,7 +77,7 @@ const Dashboard = () => {
                   className="me-2 mb-2 uniform-button"
                   onClick={() => setActiveSection("attendanceForm")}
                 >
-                  Attendance 
+                  Attendance
                 </Button>
                 <Button
                   variant={activeSection === "holidays" ? "secondary" : "light"}
@@ -78,12 +87,55 @@ const Dashboard = () => {
                   Holidays
                 </Button>
                 <Button
-                  variant={activeSection === "employeeView" ? "secondary" : "light"}
+                  variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
                   className="me-2 mb-2 uniform-button"
-                  onClick={() => setActiveSection("employeeView")}
+                  onClick={() => setActiveSection("adminemployeeView")}
                 >
                   Leaves
                 </Button>
+                <Button
+                  variant="danger"
+                  style={logoutButtonStyle}
+                  className="ms-2 mb-2 uniform-button"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </Button>
+              </Nav>
+            )}
+
+            {/* Employee buttons */}
+            {user.role !== "Admin" && (
+              <Nav className="d-flex flex-wrap corner-buttons">
+                <Button
+                  variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("employeeAttendance")}
+                >
+                  Attendance
+                </Button>
+                <Button
+                  variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("leavesEmployee")}
+                >
+                  Leaves
+                </Button>
+                <Button
+                  variant={activeSection === "holidaysEmployee" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("holidaysEmployee")}
+                >
+                  Holidays
+                </Button>
+                <Button
+                  variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("mailRequest")}
+                >
+                  Mail Request
+                </Button>
+                
                 <Button
                   variant="danger"
                   className="ms-2 mb-2 uniform-button"
@@ -94,16 +146,6 @@ const Dashboard = () => {
               </Nav>
             )}
           </Navbar.Collapse>
-          {user.role !== "Admin" && (
-            <Button
-              variant="danger"
-              style={logoutButtonStyle}
-              className="uniform-button"
-              onClick={handleLogout}
-            >
-              Logout
-            </Button>
-          )}
         </Container>
       </Navbar>
 
@@ -111,10 +153,21 @@ const Dashboard = () => {
         {activeSection === "dashboard" && (
           <h3 className="text-center mt-4">Dashboard Overview</h3>
         )}
+
+        {/* Admin sections */}
         {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "holidays" && <Holidays />}
-        {activeSection === "employeeView" &&
-          (user.role === "Admin" ? <AdminEmployeeView /> : <EmployeeDashboard />)}
+        {activeSection === "adminemployeeView" && user.role === "Admin" && (
+          <AdminEmployeeView />
+        )}
+
+        {/* Employee sections */}
+        {activeSection === "leavesEmployee" && <LeavesEmployee />}
+        {activeSection === "holidaysEmployee" && <HolidaysEmployee />}
+        {activeSection === "mailRequest" && <MailRequest />}
+        {activeSection === "employeeAttendance" && user.role !== "Admin" && (
+          <EmployeeAttendance />
+        )}
       </div>
 
       <Footer />
