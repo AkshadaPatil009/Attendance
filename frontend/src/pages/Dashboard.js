@@ -6,28 +6,28 @@ import AttendanceForm from "../components/AttendanceForm";
 import Holidays from "../components/Holiday";
 import AdminEmployeeView from "../components/AdminEmployeeView";
 
-
-// newly added imports for employee-specific sections
+// employee-specific views
 import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
-import LeavesEmployee from "../components/EmployeeView/LeavesEmployee";
-import HolidaysEmployee from "../components/EmployeeView/HolidaysEmployee";
-import MailRequest from "../components/EmployeeView/MailRequest";
+import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
+import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
+import MailRequest        from "../components/EmployeeView/MailRequest";
 
-import { Navbar, Nav, Container, Button, Row, Col } from "react-bootstrap";
+import { Navbar, Nav, Container, Button } from "react-bootstrap";
 import "./Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const [user, setUser]               = useState(null);
   const [activeSection, setActiveSection] = useState("employeeAttendance");
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    if (!storedUser) {
+    const stored = JSON.parse(localStorage.getItem("user"));
+    if (!stored) {
       navigate("/");
     } else {
-      setUser(storedUser);
-      if (storedUser.role === "Admin") {
+      setUser(stored);
+      // default landing for Admin → attendance form
+      if (stored.role === 4) {
         setActiveSection("attendanceForm");
       }
     }
@@ -40,14 +40,16 @@ const Dashboard = () => {
 
   if (!user) return null;
 
-  const logoutButtonStyle =
-    user.role !== "Admin"
-      ? { position: "absolute", top: "10px", right: "10px" }
-      : {};
+  const isAdmin = user.role === 4;
+  const logoutBtnPos = isAdmin
+    ? { position: "absolute", top: "10px", right: "10px" }
+    : {};
 
   return (
     <div>
-      <Header role={user.role} />
+      {/* now simply pass the server-provided roleName */}
+      <Header role={user.roleName} />
+
       <Navbar
         bg="primary"
         variant="dark"
@@ -57,20 +59,13 @@ const Dashboard = () => {
       >
         <Container fluid>
           <Navbar.Brand>
-            {user.role === "Admin"
-              ? `Admin Panel - Welcome, ${user.name}`
-              : `Employee Dashboard - Welcome, ${user.name}`}
+            {isAdmin
+              ? `Admin Panel – Welcome, ${user.name}`
+              : `Employee Dashboard – Welcome, ${user.name}`}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
-            <Row className="w-100">
-              <Col xs={12} md={8}>
-                {/* nothing here; buttons floated via CSS */}
-              </Col>
-            </Row>
-
-            {/* Admin buttons */}
-            {user.role === "Admin" && (
+            {isAdmin ? (
               <Nav className="d-flex flex-wrap corner-buttons">
                 <Button
                   variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -95,17 +90,14 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   variant="danger"
-                  style={logoutButtonStyle}
+                  style={logoutBtnPos}
                   className="ms-2 mb-2 uniform-button"
                   onClick={handleLogout}
                 >
                   Logout
                 </Button>
               </Nav>
-            )}
-
-            {/* Employee buttons */}
-            {user.role !== "Admin" && (
+            ) : (
               <Nav className="d-flex flex-wrap corner-buttons">
                 <Button
                   variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
@@ -135,7 +127,6 @@ const Dashboard = () => {
                 >
                   Mail Request
                 </Button>
-                
                 <Button
                   variant="danger"
                   className="ms-2 mb-2 uniform-button"
@@ -150,24 +141,13 @@ const Dashboard = () => {
       </Navbar>
 
       <div className="w-100">
-        {activeSection === "dashboard" && (
-          <h3 className="text-center mt-4">Dashboard Overview</h3>
-        )}
-
-        {/* Admin sections */}
-        {activeSection === "attendanceForm" && <AttendanceForm />}
-        {activeSection === "holidays" && <Holidays />}
-        {activeSection === "adminemployeeView" && user.role === "Admin" && (
-          <AdminEmployeeView />
-        )}
-
-        {/* Employee sections */}
-        {activeSection === "leavesEmployee" && <LeavesEmployee />}
-        {activeSection === "holidaysEmployee" && <HolidaysEmployee />}
-        {activeSection === "mailRequest" && <MailRequest />}
-        {activeSection === "employeeAttendance" && user.role !== "Admin" && (
-          <EmployeeAttendance />
-        )}
+        {activeSection === "attendanceForm"    && <AttendanceForm />}
+        {activeSection === "holidays"          && <Holidays />}
+        {activeSection === "adminemployeeView" && <AdminEmployeeView />}
+        {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
+        {activeSection === "leavesEmployee"    && <LeavesEmployee />}
+        {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
+        {activeSection === "mailRequest"       && <MailRequest />}
       </div>
 
       <Footer />

@@ -37,45 +37,69 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
 });
 
-// Login Route (No Encryption - remember to hash passwords in production) 
+// Login Route (No Encryption – remember to hash in production!)
 app.post("/login", (req, res) => {
-  // Extract the Base64‐encoded password from the request
   const { email, password } = req.body;
 
-  // Decode it back to plain text
-  //let password;
+  const sql = `
+    SELECT 
+      id,
+      Name,
+      Email,
+      Location,
+      attendance_role,
+      disableemp,
+      Password
+    FROM logincrd
+    WHERE Email = ?
+  `;
 
-  db.query(
-    "SELECT * FROM logincrd WHERE Email = ?",
-    [email],
-    (err, results) => {
-      if (err) {
-        console.error("Database query error:", err);
-        return res.status(500).json({ error: "Database error" });
-      }
-
-      if (results.length === 0) {
-        console.log("User not found:", email);
-        return res.status(400).json({ error: "User not found" });
-      }
-
-      const user = results[0];
-
-      if (password !== user.Password) {
-        console.log("Invalid password for user:", email);
-        return res.status(400).json({ error: "Invalid password" });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, name: user.Name, type: user.Type, location: user.Location || "", email: user.Email },
-        "secret",
-        { expiresIn: "1h" }
-      );
-      res.json({ token, name: user.Name, role: user.Type, employeeId: user.id, email: user.Email, location: user.Location || "" });
+  db.query(sql, [email], (err, results) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.status(500).json({ error: "Database error" });
     }
-  );
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: "User not found" });
+    }
+
+    const user = results[0];
+
+    // 1) check disabled flag
+    if (user.disableemp !== 0) {
+      return res.status(403).json({ error: "Your account has been disabled." });
+    }
+
+    // 2) verify password (swap for bcrypt.compare in prod)
+    if (password !== user.Password) {
+      return res.status(400).json({ error: "Invalid password" });
+    }
+
+    // 3) all good → issue JWT
+    const token = jwt.sign(
+      {
+        id:           user.id,
+        name:         user.Name,
+        attendance_role: user.attendance_role,
+        location:     user.Location || "",
+        email:        user.Email,
+      },
+      "secret",
+      { expiresIn: "1h" }
+    );
+
+    res.json({
+      token,
+      name:       user.Name,
+      role:       user.attendance_role,
+      employeeId: user.id,
+      email:      user.Email,
+      location:   user.Location || "",
+    });
+  });
 });
+
 
 // GET Holidays API - Fetch all holidays sorted by date
 app.get("/api/holidays", (req, res) => {
