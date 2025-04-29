@@ -45,9 +45,6 @@ const Dashboard = () => {
 
   const isAdmin = user.role === 4;
   const isTL    = user.role === 2;
-  const logoutBtnPos = isAdmin
-    ? { position: "absolute", top: "10px", right: "10px" }
-    : {};
 
   // decide navbar title
   const navbarTitle = isAdmin
@@ -68,9 +65,7 @@ const Dashboard = () => {
         style={{ position: "relative" }}
       >
         <Container fluid>
-          <Navbar.Brand>
-            {navbarTitle}
-          </Navbar.Brand>
+          <Navbar.Brand>{navbarTitle}</Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
 
@@ -105,9 +100,9 @@ const Dashboard = () => {
                 >
                   Request Status
                 </Button>
+                {/* —— remove style prop here so it lines up correctly —— */}
                 <Button
                   variant="danger"
-                  style={logoutBtnPos}
                   className="ms-2 mb-2 uniform-button"
                   onClick={handleLogout}
                 >
