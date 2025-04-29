@@ -80,6 +80,11 @@ export default function EmployeeAttendance() {
     setCurrentDate(new Date());
   };
 
+  const handleYearChange = e => {
+    const newYear = parseInt(e.target.value, 10) || year;
+    setCurrentDate(prev => new Date(newYear, prev.getMonth(), 1));
+  };
+
   if (loading) {
     return (
       <div className="text-center my-5">
@@ -93,7 +98,9 @@ export default function EmployeeAttendance() {
     const totalSlots = firstDayOfMonth + daysInMonth;
     for (let i = 0; i < totalSlots; i++) {
       if (i < firstDayOfMonth) {
-        cells.push(<td key={`empty-${i}`}></td>);
+        cells.push(
+          <td key={`empty-${i}`} className="calendar-day-cell empty-cell"></td>
+        );
       } else {
         const day = i - firstDayOfMonth + 1;
         const mm = String(month + 1).padStart(2, "0");
@@ -105,14 +112,15 @@ export default function EmployeeAttendance() {
         cells.push(
           <td key={dateKey} className="calendar-day-cell">
             <div className="day-number">{day}</div>
-            {isHoliday && (
-              <div className="event holiday">Holiday</div>
-            )}
+            {isHoliday && <div className="event holiday">Holiday</div>}
             {events.map((ev, idx) => (
               <div
                 key={idx}
                 className="event"
-                style={{ backgroundColor: ev.color, color: ev.color === "#ff0000" ? "#fff" : "#000" }}
+                style={{
+                  backgroundColor: ev.color,
+                  color: ev.color === "#ff0000" ? "#fff" : "#000"
+                }}
               >
                 {ev.status.replace("_", " ")}
               </div>
@@ -133,7 +141,7 @@ export default function EmployeeAttendance() {
     <div className="employee-attendance-container p-3">
       {/* Controls */}
       <Row className="align-items-center mb-3">
-        <Col md={4}>
+        <Col md={3}>
           <Form.Label>Employee:</Form.Label>
           <Form.Select
             value={selectedName}
@@ -141,16 +149,30 @@ export default function EmployeeAttendance() {
           >
             <option value="">— All —</option>
             {employees.map(name => (
-              <option key={name} value={name}>{name}</option>
+              <option key={name} value={name}>
+                {name}
+              </option>
             ))}
           </Form.Select>
         </Col>
-        <Col md={8} className="text-end">
+        <Col md={3}>
+          <Form.Label>Year:</Form.Label>
+          <Form.Control
+            type="number"
+            min="2000"
+            max="2100"
+            value={year}
+            onChange={handleYearChange}
+          />
+        </Col>
+        <Col md={6} className="text-end">
           <Button onClick={handleToday} className="me-2">
             Today
           </Button>
           <Button onClick={handlePrevMonth}>&larr;</Button>
-          <strong className="mx-2">{monthNames[month]} {year}</strong>
+          <strong className="mx-2">
+            {monthNames[month]} {year}
+          </strong>
           <Button onClick={handleNextMonth}>&rarr;</Button>
         </Col>
       </Row>
@@ -159,22 +181,24 @@ export default function EmployeeAttendance() {
       <Card>
         <Card.Body>
           <Card.Title className="text-center mb-4">
-            {monthNames[month]} {year} {selectedName && `— ${selectedName}`}
+            {monthNames[month]} {year}{" "}
+            {selectedName && `— ${selectedName}`}
           </Card.Title>
           <Table bordered className="calendar-table" size="sm">
             <thead>
               <tr>
                 {daysOfWeek.map(d => (
-                  <th key={d} className="text-center">{d}</th>
+                  <th key={d} className="text-center">
+                    {d}
+                  </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {buildCalendarCells()}
-            </tbody>
+            <tbody>{buildCalendarCells()}</tbody>
           </Table>
         </Card.Body>
       </Card>
     </div>
   );
 }
+

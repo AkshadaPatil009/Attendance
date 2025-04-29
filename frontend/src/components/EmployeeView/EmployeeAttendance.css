@@ -61,4 +61,47 @@
   .calendar-day-cell {
     cursor: pointer;
   }
+  .employee-attendance-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .calendar-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  
+  .calendar-day-cell {
+    height: 120px;
+    width: 120px;
+    vertical-align: top;
+    position: relative;
+    padding: 5px;
+    overflow: hidden;
+    background-color: #f8f9fa;
+  }
+  
+  .empty-cell {
+    background-color: #f1f1f1;
+  }
+  
+  .day-number {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+  
+  .event {
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    margin-top: 3px;
+    text-align: center;
+    word-break: break-word;
+  }
+  
+  .holiday {
+    background-color: #ff0000;
+    color: #fff;
+  }
   

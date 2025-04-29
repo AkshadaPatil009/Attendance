@@ -1211,7 +1211,7 @@ app.get("/api/attendancecalendar", (req, res) => {
 
   db.query(sql, params, (err, rows) => {
     if (err) {
-      console.error(err);
+      console.error("DB error fetching attendance:", err);
       return res.status(500).json({ error: "Database error" });
     }
 
@@ -1249,7 +1249,7 @@ app.get("/api/attendancecalendar", (req, res) => {
         dayCode !== "Sunday" &&
         (r.work_hour < 5 || !r.in_time || !r.out_time)
       ) {
-        return { ...r, status: "incomplete", color: "#ffffff" };
+        return { ...r, status: "Incomplete Attendance", color: "#ffffff" };
       }
 
       // Map final status → color
@@ -1294,28 +1294,63 @@ app.get("/api/attendancecalendar", (req, res) => {
     });
     const deduped = Object.values(uniqueByDate);
 
-    // 3) Back-fill all Sundays of the year if missing
-    const hasDates = new Set(deduped.map(e => e.date));
-    for (let d = new Date(`${y}-01-01`); d.getFullYear() === y; d.setDate(d.getDate() + 1)) {
-      if (d.getDay() === 0) {
-        const iso = d.toISOString().slice(0,10);
-        if (!hasDates.has(iso)) {
-          deduped.push({
-            date:      iso,
-            in_time:   null,
-            out_time:  null,
-            work_hour: 0,
-            location:  null,
-            status:    "sunday",
-            color:     "#ff9900"
-          });
+    // 2.2) Fetch holidays and override
+    const holSql = `
+      SELECT
+        DATE_FORMAT(h.holiday_date, '%Y-%m-%d') AS date,
+        h.holiday_name
+      FROM holidays h
+      WHERE YEAR(h.holiday_date) = ?
+    `;
+    db.query(holSql, [y], (err2, holRows) => {
+      if (err2) {
+        console.error("DB error fetching holidays:", err2);
+        return res.status(500).json({ error: "Database error" });
+      }
+
+      // Build a map of current records
+      const finalMap = {};
+      deduped.forEach(rec => {
+        finalMap[rec.date] = rec;
+      });
+
+      // Override with holiday entries, using the actual holiday_name
+      holRows.forEach(h => {
+        finalMap[h.date] = {
+          date:         h.date,
+          in_time:      null,
+          out_time:     null,
+          work_hour:    0,
+          location:     null,
+          status:       h.holiday_name,   // use the holiday_name here
+          color:        "#ff0000",
+          holiday_name: h.holiday_name
+        };
+      });
+
+      // 3) Back-fill all Sundays of the year if missing
+      for (let d = new Date(`${y}-01-01`); d.getFullYear() === y; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() === 0) {
+          const iso = d.toISOString().slice(0,10);
+          if (!finalMap[iso]) {
+            finalMap[iso] = {
+              date:       iso,
+              in_time:    null,
+              out_time:   null,
+              work_hour:  0,
+              location:   null,
+              status:     "Sunday",
+              color:      "#ff9900"
+            };
+          }
         }
       }
-    }
 
-    // 4) Sort and return
-    deduped.sort((a, b) => new Date(a.date) - new Date(b.date));
-    res.json(deduped);
+      // 4) Sort and return
+      const result = Object.values(finalMap)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      res.json(result);
+    });
   });
 });
 // NEW: Listen for socket connections.
