@@ -1,93 +1,36 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Tabs, Tab, Table, Spinner, Alert } from "react-bootstrap";
+import { Tabs, Tab } from "react-bootstrap";
+
+import PendingLeaves      from "./PendingLeaves";
+import ApprovedLeaves     from "./ApprovedLeaves";
+import NotApprovedLeaves  from "./NotApprovedLeaves";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function RequestStatusEmp() {
-  const [key, setKey] = useState("pending");
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [empName, setEmpName] = useState("");
+  const [key, setKey]     = useState("pending");
+  const [tlName, setTlName] = useState("");
 
-  const statusMap = {
-    pending: "PENDING",
-    approved: "APPROVED",
-    notApproved: "NOT_APPROVED",
-  };
-
-  // fetch logged-in TL name
+  // fetch logged-in TL name once
   useEffect(() => {
     axios
       .get(`${API_URL}/api/logincrd/current`, { withCredentials: true })
-      .then(res => setEmpName(res.data.emp_name || res.data.Name))
+      .then(res => setTlName(res.data.emp_name || res.data.Name))
       .catch(console.error);
   }, []);
-
-  // fetch this TL’s team requests
-  useEffect(() => {
-    if (!empName) return;
-    setLoading(true);
-    setError("");
-    axios
-      .get(`${API_URL}/api/leaves/team`, {
-        params: { status: statusMap[key], tlName: empName },
-        withCredentials: true,
-      })
-      .then(res => setData(res.data))
-      .catch(err => {
-        console.error(err);
-        setError("Failed to load data");
-      })
-      .finally(() => setLoading(false));
-  }, [key, empName]);
-
-  const renderTable = () => {
-    if (loading) return <Spinner animation="border" />;
-    if (error)   return <Alert variant="danger">{error}</Alert>;
-    if (data.length === 0)
-      return <Alert variant="info">No {key.replace(/([A-Z])/g, " $1").toLowerCase()} requests.</Alert>;
-
-    return (
-      <Table striped bordered hover size="sm">
-        <thead>
-          <tr>
-            <th>Employee</th>
-            <th>From</th>
-            <th>To</th>
-            <th>Days</th>
-            <th>Reason</th>
-            <th>Applied On</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map(r => (
-            <tr key={r.id}>
-              <td>{r.emp_name}</td>
-              <td>{r.start_date}</td>
-              <td>{r.end_date}</td>
-              <td>{r.days}</td>
-              <td>{r.reason}</td>
-              <td>{r.applied_on}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-    );
-  };
 
   return (
     <div className="px-3 pt-2">
       <Tabs activeKey={key} onSelect={k => setKey(k)} className="mb-1">
         <Tab eventKey="pending" title="Pending Leaves">
-          {renderTable()}
+          <PendingLeaves tlName={tlName} />
         </Tab>
         <Tab eventKey="approved" title="Approved Leaves">
-          {renderTable()}
+          <ApprovedLeaves tlName={tlName} />
         </Tab>
         <Tab eventKey="notApproved" title="Not Approved Leaves">
-          {renderTable()}
+          <NotApprovedLeaves tlName={tlName} />
         </Tab>
       </Tabs>
     </div>
