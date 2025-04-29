@@ -7,14 +7,14 @@ import Footer from "../components/Footer";
 import AttendanceForm    from "../components/AdminView/AttendanceForm";
 import Holidays          from "../components/AdminView/Holiday";
 import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
-import RequestStatus     from "../components/TLview/RequestStatus";  // ← new
+import RequestStatus     from "../components/AdminView/RequestStatus";  // ← new
 
 // Employee (and TL) views
 import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
 import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
-import RequestStatusEmp   from "../components/TLview/RequestStatus"; // ← if you have a separate TL/Emp version
+import RequestStatusEmp   from "../components/TLview/RequestStatusEmp"; // ← TL version
 
 import { Navbar, Nav, Container, Button } from "react-bootstrap";
 import "../pages/Dashboard.css";
@@ -178,14 +178,14 @@ const Dashboard = () => {
         {activeSection === "attendanceForm"    && <AttendanceForm />}
         {activeSection === "holidays"          && <Holidays />}
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
-        {activeSection === "requestStatus"     && <RequestStatus />}
+        {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
 
         {/* Employee/TL views */}
         {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
         {activeSection === "mailRequest"       && <MailRequest />}
-        {activeSection === "requestStatus"     && isTL && <RequestStatusEmp />}
+        {activeSection === "requestStatus"     && isTL       && <RequestStatusEmp />}
       </div>
 
       <Footer />
