@@ -2,18 +2,22 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import AttendanceForm from "../components/AttendanceForm";
-import Holidays from "../components/Holiday";
-import AdminEmployeeView from "../components/AdminEmployeeView";
 
-// employee-specific views
+// Admin views
+import AttendanceForm    from "../components/AdminView/AttendanceForm";
+import Holidays          from "../components/AdminView/Holiday";
+import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
+import RequestStatus     from "../components/TLview/RequestStatus";  // ← new
+
+// Employee (and TL) views
 import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
 import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
+import RequestStatusEmp   from "../components/TLview/RequestStatus"; // ← if you have a separate TL/Emp version
 
 import { Navbar, Nav, Container, Button } from "react-bootstrap";
-import "./Dashboard.css";
+import "../pages/Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -26,7 +30,6 @@ const Dashboard = () => {
       navigate("/");
     } else {
       setUser(stored);
-      // default landing for Admin → attendance form
       if (stored.role === 4) {
         setActiveSection("attendanceForm");
       }
@@ -41,13 +44,20 @@ const Dashboard = () => {
   if (!user) return null;
 
   const isAdmin = user.role === 4;
+  const isTL    = user.role === 2;
   const logoutBtnPos = isAdmin
     ? { position: "absolute", top: "10px", right: "10px" }
     : {};
 
+  // decide navbar title
+  const navbarTitle = isAdmin
+    ? `Admin Panel – Welcome, ${user.name}`
+    : isTL
+      ? `TL Dashboard – Welcome, ${user.name}`
+      : `Employee Dashboard – Welcome, ${user.name}`;
+
   return (
     <div>
-      {/* now simply pass the server-provided roleName */}
       <Header role={user.roleName} />
 
       <Navbar
@@ -59,13 +69,13 @@ const Dashboard = () => {
       >
         <Container fluid>
           <Navbar.Brand>
-            {isAdmin
-              ? `Admin Panel – Welcome, ${user.name}`
-              : `Employee Dashboard – Welcome, ${user.name}`}
+            {navbarTitle}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
-            {isAdmin ? (
+
+            {/* Admin nav */}
+            {isAdmin && (
               <Nav className="d-flex flex-wrap corner-buttons">
                 <Button
                   variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -89,6 +99,13 @@ const Dashboard = () => {
                   Leaves
                 </Button>
                 <Button
+                  variant={activeSection === "requestStatus" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("requestStatus")}
+                >
+                  Request Status
+                </Button>
+                <Button
                   variant="danger"
                   style={logoutBtnPos}
                   className="ms-2 mb-2 uniform-button"
@@ -97,7 +114,10 @@ const Dashboard = () => {
                   Logout
                 </Button>
               </Nav>
-            ) : (
+            )}
+
+            {/* Employee & TL nav */}
+            {!isAdmin && (
               <Nav className="d-flex flex-wrap corner-buttons">
                 <Button
                   variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
@@ -127,6 +147,18 @@ const Dashboard = () => {
                 >
                   Mail Request
                 </Button>
+
+                {/* TL-only Request Status */}
+                {isTL && (
+                  <Button
+                    variant={activeSection === "requestStatus" ? "secondary" : "light"}
+                    className="me-2 mb-2 uniform-button"
+                    onClick={() => setActiveSection("requestStatus")}
+                  >
+                    Request Status
+                  </Button>
+                )}
+
                 <Button
                   variant="danger"
                   className="ms-2 mb-2 uniform-button"
@@ -136,18 +168,24 @@ const Dashboard = () => {
                 </Button>
               </Nav>
             )}
+
           </Navbar.Collapse>
         </Container>
       </Navbar>
 
       <div className="w-100">
+        {/* Admin views */}
         {activeSection === "attendanceForm"    && <AttendanceForm />}
         {activeSection === "holidays"          && <Holidays />}
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
+        {activeSection === "requestStatus"     && <RequestStatus />}
+
+        {/* Employee/TL views */}
         {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
         {activeSection === "mailRequest"       && <MailRequest />}
+        {activeSection === "requestStatus"     && isTL && <RequestStatusEmp />}
       </div>
 
       <Footer />

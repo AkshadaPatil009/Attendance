@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import { Button, Form, Modal, Table, Tabs, Tab, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
-import "../pages/Dashboard.css";
+import "../../pages/Dashboard.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
