@@ -1252,7 +1252,7 @@ app.get("/api/attendancecalendar", (req, res) => {
     });
     const deduped = Object.values(uniqueByDate);
 
-    // 2.2) Fetch holidays and override
+    // 2.2) Fetch holidays and MERGE with attendance
     const holSql = `
       SELECT
         DATE_FORMAT(h.holiday_date, '%Y-%m-%d') AS date,
@@ -1266,24 +1266,33 @@ app.get("/api/attendancecalendar", (req, res) => {
         return res.status(500).json({ error: "Database error" });
       }
 
-      // Build a map of current records
+      // Build map from deduped attendance
       const finalMap = {};
       deduped.forEach(rec => {
-        finalMap[rec.date] = rec;
+        finalMap[rec.date] = { ...rec, isHoliday: false };
       });
 
-      // Override with holiday entries, using the actual holiday_name
+      // Merge holiday info
       holRows.forEach(h => {
-        finalMap[h.date] = {
-          date:         h.date,
-          in_time:      null,
-          out_time:     null,
-          work_hour:    0,
-          location:     null,
-          status:       h.holiday_name,   // use the holiday_name here
-          color:        "#ff0000",
-          holiday_name: h.holiday_name
-        };
+        const d = h.date;
+        if (finalMap[d]) {
+          // mark existing attendance as holiday too
+          finalMap[d].isHoliday    = true;
+          finalMap[d].holiday_name = h.holiday_name;
+        } else {
+          // pure-holiday record
+          finalMap[d] = {
+            date:         d,
+            in_time:      null,
+            out_time:     null,
+            work_hour:    0,
+            location:     null,
+            status:       h.holiday_name,
+            color:        "#ff0000",
+            isHoliday:    true,
+            holiday_name: h.holiday_name
+          };
+        }
       });
 
       // 3) Back-fill all Sundays of the year if missing
@@ -1298,7 +1307,8 @@ app.get("/api/attendancecalendar", (req, res) => {
               work_hour:  0,
               location:   null,
               status:     "Sunday",
-              color:      "#ff9900"
+              color:      "#ff9900",
+              isHoliday:  false
             };
           }
         }
