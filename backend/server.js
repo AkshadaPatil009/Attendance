@@ -36,7 +36,6 @@ const db = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
 });
-
 // Login Route (No Encryption – remember to hash in production!)
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
@@ -99,7 +98,6 @@ app.post("/login", (req, res) => {
     });
   });
 });
-
 
 // GET Holidays API - Fetch all holidays sorted by date
 app.get("/api/holidays", (req, res) => {
@@ -469,10 +467,8 @@ app.get("/api/attendanceview", (req, res) => {
   });
 });
 
-// ======================================================================
 // 1) GET /api/employees-list
 //    Return all employees with their leaves (used, remaining, allocated).
-// ======================================================================
 app.get("/api/employees-list", (req, res) => {
   // Prevent caching
   res.set("Cache-Control", "no-store");
@@ -511,11 +507,7 @@ app.get("/api/employees-list", (req, res) => {
   });
 });
 
-// ======================================================================
 // 2) POST /api/employee-leaves
-//    Adds new leave records for employees who don't have any in employee_leaves.
-//    Used Unplanned/Planned Leaves will be set to 0 automatically.
-// ======================================================================
 app.post("/api/employee-leaves", (req, res) => {
   const {
     allocatedUnplannedLeave,
@@ -600,11 +592,7 @@ app.post("/api/employee-leaves", (req, res) => {
   });
 });
 
-// ======================================================================
 // 3) PUT /api/employee-leaves
-//    Update allocated & remaining leaves for ALL employees (bulk update).
-//    Also sets usedUnplannedLeave and usedPlannedLeave to 0 for ALL employees.
-// ======================================================================
 app.put("/api/employee-leaves", (req, res) => {
   const {
     allocatedUnplannedLeave,
@@ -648,12 +636,7 @@ app.put("/api/employee-leaves", (req, res) => {
   );
 });
 
-
-// ======================================================================
 // POST /api/employee-leaves-midyear
-//   – allocated… come in as full‑year
-//   – remaining… are prorated and stored
-// ======================================================================
 app.post("/api/employee-leaves-midyear", (req, res) => {
   const {
     employeeId,
@@ -691,10 +674,10 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
   `;
   db.query(sql, [
     employeeId,
-    allocatedUnplannedLeave,  // full‑year stays here
-    allocatedPlannedLeave,    // full‑year stays here
-    proratedUnplanned,        // prorated remaining
-    proratedPlanned           // prorated remaining
+    allocatedUnplannedLeave,  
+    allocatedPlannedLeave,   
+    proratedUnplanned,        
+    proratedPlanned           
   ], (err, result) => {
     if (err) {
       console.error(err);
@@ -707,11 +690,7 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
   });
 });
 
-// ======================================================================
 // 4) PUT /api/employee-leaves/:id
-//    Update used & remaining leaves for a single employee (if needed).
-//    This route remains unchanged. You can still individually set used leaves.
-// ======================================================================
 app.put("/api/employee-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
   const {
@@ -756,10 +735,8 @@ app.put("/api/employee-leaves/:id", (req, res) => {
   });
 });
 
-// ======================================================================
 // GET /api/employees-leaves/:id
 // Fetch used & remaining leaves for the given employee ID
-// ======================================================================
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
 
@@ -787,9 +764,8 @@ app.get("/api/employees-leaves/:id", (req, res) => {
   });
 });
 
-/*
-  Optionally, if you need a GET /api/employee_holidays route:
-*/
+  // Optionally, if you need a GET /api/employee_holidays route:
+
 app.get("/api/employee_holidays", (req, res) => {
   const { location } = req.query;
   let sql = `
@@ -818,10 +794,9 @@ app.get("/api/employee_holidays", (req, res) => {
     res.json(results);
   });
 });
-// ======================================================================
+
 // (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
 // Add a new leave record for ONE employee, or update if already exists.
-// ======================================================================
 app.post("/api/employee-leaves/add", (req, res) => {
   const {
     employeeId,
@@ -934,11 +909,6 @@ app.post("/api/employee-leaves/add", (req, res) => {
   );
 });
 
-// ======================================================================
-// EmployeeLeavesDate API Endpoints
-// These endpoints handle individual leave date records stored in the
-// EmployeeLeavesDate table.
-// ======================================================================
 
 // POST /api/employee-leaves-date
 // Add a new leave date record for an employee
@@ -996,11 +966,7 @@ app.put("/api/employee-leaves-date/:id", (req, res) => {
   });
 });
 
-// ─── 2) GET /api/logincrd ───────────────────────────────────────────────────────
-// Returns all active employees, optionally filtered by office name.
-//   • Query params:
-//       office (string): exact office name to match logincrd.Location.
-// Example:
+// ─── 2) GET /api/logincrd 
 //   GET /api/logincrd?office=Ratnagiri
 app.get("/api/logincrd", (req, res) => {
   let sql    = `
@@ -1031,13 +997,7 @@ app.get("/api/logincrd", (req, res) => {
   });
 });
 
-// ─── 3) GET /api/employeeleavesdate ────────────────────────────────────────────
-// Returns all leave records (with formatted date + employee name),
-// optionally filtered by office and/or employee.
-//   • Query params:
-//       office     (string): office name to filter logincrd.Location.
-//       employeeId (int)   : specific employee_id.
-// Example:
+// ─── 3) GET /api/employeeleavesdate 
 //   GET /api/employeeleavesdate?office=Delhi&employeeId=42
 app.get("/api/employeeleavesdate", (req, res) => {
   let sql    = `
@@ -1099,7 +1059,7 @@ app.post('/api/leave/apply-leave', (req, res) => {
 });
 
 
-// ─── 1) GET /api/offices ────────────────────────────────────────────────────────
+// ─── 1) GET /api/offices 
 // Returns all offices (id + name) for populating your dropdown.
 app.get("/api/offices", (req, res) => {
   const sql = "SELECT id, name FROM offices";
@@ -1167,8 +1127,6 @@ app.post("/api/send-leave-email", async (req, res) => {
     res.status(500).send("Failed to send email");
   }
 });
-
-
 
 // ── Fetch subject templates from MySQL ──
 app.get("/api/subject-templates", (req, res) => {

@@ -10,7 +10,7 @@ import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
 import RequestStatus     from "../components/AdminView/RequestStatus";  // ← new
 
 // Employee (and TL) views
-import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
+//import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
 import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
@@ -176,7 +176,7 @@ const Dashboard = () => {
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
 
         {/* Employee/TL views */}
-        {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
+        {/*activeSection === "employeeAttendance"&& <EmployeeAttendance />*/}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
         {activeSection === "mailRequest"       && <MailRequest />}
