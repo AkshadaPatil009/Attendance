@@ -1,11 +1,12 @@
 // server.js
 const express = require("express");
-const mysql = require("mysql");
+const mysql = require("mysql2");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
 const { sendLeaveEmail } = require("./mailer");
+
 
 // NEW: Import http and socket.io
 const http = require("http");
@@ -1085,7 +1086,8 @@ app.post("/api/offices", (req, res) => {
   });
 });
 
-
+//Mail Function API's
+// 3) Submit a leave-email → save to requests as “pending”
 app.post("/api/send-leave-email", async (req, res) => {
   const {
     employee_id,
@@ -1099,33 +1101,80 @@ app.post("/api/send-leave-email", async (req, res) => {
   } = req.body;
 
   try {
-    await sendLeaveEmail({
-      from_email,
-      from_name,
-      to_email,
-      cc_email,
-      subject,
-      body,
-    });
+    // send the actual mail
+    await sendLeaveEmail({ from_email, from_name, to_email, cc_email, subject, body });
 
-    // Save to DB (without from_email, cc_email, or body as per your earlier instruction)
+    // store in leave_mail_requests as pending
     const sql = `
-      INSERT INTO leave_mails (employee_id, from_name, leave_type, to_email, subject)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO leave_mail_requests
+        (employee_id, from_email, from_name, leave_type, to_email, cc_email, subject, body)
+      VALUES (?,?,?,?,?,?,?,?)
     `;
-    const values = [employee_id, from_name, leave_type, to_email, subject];
+    const values = [employee_id, from_email, from_name, leave_type, to_email, cc_email, subject, body];
 
     db.query(sql, values, (err, result) => {
       if (err) {
         console.error("DB insert error:", err);
         return res.status(500).send("Database error");
       }
-      res.status(200).send("Email sent and saved");
+      res.status(200).json({ requestId: result.insertId, status: 'pending' });
     });
   } catch (err) {
     console.error("Send mail error:", err);
     res.status(500).send("Failed to send email");
   }
+});
+
+
+// 4) Fetch all pending requests (Admin/TL)
+app.get("/api/pending-requests", (req, res) => {
+  const sql = `SELECT * FROM leave_mail_requests WHERE status='pending' ORDER BY created_at DESC`;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("DB fetch error:", err);
+      return res.status(500).send("Database error");
+    }
+    res.json(rows);
+  });
+});
+
+
+// 5) Approve/Reject + remove from pending
+app.post("/api/requests/:id/decision", (req, res) => {
+  const requestId = req.params.id;
+  const { decision } = req.body;   // 'approved' or 'rejected'
+  const conn = db.promise();
+
+  (async () => {
+    try {
+      await conn.beginTransaction();
+
+      // copy into permanent table with status
+      await conn.query(
+        `INSERT INTO leave_mails
+           (employee_id, from_name, to_email, subject, leave_type, status, created_at)
+         SELECT
+           employee_id, from_name, to_email, subject, leave_type, ?, NOW()
+         FROM leave_mail_requests
+         WHERE request_id = ?`,
+        [decision, requestId]
+      );
+
+      // delete from pending
+      await conn.query(
+        `DELETE FROM leave_mail_requests
+          WHERE request_id = ?`,
+        [requestId]
+      );
+
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      console.error("Decision error:", err);
+      res.status(500).json({ error: 'Decision update failed' });
+    }
+  })();
 });
 
 // ── Fetch subject templates from MySQL ──
