@@ -20,14 +20,14 @@ export default function EmployeeAttendance() {
   const [currentDate, setCurrentDate]    = useState(new Date());
   const [loading, setLoading]            = useState(false);
   const [attendanceData, setAttendanceData] = useState([]);
-  const [holidays, setHolidays]          = useState([]);
+  const [holidays, setHolidays]          = useState([]);  // for pure-holiday days
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth     = useMemo(() => new Date(year, month+1, 0).getDate(), [year, month]);
   const firstDayOfMonth = useMemo(() => new Date(year, month, 1).getDay(),        [year, month]);
 
-  // Map each date → one record (after backend’s dedupe)
+  // Map each date → one record (after backend’s dedupe & merge)
   const recordMap = useMemo(() => {
     const m = {};
     attendanceData.forEach(r => { m[r.date] = r; });
@@ -82,25 +82,34 @@ export default function EmployeeAttendance() {
 
     for (let i = 0; i < total; i++) {
       if (i < firstDayOfMonth) {
-        cells.push(<td key={`e${i}`} className="empty-cell" />);
+        cells.push(<td key={`empty-${i}`} className="empty-cell" />);
       } else {
         const day = i - firstDayOfMonth + 1;
         const mm  = String(month+1).padStart(2,"0");
         const dd  = String(day).padStart(2,"0");
         const key = `${year}-${mm}-${dd}`;
-        const isHol = holidays.includes(key);
-        const rec   = recordMap[key];
+        const rec = recordMap[key];          
+        const isPureHoliday = !rec && holidays.includes(key);
 
         cells.push(
           <td key={key} className="calendar-day-cell">
             <div className="day-number">{day}</div>
-            {isHol && <div className="event holiday">Holiday</div>}
-            {rec && (
+
+            {/* 1) Holiday badge */}
+            {(rec?.isHoliday || isPureHoliday) && (
+              <div className="event holiday">
+                {rec?.holiday_name || "Holiday"}
+              </div>
+            )}
+
+            {/* 2) Attendance/status badge only if not a pure-holiday or duplicate holiday */}
+            {rec && rec.status !== (rec.holiday_name || "Holiday") && (
               <div
                 className="event"
                 style={{
                   backgroundColor: rec.color,
-                  color: rec.color === "#ff0000" ? "#fff" : "#000"
+                  color: rec.color === "#ff0000" ? "#fff" : "#000",
+                  marginTop: (rec.isHoliday || isPureHoliday) ? "4px" : "0"
                 }}
               >
                 {rec.status.replace("_", " ")}
@@ -111,7 +120,7 @@ export default function EmployeeAttendance() {
       }
     }
 
-    // slice into rows of seven days
+    // slice into weeks
     const rows = [];
     for (let r = 0; r < cells.length; r += 7) {
       rows.push(<tr key={r}>{cells.slice(r, r+7)}</tr>);
