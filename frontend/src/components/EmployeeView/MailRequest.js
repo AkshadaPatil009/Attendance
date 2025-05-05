@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, Form, Button, Modal } from "react-bootstrap";
+import { Card, Form, Button, Modal, Badge, InputGroup } from "react-bootstrap";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -11,11 +11,17 @@ const MailRequest = () => {
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
     to: "",
-    cc: "",
+    ccList: [
+      "tushar.mahadik@protovec.com",
+      "kalpesh.urunkar@protovec.com",
+    ],
     subject: "",
     body: "",
   });
+  const [newCc, setNewCc] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // fetch subject templates
   useEffect(() => {
@@ -46,16 +52,51 @@ const MailRequest = () => {
     });
   };
 
-  const handleSendMail = () => setShowConfirmModal(true);
+  const handleAddCc = (e) => {
+    e.preventDefault();
+    const email = newCc.trim();
+    if (
+      email &&
+      !leaveForm.ccList.includes(email) &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      setLeaveForm((prev) => ({
+        ...prev,
+        ccList: [...prev.ccList, email],
+      }));
+    }
+    setNewCc("");
+  };
+
+  const handleRemoveCc = (email) => {
+    setLeaveForm((prev) => ({
+      ...prev,
+      ccList: prev.ccList.filter((c) => c !== email),
+    }));
+  };
+
+  const handleSubmit = (event) => {
+    const form = event.currentTarget;
+    event.preventDefault();
+    if (form.checkValidity() === false) {
+      event.stopPropagation();
+      setValidated(true);
+    } else {
+      setValidated(false);
+      setShowConfirmModal(true);
+    }
+  };
 
   const confirmSend = async () => {
+    if (isSending) return;              // prevent double-click
+    setIsSending(true);
     const payload = {
       employee_id: employeeId,
       from_email: storedUser.email,
       from_name: storedUser.name || "",
       leave_type: leaveForm.leaveType,
       to_email: leaveForm.to,
-      cc_email: leaveForm.cc,
+      cc_email: leaveForm.ccList.join(","),
       subject: leaveForm.subject,
       body: leaveForm.body,
     };
@@ -67,11 +108,18 @@ const MailRequest = () => {
       });
       if (!res.ok) throw new Error("Failed to send email");
       alert("Leave email sent successfully!");
-      setLeaveForm({ leaveType: "", to: "", cc: "", subject: "", body: "" });
+      setLeaveForm({
+        leaveType: "",
+        to: "",
+        ccList: [],
+        subject: "",
+        body: "",
+      });
     } catch (err) {
       console.error("Send error:", err);
       alert("Error sending leave email.");
     } finally {
+      setIsSending(false);
       setShowConfirmModal(false);
     }
   };
@@ -80,13 +128,14 @@ const MailRequest = () => {
     <>
       <Card className="p-4 shadow-sm">
         <h5><b>Apply for Leave</b></h5>
-        <Form>
+        <Form noValidate validated={validated} onSubmit={handleSubmit}>
           <Form.Group className="mb-3 mt-2">
             <Form.Label>Leave Type</Form.Label>
             <Form.Select
               name="leaveType"
               value={leaveForm.leaveType}
               onChange={handleFormChange}
+              required
             >
               <option value="">-- Select Leave Type --</option>
               <option value="Planned Leave">Planned Leave</option>
@@ -94,6 +143,9 @@ const MailRequest = () => {
               <option value="Compup">Compup</option>
               <option value="CI/CO Correction">CI/CO Correction</option>
             </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              Please select a leave type.
+            </Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group className="mb-3">
@@ -106,17 +158,41 @@ const MailRequest = () => {
               placeholder="Enter recipient email"
               required
             />
+            <Form.Control.Feedback type="invalid">
+              Please enter a valid recipient email.
+            </Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group className="mb-3">
             <Form.Label>CC</Form.Label>
-            <Form.Control
-              type="text"
-              name="cc"
-              value={leaveForm.cc}
-              onChange={handleFormChange}
-              placeholder="Enter CC email addresses, if any"
-            />
+            <div className="mb-2">
+              {leaveForm.ccList.map((email) => (
+                <Badge
+                  pill
+                  bg="secondary"
+                  key={email}
+                  className="me-1"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleRemoveCc(email)}
+                >
+                  {email} &times;
+                </Badge>
+              ))}
+            </div>
+            <InputGroup>
+              <Form.Control
+                type="email"
+                placeholder="Add CC email"
+                value={newCc}
+                onChange={(e) => setNewCc(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddCc(e);
+                }}
+              />
+              <Button variant="outline-secondary" onClick={handleAddCc}>
+                Add
+              </Button>
+            </InputGroup>
           </Form.Group>
 
           <Form.Group className="mb-3">
@@ -134,6 +210,9 @@ const MailRequest = () => {
                 <option key={i} value={tpl.subject} />
               ))}
             </datalist>
+            <Form.Control.Feedback type="invalid">
+              Please enter or select a subject.
+            </Form.Control.Feedback>
           </Form.Group>
 
           <Form.Group className="mb-3">
@@ -148,15 +227,14 @@ const MailRequest = () => {
               required
             />
             <Form.Text className="text-muted">
-              {leaveForm.body
-                .trim()
-                .split(/\s+/)
-                .filter(Boolean).length}{" "}
-              / 500 words
+              {leaveForm.body.trim().split(/\s+/).filter(Boolean).length} / 500 words
             </Form.Text>
+            <Form.Control.Feedback type="invalid">
+              Please enter the email body.
+            </Form.Control.Feedback>
           </Form.Group>
 
-          <Button variant="primary" onClick={handleSendMail}>
+          <Button type="submit" variant="primary">
             Send Mail
           </Button>
         </Form>
@@ -171,22 +249,11 @@ const MailRequest = () => {
           <Modal.Title>Email Preview</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            <strong>To:</strong> {leaveForm.to}
-          </p>
-          <p>
-            <strong>CC:</strong> {leaveForm.cc}
-          </p>
-          <p>
-            <strong>Subject:</strong> {leaveForm.subject}
-          </p>
-          <p>
-            <strong>Body:</strong>
-          </p>
-          <div
-            className="border rounded p-2 bg-light"
-            style={{ whiteSpace: "pre-wrap" }}
-          >
+          <p><strong>To:</strong> {leaveForm.to}</p>
+          <p><strong>CC:</strong> {leaveForm.ccList.join(", ")}</p>
+          <p><strong>Subject:</strong> {leaveForm.subject}</p>
+          <p><strong>Body:</strong></p>
+          <div className="border rounded p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
             {leaveForm.body}
           </div>
           <hr />
@@ -195,14 +262,15 @@ const MailRequest = () => {
           </p>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowConfirmModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={confirmSend}>
-            Yes, Send
+          <Button
+            variant="primary"
+            onClick={confirmSend}
+            disabled={isSending}
+          >
+            {isSending ? "Sending…" : "Yes, Send"}
           </Button>
         </Modal.Footer>
       </Modal>

@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const moment = require("moment");
 require("dotenv").config();
 const { sendLeaveEmail } = require("./mailer");
+const { sendDecisionEmail } = require("./mailer");
 
 
 // NEW: Import http and socket.io
@@ -998,26 +999,33 @@ app.get("/api/logincrd", (req, res) => {
   });
 });
 
-// ─── 3) GET /api/employeeleavesdate 
-//   GET /api/employeeleavesdate?office=Delhi&employeeId=42
+// ─── GET /api/employeeleavesdate
+//    e.g. /api/employeeleavesdate
+//         /api/employeeleavesdate?office=Delhi
+//         /api/employeeleavesdate?employeeId=42
+//         /api/employeeleavesdate?office=Delhi&employeeId=42
 app.get("/api/employeeleavesdate", (req, res) => {
-  let sql    = `
+  let sql = `
     SELECT
       ed.id,
       ed.employee_id,
-      l.Name             AS employee_name,
+      l.Name AS employee_name,
       DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date,
       ed.leave_type
     FROM employeeleavesdate ed
-    JOIN logincrd l ON ed.employee_id = l.id
+    JOIN logincrd l
+      ON ed.employee_id = l.id
     WHERE 1=1
   `;
   const params = [];
 
+  // optional office filter (case-insensitive)
   if (req.query.office) {
     sql += " AND LOWER(l.Location) = LOWER(?)";
     params.push(req.query.office);
   }
+
+  // optional employeeId filter
   if (req.query.employeeId) {
     sql += " AND ed.employee_id = ?";
     params.push(req.query.employeeId);
@@ -1033,6 +1041,7 @@ app.get("/api/employeeleavesdate", (req, res) => {
     res.json(results);
   });
 });
+
 
 // NEW: Leave Application API Endpoint
 // This endpoint saves the data from the leave application form to the database.
@@ -1176,6 +1185,19 @@ app.post("/api/requests/:id/decision", (req, res) => {
     }
   })();
 });
+
+// POST → notify employee that their leave was approved/rejected
+app.post("/api/send-decision-email", async (req, res) => {
+  const { to_email, cc_email, subject, body } = req.body;
+
+  try {
+    await sendDecisionEmail({ to_email, cc_email, subject, body });
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("Decision email error:", err);
+    res.status(500).json({ error: "Failed to send decision email" });
+  }
+})
 
 // ── Fetch subject templates from MySQL ──
 app.get("/api/subject-templates", (req, res) => {

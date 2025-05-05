@@ -46,7 +46,10 @@ const EmployeeLeaveApplication = () => {
   useEffect(() => {
     if (!employeeId) return;
     setLoadingRecords(true);
-    fetch(`${API_URL}/api/employeeleavesdate/${employeeId}`)
+
+    fetch(
+      `${API_URL}/api/employeeleavesdate?employeeId=${employeeId}`
+    )
       .then((res) => res.json())
       .then((data) => {
         setLeaveRecords(Array.isArray(data) ? data : []);

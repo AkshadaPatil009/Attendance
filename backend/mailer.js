@@ -22,4 +22,18 @@ async function sendLeaveEmail({ from_email, from_name, to_email, cc_email, subje
   });
 }
 
-module.exports = { sendLeaveEmail };
+// new helper to send decision notifications
+async function sendDecisionEmail({ to_email, cc_email, subject, body }) {
+  return transporter.sendMail({
+    from: `"No-Reply" <${process.env.SMTP_USER}>`,
+    to: to_email,
+    cc: cc_email || undefined,
+    subject,
+    text: body,
+  });
+}
+
+module.exports = {
+  sendLeaveEmail,
+  sendDecisionEmail,
+};
