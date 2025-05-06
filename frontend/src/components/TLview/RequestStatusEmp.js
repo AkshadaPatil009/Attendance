@@ -10,11 +10,7 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function RequestStatusEmp() {
   const [key, setKey]     = useState("pending");
- 
-
   
-
-
   return (
     <div className="px-3 pt-2">
       <Tabs activeKey={key} onSelect={k => setKey(k)} className="mb-1">

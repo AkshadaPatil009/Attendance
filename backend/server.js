@@ -999,33 +999,26 @@ app.get("/api/logincrd", (req, res) => {
   });
 });
 
-// ─── GET /api/employeeleavesdate
-//    e.g. /api/employeeleavesdate
-//         /api/employeeleavesdate?office=Delhi
-//         /api/employeeleavesdate?employeeId=42
-//         /api/employeeleavesdate?office=Delhi&employeeId=42
+// ─── 3) GET /api/employeeleavesdate 
+//   GET /api/employeeleavesdate?office=Delhi&employeeId=42
 app.get("/api/employeeleavesdate", (req, res) => {
-  let sql = `
+  let sql    = `
     SELECT
       ed.id,
       ed.employee_id,
-      l.Name AS employee_name,
+      l.Name             AS employee_name,
       DATE_FORMAT(ed.leave_date, '%d-%m-%Y') AS leave_date,
       ed.leave_type
     FROM employeeleavesdate ed
-    JOIN logincrd l
-      ON ed.employee_id = l.id
+    JOIN logincrd l ON ed.employee_id = l.id
     WHERE 1=1
   `;
   const params = [];
 
-  // optional office filter (case-insensitive)
   if (req.query.office) {
     sql += " AND LOWER(l.Location) = LOWER(?)";
     params.push(req.query.office);
   }
-
-  // optional employeeId filter
   if (req.query.employeeId) {
     sql += " AND ed.employee_id = ?";
     params.push(req.query.employeeId);
@@ -1063,10 +1056,10 @@ app.post("/api/leave/apply-leave", (req, res) => {
   });
 });
 
-app.post('/api/leave/apply-leave', (req, res) => {
+//app.post('/api/leave/apply-leave', (req, res) => {
   // your logic here
-  res.json({ message: 'Leave applied successfully' });
-});
+  //res.json({ message: 'Leave applied successfully' });
+//});
 
 
 // ─── 1) GET /api/offices 
@@ -1197,7 +1190,55 @@ app.post("/api/send-decision-email", async (req, res) => {
     console.error("Decision email error:", err);
     res.status(500).json({ error: "Failed to send decision email" });
   }
-})
+});
+
+
+// GET → fetch all approved leave‑mails
+app.get("/api/approved-requests", (req, res) => {
+  const sql = `
+    SELECT 
+      id AS request_id,
+      employee_id,
+      from_name,
+      to_email,
+      subject,
+      leave_type,
+      created_at
+    FROM leave_mails
+    WHERE status = 'approved'
+    ORDER BY created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("DB fetch error:", err);
+      return res.status(500).send("Database error");
+    }
+    res.json(rows);
+  });
+});
+// GET → fetch all rejected leave-mails
+app.get("/api/rejected-requests", (req, res) => {
+  const sql = `
+    SELECT 
+      id        AS request_id,
+      employee_id,
+      from_name,
+      to_email,
+      subject,
+      leave_type,
+      created_at
+    FROM leave_mails
+    WHERE status = 'rejected'
+    ORDER BY created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("DB fetch error:", err);
+      return res.status(500).send("Database error");
+    }
+    res.json(rows);
+  });
+});
 
 // ── Fetch subject templates from MySQL ──
 app.get("/api/subject-templates", (req, res) => {
