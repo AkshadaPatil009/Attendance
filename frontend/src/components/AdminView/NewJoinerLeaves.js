@@ -81,7 +81,7 @@ const NewJoinerLeaves = () => {
 
       <Card style={{ maxWidth: "600px", margin: "auto" }}>
         <Card.Body>
-          <Card.Title>Add Leave for Mid‑year Joiner</Card.Title>
+          <Card.Title>Add Leave for New Joiner</Card.Title>
 
           <Form.Group className="mb-3">
             <Form.Label><b>Select Employee</b></Form.Label>
