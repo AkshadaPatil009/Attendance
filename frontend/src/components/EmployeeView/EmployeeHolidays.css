@@ -1,0 +1,60 @@
+/* src/components/EmployeeHolidays.css */
+
+.holiday-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+    background: #f9f9f9;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  .holiday-title {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #333;
+    position: relative;
+  }
+  
+  .holiday-title::after {
+    content: "";
+    display: block;
+    width: 80px;
+    height: 4px;
+    background: #0f0f0f;
+    margin: 0.5rem auto 0;
+    border-radius: 2px;
+  }
+  
+  .holiday-table {
+    background: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .holiday-head th {
+    background: #0a0a0a;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: none;
+  }
+  
+  .holiday-table th,
+  .holiday-table td {
+    vertical-align: middle;
+    text-align: center;
+  }
+  
+  .upcoming-row:hover {
+    background: #e9f5ff;
+    cursor: pointer;
+  }
+  
+  .past-row {
+    background: #d0d6db;
+    color: #555;
+  }
+
+ 
