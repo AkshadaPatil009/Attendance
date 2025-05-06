@@ -1240,6 +1240,46 @@ app.get("/api/rejected-requests", (req, res) => {
   });
 });
 
+// GET → fetch all requests (pending, approved, rejected) for one employee
+app.get("/api/my-requests", (req, res) => {
+  const { employee_id } = req.query;
+  if (!employee_id) return res.status(400).json({ error: "employee_id required" });
+
+  // We'll UNION pending table with the permanent table
+  const sql = `
+    SELECT 
+      request_id,
+      employee_id,
+      from_name,
+      subject,
+      leave_type,
+      created_at,
+      'pending' AS status
+    FROM leave_mail_requests
+    WHERE employee_id = ?
+    UNION ALL
+    SELECT
+      id         AS request_id,
+      employee_id,
+      from_name,
+      subject,
+      leave_type,
+      created_at,
+      status
+    FROM leave_mails
+    WHERE employee_id = ?
+    ORDER BY created_at DESC
+  `;
+  db.query(sql, [employee_id, employee_id], (err, rows) => {
+    if (err) {
+      console.error("DB fetch my‑requests error:", err);
+      return res.status(500).send("Database error");
+    }
+    res.json(rows);
+  });
+});
+
+
 // ── Fetch subject templates from MySQL ──
 app.get("/api/subject-templates", (req, res) => {
   const sql = "SELECT subject, body FROM subject_templates ORDER BY id";
