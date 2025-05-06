@@ -319,7 +319,7 @@ const Holiday = () => {
                     <td className="align-middle">{h.holiday_name}</td>
                     {offices.map((o) => (
                       <td key={o} className="text-center align-middle">
-                        {h.locations.includes(o) && <Badge bg="success">✓</Badge>}
+                        {h.locations.includes(o) && "✓"}
                       </td>
                     ))}
                     <td className="text-center align-middle">
@@ -373,9 +373,8 @@ const Holiday = () => {
           </Col>
         </Row>
       </Card.Footer>
-
-      {/* Add Office Modal */}
-      <Modal show={showOfficeModal} onHide={() => setShowOfficeModal(false)}>
+ {/* Add Office Modal */}
+ <Modal show={showOfficeModal} onHide={() => setShowOfficeModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Add New Office</Modal.Title>
         </Modal.Header>
