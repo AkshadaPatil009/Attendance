@@ -237,9 +237,7 @@ const AttendanceForm = () => {
     setLoading(false);
   };
 
-  // -----------------------
   // 2) Update Attendance Logic
-  // -----------------------
   useEffect(() => {
     if (!selectedEmployee) {
       setEmployeeAttendance([]);
@@ -296,9 +294,7 @@ const AttendanceForm = () => {
     }
   };
 
-  // -----------------------
   // Socket.IO listeners
-  // -----------------------
   useEffect(() => {
     socket.on("attendanceSaved", ({ attendanceRecords }) => {
       alert("Attendance was just saved by another user.");
@@ -317,10 +313,8 @@ const AttendanceForm = () => {
       socket.disconnect();
     };
   }, [selectedEmployee, handleFilter]);
-
-  // -----------------------
+  
   // Render
-  // -----------------------
   return (
     <Container fluid className="p-1">
       <Tabs defaultActiveKey="entry" id="main-tabs" className="mb-1">

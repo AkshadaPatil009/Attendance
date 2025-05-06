@@ -91,7 +91,7 @@ const Dashboard = () => {
                   className="me-2 mb-2 uniform-button"
                   onClick={() => setActiveSection("adminemployeeView")}
                 >
-                  Leaves
+                  Add Leaves
                 </Button>
                 <Button
                   variant={activeSection === "requestStatus" ? "secondary" : "light"}
