@@ -1,3 +1,4 @@
+// src/components/RequestStatus/PendingLeaves.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
@@ -10,9 +11,19 @@ import {
   Row,
   Col,
   Form,
+  Badge,
+  Pagination
 } from "react-bootstrap";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Assign a border color per leave type
+const BORDER_COLORS = {
+  Vacation: "#4da6ff",
+  Sick:     "#ff6666",
+  Personal: "#ffcc66",
+  Other:    "#ffa500",
+};
 
 export default function PendingLeaves() {
   const storedUser = JSON.parse(localStorage.getItem("user")) || {};
@@ -28,9 +39,13 @@ export default function PendingLeaves() {
 
   // NEW state for email editor
   const [emailModalVisible, setEmailModalVisible] = useState(false);
-  const [decisionType, setDecisionType]           = useState(""); // "approved" | "rejected"
+  const [decisionType, setDecisionType]           = useState("");
   const [emailSubject, setEmailSubject]           = useState("");
   const [emailBody, setEmailBody]                 = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchPending();
@@ -57,20 +72,17 @@ export default function PendingLeaves() {
       .finally(() => setLoading(false));
   };
 
-  // Build the default subject/body
   const prepareEmailTemplate = (req, decision) => {
     const subj = `Leave Request #${req.request_id} ${decision === "approved" ? "Approved" : "Not Approved"}`;
     const decisionText = decision === "approved" ? "approved" : "non approved";
-    const body = 
+    const body =
       `Hello ${req.from_name},\n\n` +
       `Your ${req.leave_type} request submitted on ${new Date(req.created_at).toLocaleDateString()} ` +
       `has been *${decisionText}* by ${currentUserName}.\n\n` +
-      `Best regards,\n` +
-      `${currentUserName}`;
+      `Best regards,\n${currentUserName}`;
     return { subj, body };
   };
 
-  // When Approve/Reject button clicked, open editor
   const openEmailEditor = (decision) => {
     if (!selected) return;
     const { subj, body } = prepareEmailTemplate(selected, decision);
@@ -80,7 +92,6 @@ export default function PendingLeaves() {
     setEmailModalVisible(true);
   };
 
-  // After tweaking, actually send
   const handleSendEmail = async () => {
     if (!selected) return;
     const req = selected;
@@ -88,21 +99,16 @@ export default function PendingLeaves() {
     setProcessing(ps => new Set(ps).add(req.request_id));
 
     try {
-      // 1) mark in DB
       await axios.post(
         `${API_URL}/api/requests/${req.request_id}/decision`,
         { decision: decisionType }
       );
-
-      // 2) send notification email (using edited subject/body)
       await axios.post(`${API_URL}/api/send-decision-email`, {
         to_email:    req.from_email,
         cc_email:    req.cc_email,
         subject:     emailSubject,
         body:        emailBody
       });
-
-      // 3) cleanup & remove from UI
       setData(d => d.filter(r => r.request_id !== req.request_id));
       setSelected(null);
       setEmailModalVisible(false);
@@ -119,43 +125,114 @@ export default function PendingLeaves() {
     }
   };
 
-  if (loading) return <Spinner animation="border" />;
-  if (error)   return <Alert variant="danger">{error}</Alert>;
+  if (loading) return (
+    <div className="d-flex justify-content-center py-5">
+      <Spinner animation="border" />
+    </div>
+  );
+  if (error)   return <Alert variant="danger" className="mt-4 text-center">{error}</Alert>;
   if (data.length === 0)
-    return <Alert variant="info">No pending requests.</Alert>;
+    return <Alert variant="info" className="mt-4 text-center">No pending requests.</Alert>;
+
+  // Pagination logic
+  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <>
       <Container className="py-3">
-        <Row className="g-3">
-          {data.map((r, idx) => (
-            <Col key={r.request_id} xs={12} md={6} lg={4}>
-              <Card
-                className="h-100 shadow-sm"
-                onClick={() => setSelected({ ...r, displayNumber: idx + 1 })}
-                style={{ cursor: "pointer" }}
-              >
-                <Card.Body>
-                  <Card.Title>#{idx + 1} — {r.from_name}</Card.Title>
-                  <Card.Subtitle className="mb-2 text-muted">
-                    {r.leave_type} | {new Date(r.created_at).toLocaleString()}
-                  </Card.Subtitle>
-                  <Card.Text>
-                    <strong>Subject:</strong> {r.subject}
-                  </Card.Text>
-                  <Card.Text style={{
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}>
-                    {r.body}
-                  </Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+        <Row xs={1} md={2} lg={3} className="g-3">
+          {paginatedData.map((r, idx) => {
+            const color = BORDER_COLORS[r.leave_type] || BORDER_COLORS.Other;
+            const time  = new Date(r.created_at).toLocaleString();
+            const displayNumber = startIndex + idx + 1;
+
+            return (
+              <Col key={r.request_id}>
+                <Card
+                  className="h-100 position-relative"
+                  style={{
+                    borderLeft: `6px solid ${color}`,
+                    cursor: "pointer",
+                    transition: "transform 0.1s ease-in-out",
+                    paddingTop: "0.5rem"
+                  }}
+                  onClick={() => setSelected({ ...r, displayNumber })}
+                  onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.02)")}
+                  onMouseLeave={e => (e.currentTarget.style.transform = "scale(1.0)")}
+                >
+                  <Badge
+                    bg="light"
+                    text="dark"
+                    className="position-absolute"
+                    style={{
+                      top: "0.5rem",
+                      left: "0.5rem",
+                      fontSize: "0.75rem",
+                      padding: "0.25em 0.5em"
+                    }}
+                  >
+                    #{displayNumber}
+                  </Badge>
+
+                  <Card.Body className="pt-4 pb-2 px-3">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <Badge bg="warning">{r.leave_type}</Badge>
+                      <small className="text-muted" style={{ fontSize: "0.75rem" }}>
+                        {time}
+                      </small>
+                    </div>
+
+                    <Card.Title className="mb-1" style={{ fontSize: "1rem" }}>
+                      {r.from_name}
+                    </Card.Title>
+
+                    <Card.Text className="mb-1" style={{ fontSize: "0.875rem" }}>
+                      <strong>Subject:</strong> {r.subject}
+                    </Card.Text>
+
+                    <Card.Text
+                      style={{
+                        height: "2.5rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        fontSize: "0.875rem"
+                      }}
+                    >
+                      {r.body}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
       </Container>
+
+      {/* Pagination Controls */}
+      <div className="d-flex justify-content-center mt-4">
+        <Pagination>
+          <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage === 1} />
+          <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
+          {[...Array(totalPages)].map((_, i) => (
+            <Pagination.Item
+              key={i + 1}
+              active={i + 1 === currentPage}
+              onClick={() => handlePageChange(i + 1)}
+            >
+              {i + 1}
+            </Pagination.Item>
+          ))}
+          <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+          <Pagination.Last onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} />
+        </Pagination>
+      </div>
 
       {/* Detail + Decision Modal */}
       <Modal

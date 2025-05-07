@@ -7,21 +7,21 @@ import Footer from "../components/Footer";
 import AttendanceForm    from "../components/AdminView/AttendanceForm";
 import Holidays          from "../components/AdminView/Holiday";
 import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
-import RequestStatus     from "../components/AdminView/RequestStatus";  // ← new
+import RequestStatus     from "../components/AdminView/RequestStatus";
 
 // Employee (and TL) views
 import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
 import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
-import RequestStatusEmp   from "../components/TLview/RequestStatusEmp"; // ← TL version
+import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
 
 import { Navbar, Nav, Container, Button } from "react-bootstrap";
 import "../pages/Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser]               = useState(null);
+  const [user, setUser]                   = useState(null);
   const [activeSection, setActiveSection] = useState("employeeAttendance");
 
   useEffect(() => {
@@ -46,12 +46,12 @@ const Dashboard = () => {
   const isAdmin = user.role === 4;
   const isTL    = user.role === 2;
 
-  // decide navbar title
+  // Navbar title text
   const navbarTitle = isAdmin
     ? `Admin Panel – Welcome, ${user.name}`
     : isTL
-      ? `TL Dashboard – Welcome, ${user.name}`
-      : `Employee Dashboard – Welcome, ${user.name}`;
+    ? `TL Dashboard – Welcome, ${user.name}`
+    : `Employee Dashboard – Welcome, ${user.name}`;
 
   return (
     <div>
@@ -100,7 +100,13 @@ const Dashboard = () => {
                 >
                   Request Status
                 </Button>
-                {/* —— remove style prop here so it lines up correctly —— */}
+                <Button
+                  variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("mailRequest")}
+                >
+                  Mail Request
+                </Button>
                 <Button
                   variant="danger"
                   className="ms-2 mb-2 uniform-button"
@@ -142,8 +148,6 @@ const Dashboard = () => {
                 >
                   Mail Request
                 </Button>
-
-                {/* TL-only Request Status */}
                 {isTL && (
                   <Button
                     variant={activeSection === "requestStatus" ? "secondary" : "light"}
@@ -153,7 +157,6 @@ const Dashboard = () => {
                     Request Status
                   </Button>
                 )}
-
                 <Button
                   variant="danger"
                   className="ms-2 mb-2 uniform-button"
@@ -174,12 +177,13 @@ const Dashboard = () => {
         {activeSection === "holidays"          && <Holidays />}
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
+        {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
 
         {/* Employee/TL views */}
         {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
-        {activeSection === "mailRequest"       && <MailRequest />}
+        {activeSection === "mailRequest"       && !isAdmin && <MailRequest />}
         {activeSection === "requestStatus"     && isTL       && <RequestStatusEmp />}
       </div>
 

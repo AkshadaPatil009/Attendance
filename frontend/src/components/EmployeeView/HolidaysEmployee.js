@@ -59,10 +59,10 @@ const EmployeeHolidays = () => {
               const isPast = d < today;
 
               return (
-                <tr key={holiday.id} className={isPast ? "past-row" : ""}>
+                <tr key={holiday.id} className={isPast ? "past-row":""}>
                   <td>{idx + 1}</td>
                   <td>{holiday.holiday_name}</td>
-                  <td>{d.toLocaleDateString("en-CA")}</td> {/* YYYY-MM-DD */}
+                  <td>{d.toLocaleDateString("en-CA")}</td>
                 </tr>
               );
             })

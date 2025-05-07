@@ -1,18 +1,29 @@
+// src/components/RequestStatus/AdminPendingLeaves.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
+  Container,
+  Row,
+  Col,
   Card,
   Button,
   Spinner,
   Alert,
   Modal,
-  Container,
-  Row,
-  Col,
   Form,
+  Badge,
+  Pagination
 } from "react-bootstrap";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Assign a border color per leave type
+const BORDER_COLORS = {
+  Vacation: "#4da6ff",
+  Sick:     "#ff6666",
+  Personal: "#ffcc66",
+  Other:    "#ffa500",
+};
 
 export default function AdminPendingLeaves() {
   // Get current admin info from localStorage
@@ -33,6 +44,10 @@ export default function AdminPendingLeaves() {
   const [emailBody, setEmailBody] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
+
   useEffect(() => {
     fetchPending();
   }, []);
@@ -43,7 +58,6 @@ export default function AdminPendingLeaves() {
     axios
       .get(`${API_URL}/api/pending-requests`)
       .then((res) => {
-        // Only include requests addressed to this admin
         const pendingForAdmin = res.data.filter((r) => {
           const toMatch = r.to_email.toLowerCase() === currentAdminEmail.toLowerCase();
           const ccList = r.cc_email
@@ -87,19 +101,16 @@ export default function AdminPendingLeaves() {
     setModalLoading(true);
     setProcessing((ps) => new Set(ps).add(selected.request_id));
     try {
-      // update decision in backend
       await axios.post(
         `${API_URL}/api/requests/${selected.request_id}/decision`,
         { decision: decisionType }
       );
-      // send notification
       await axios.post(`${API_URL}/api/send-decision-email`, {
         to_email: selected.from_email,
         cc_email: selected.cc_email,
         subject: emailSubject,
         body: emailBody,
       });
-      // remove from list
       setRequests((prev) => prev.filter((r) => r.request_id !== selected.request_id));
       setSelected(null);
       setEmailModalVisible(false);
@@ -116,43 +127,110 @@ export default function AdminPendingLeaves() {
     }
   };
 
-  if (loading) return <Spinner animation="border" />;
+  if (loading)
+    return (
+      <div className="d-flex justify-content-center py-5">
+        <Spinner animation="border" />
+      </div>
+    );
   if (error) return <Alert variant="danger">{error}</Alert>;
   if (requests.length === 0) return <Alert variant="info">No pending requests.</Alert>;
+
+  // Pagination logic
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = requests.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <>
       <Container className="py-3">
         <Row className="g-3">
-          {requests.map((r, idx) => (
-            <Col key={r.request_id} xs={12} md={6} lg={4}>
-              <Card
-                className="h-100 shadow-sm"
-                onClick={() => setSelected({ ...r, displayNumber: idx + 1 })}
-                style={{ cursor: "pointer" }}
-              >
-                <Card.Body>
-                  <Card.Title>#{idx + 1} — {r.from_name}</Card.Title>
-                  <Card.Subtitle className="mb-2 text-muted">
-                    {r.leave_type} | {new Date(r.created_at).toLocaleString()}
-                  </Card.Subtitle>
-                  <Card.Text>
-                    <strong>Subject:</strong> {r.subject}
-                  </Card.Text>
-                  <Card.Text
+          {paginated.map((r, idx) => {
+            const color = BORDER_COLORS[r.leave_type] || BORDER_COLORS.Other;
+            const time  = new Date(r.created_at).toLocaleString();
+            const globalIndex = startIndex + idx + 1;
+            return (
+              <Col key={r.request_id} xs={12} md={6} lg={4}>
+                <Card
+                  className="h-100 position-relative shadow-sm"
+                  style={{
+                    borderLeft: `6px solid ${color}`,
+                    cursor: "pointer",
+                    transition: "transform 0.1s ease-in-out",
+                    paddingTop: "0.5rem"
+                  }}
+                  onClick={() => setSelected({ ...r, displayNumber: globalIndex })}
+                  onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.02)")}
+                  onMouseLeave={e => (e.currentTarget.style.transform = "scale(1.0)")}
+                >
+                  <Badge
+                    bg="light"
+                    text="dark"
+                    className="position-absolute"
                     style={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      top: "0.5rem",
+                      left: "0.5rem",
+                      fontSize: "0.75rem",
+                      padding: "0.25em 0.5em"
                     }}
                   >
-                    {r.body}
-                  </Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+                    #{globalIndex}
+                  </Badge>
+                  <Card.Body className="pt-4 pb-2 px-3">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <Badge bg="warning">{r.leave_type}
+                        {r.leave_type}
+                      </Badge>
+                      <small className="text-muted" style={{ fontSize: "0.75rem" }}>
+                        {time}
+                      </small>
+                    </div>
+                    <Card.Title className="mb-1" style={{ fontSize: "1rem" }}>
+                      {r.from_name}
+                    </Card.Title>
+                    <Card.Text className="mb-1" style={{ fontSize: "0.875rem" }}>
+                      <strong>Subject:</strong> {r.subject}
+                    </Card.Text>
+                    <Card.Text
+                      style={{
+                        height: "2.5rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        fontSize: "0.875rem"
+                      }}
+                    >
+                      {r.body}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
+
+        {/* Pagination Controls */}
+        <div className="d-flex justify-content-center mt-4">
+          <Pagination>
+            <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage === 1} />
+            <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
+            {[...Array(totalPages)].map((_, i) => (
+              <Pagination.Item
+                key={i + 1}
+                active={i + 1 === currentPage}
+                onClick={() => handlePageChange(i + 1)}
+              >
+                {i + 1}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
+            <Pagination.Last onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} />
+          </Pagination>
+        </div>
       </Container>
 
       <Modal show={!!selected} onHide={() => setSelected(null)} size="lg" centered>
@@ -164,44 +242,28 @@ export default function AdminPendingLeaves() {
               </Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ whiteSpace: "pre-wrap" }}>
-              <p>
-                <strong>From:</strong> {selected.from_email} ({selected.from_name})
-              </p>
-              <p>
-                <strong>To:</strong> {selected.to_email}
-              </p>
-              {selected.cc_email && (
-                <p>
-                  <strong>CC:</strong> {selected.cc_email}
-                </p>
-              )}
-              <p>
-                <strong>Subject:</strong> {selected.subject}
-              </p>
+              <p><strong>From:</strong> {selected.from_email} ({selected.from_name})</p>
+              <p><strong>To:</strong> {selected.to_email}</p>
+              {selected.cc_email && <p><strong>CC:</strong> {selected.cc_email}</p>}
+              <p><strong>Subject:</strong> {selected.subject}</p>
               <hr />
               <div className="border p-3" style={{ background: "#f8f9fa" }}>
                 {selected.body}
               </div>
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setSelected(null)}>
-                Close
-              </Button>
+              <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
               <Button
                 variant="success"
                 onClick={() => openEmailEditor("approved")}
                 className="me-2"
                 disabled={processing.has(selected.request_id)}
-              >
-                Approve
-              </Button>
+              >Approve</Button>
               <Button
                 variant="danger"
                 onClick={() => openEmailEditor("rejected")}
                 disabled={processing.has(selected.request_id)}
-              >
-                Reject
-              </Button>
+              >Reject</Button>
             </Modal.Footer>
           </>
         )}
@@ -214,9 +276,7 @@ export default function AdminPendingLeaves() {
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>
-            Compose {decisionType === "approved" ? "Approval" : "Rejection"} Email
-          </Modal.Title>
+          <Modal.Title>Compose {decisionType === "approved" ? "Approval" : "Rejection"} Email</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -245,9 +305,7 @@ export default function AdminPendingLeaves() {
             variant="secondary"
             onClick={() => setEmailModalVisible(false)}
             disabled={modalLoading}
-          >
-            Cancel
-          </Button>
+          >Cancel</Button>
           <Button
             variant="primary"
             onClick={handleSendEmail}
