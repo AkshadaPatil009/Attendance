@@ -1,59 +1,82 @@
 /* Container spacing */
 .leave-application-container {
-    padding: 1rem 2rem;
+  padding: 1rem 2rem;
+}
+
+/* Card overrides */
+.leave-card {
+  border-radius: 0.5rem;
+}
+
+.leave-card-header {
+  background-color: #1a1818;
+  color: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.leave-card-header h5 {
+  margin: 0;
+}
+
+/* Balances section */
+.balances-section h6 {
+  font-weight: 600;
+  color: #141212;
+  margin-bottom: 0.5rem;
+}
+
+/* Table container to scroll if many rows */
+.record-table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Leave records table styling */
+.leave-records-table {
+  margin-bottom: 0;
+  border-collapse: collapse;
+  width: 100%;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.leave-records-table th,
+.leave-records-table td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.5rem;
+  border: 1px solid #111010;
+
+}
+
+/* Table header styling */
+.leave-records-table thead th {
+  background-color: #bcc0bc; /* Green background */
+  color: white; /* White text */
+  font-weight: bold;
+}
+
+/* Zebra striping for table rows */
+.leave-records-table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.leave-records-table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+/* Hover effect for table rows */
+.leave-records-table tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+/* Responsive tweaks */
+@media (max-width: 767px) {
+  .leave-application-container {
+    padding: 0.5rem 1rem;
   }
-  
-  /* Card overrides */
   .leave-card {
-    border-radius: 0.5rem;
+    margin-bottom: 1rem;
   }
-  
-  .leave-card-header {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  
-  .leave-card-header h5 {
-    margin: 0;
-  }
-  
-  /* Balances section */
-  .balances-section h6 {
-    font-weight: 600;
-    color: #444;
-    margin-bottom: 0.5rem;
-  }
-  
-  /* Table container to scroll if many rows */
-  .record-table-container {
-    max-height: 300px;
-    overflow-y: auto;
-    padding: 0;
-  }
-  
-  /* Leave records table styling */
-  .leave-records-table {
-    margin-bottom: 0;
-  }
-  
-  .leave-records-table th,
-  .leave-records-table td {
-    text-align: center;
-    vertical-align: middle;
-    padding: 0.5rem;
-  }
-  
-  .leave-records-table tr:hover {
-    background-color: #f1f1f1;
-  }
-  
-  /* Responsive tweaks */
-  @media (max-width: 767px) {
-    .leave-application-container {
-      padding: 0.5rem 1rem;
-    }
-    .leave-card {
-      margin-bottom: 1rem;
-    }
-  }
-  
+}
