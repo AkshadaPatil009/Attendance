@@ -215,10 +215,11 @@ const MailRequest = () => {
                 required
               >
                 <option value="">-- Select Leave Type --</option>
+                <option value="CI/CO Correction">CI/CO Correction</option>
                 <option value="Planned Leave">Planned Leave</option>
                 <option value="Unplanned Leave">Unplanned Leave</option>
+                <option value="Work From Home Request">Work From Home Request</option>
                 <option value="Compup">Compup</option>
-                <option value="CI/CO Correction">CI/CO Correction</option>
               </Form.Select>
               <Form.Control.Feedback type="invalid">
                 Please select a leave type.

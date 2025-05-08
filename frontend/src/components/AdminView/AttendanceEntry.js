@@ -17,53 +17,62 @@ const AttendanceEntry = ({
   hangoutTextareaStyle,
   tableContainerStyle,
 }) => {
-  const [errorMessage, setErrorMessage] = useState(""); // State for error message
-  const [showConfirm, setShowConfirm] = useState(false);  // State for confirmation modal
+  // — local mirrors of your props
+  const [lhm,  setLhm]  = useState(hangoutMessages);
+  const [lat,  setLat]  = useState(attendanceTableData);
+  const [lom,  setLom]  = useState(otherMessagesTableData);
+  const [lts,  setLts]  = useState(attendanceToSave);
 
-  // Listen for real‑time attendance saves by others
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showConfirm,   setShowConfirm]   = useState(false);
+
+  // whenever parent props change (e.g. after you Filter), sync them locally
+  useEffect(() => { setLhm(hangoutMessages)  }, [hangoutMessages]);
+  useEffect(() => { setLat(attendanceTableData) }, [attendanceTableData]);
+  useEffect(() => { setLom(otherMessagesTableData) }, [otherMessagesTableData]);
+  useEffect(() => { setLts(attendanceToSave)      }, [attendanceToSave]);
+
+  // real-time notifications
   useEffect(() => {
-    socket.on("attendanceSaved", ({ attendanceRecords }) => {
-      // you could refresh your tables here,
-      // or show a notification that someone else saved
-      alert("Attendance was just saved by another user.");
-    });
+    socket.on("attendanceSaved", () =>
+      alert("Attendance was just saved by another user.")
+    );
     return () => {
       socket.off("attendanceSaved");
       socket.disconnect();
     };
   }, []);
 
-  // This function performs the actual save operation
+  // actual save
   const doSaveAttendance = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/attendance`, {
+      const resp = await fetch(`${API_URL}/api/attendance`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ attendanceRecords: attendanceToSave }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setErrorMessage(errorData.error || "Failed to save attendance records");
+      if (!resp.ok) {
+        const err = await resp.json();
+        setErrorMessage(err.error || "Failed to save attendance records");
       } else {
-        setErrorMessage(""); // Clear any previous errors
+        setErrorMessage("");
         alert("Attendance records saved successfully!");
-        // emit real‑time notification
         socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
+
+        // —— CLEAR ALL LOCAL COPIES —— 
+        setLhm("");
+        setLat([]);
+        setLom([]);
+        setLts([]);
+        // also clear the parent textarea so new paste starts fresh:
+        setHangoutMessages("");
       }
-    } catch (error) {
-      setErrorMessage("An unexpected error occurred: " + error.message);
+    } catch (e) {
+      setErrorMessage("An unexpected error occurred: " + e.message);
     }
   };
 
-  // When user clicks Save, show the confirmation modal first
-  const handleSaveAttendance = () => {
-    setShowConfirm(true);
-  };
-
-  // Called when user confirms saving
+  const handleSaveAttendance = () => setShowConfirm(true);
   const confirmSave = async () => {
     setShowConfirm(false);
     await doSaveAttendance();
@@ -78,51 +87,45 @@ const AttendanceEntry = ({
       )}
 
       <Row className="mb-2 text-center fw-bold">
-        <Col md={3}>
-          <h5>Hangout Messages</h5>
-        </Col>
-        <Col md={3}>
-          <h5>Attendance Messages</h5>
-        </Col>
-        <Col md={3}>
-          <h5>Other Messages</h5>
-        </Col>
-        <Col md={3}>
-          <h5>Attendance to Save</h5>
-        </Col>
+        <Col md={3}><h5>Hangout Messages</h5></Col>
+        <Col md={3}><h5>Attendance Messages</h5></Col>
+        <Col md={3}><h5>Other Messages</h5></Col>
+        <Col md={3}><h5>Attendance to Save</h5></Col>
       </Row>
 
       <Row>
+        {/* Hangout textarea */}
         <Col md={3}>
           <Form.Control
             as="textarea"
-            value={hangoutMessages}
-            onChange={(e) => setHangoutMessages(e.target.value)}
+            value={lhm}
+            onChange={e => {
+              setLhm(e.target.value);
+              setHangoutMessages(e.target.value);
+            }}
             style={hangoutTextareaStyle}
             placeholder="Paste your data here."
           />
         </Col>
 
+        {/* Attendance Messages table */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
               <thead>
                 <tr>
-                  <th>EmpName</th>
-                  <th>InTime</th>
-                  <th>OutTime</th>
-                  <th>Location</th>
-                  <th>Date</th>
+                  <th>EmpName</th><th>InTime</th><th>OutTime</th>
+                  <th>Location</th><th>Date</th>
                 </tr>
               </thead>
               <tbody>
-                {attendanceTableData.map((record, index) => (
-                  <tr key={index}>
-                    <td>{record.empName}</td>
-                    <td>{record.inTime}</td>
-                    <td>{record.outTime}</td>
-                    <td>{record.location}</td>
-                    <td>{record.date}</td>
+                {lat.map((r,i) => (
+                  <tr key={i}>
+                    <td>{r.empName}</td>
+                    <td>{r.inTime}</td>
+                    <td>{r.outTime}</td>
+                    <td>{r.location}</td>
+                    <td>{r.date}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,24 +133,23 @@ const AttendanceEntry = ({
           </div>
         </Col>
 
+        {/* Other Messages table */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
               <thead>
                 <tr>
-                  <th>SenderName</th>
-                  <th>Message</th>
-                  <th>MessageTime</th>
-                  <th>MessageDate</th>
+                  <th>SenderName</th><th>Message</th>
+                  <th>MessageTime</th><th>MessageDate</th>
                 </tr>
               </thead>
               <tbody>
-                {otherMessagesTableData.map((msg, index) => (
-                  <tr key={index}>
-                    <td>{msg.senderName}</td>
-                    <td>{msg.message}</td>
-                    <td>{msg.messageTime}</td>
-                    <td>{msg.messageDate}</td>
+                {lom.map((m,i) => (
+                  <tr key={i}>
+                    <td>{m.senderName}</td>
+                    <td>{m.message}</td>
+                    <td>{m.messageTime}</td>
+                    <td>{m.messageDate}</td>
                   </tr>
                 ))}
               </tbody>
@@ -155,26 +157,24 @@ const AttendanceEntry = ({
           </div>
         </Col>
 
+        {/* Attendance to Save table */}
         <Col md={3}>
           <div style={tableContainerStyle}>
             <Table striped bordered hover size="sm">
               <thead>
                 <tr>
-                  <th>EmpName</th>
-                  <th>InTime</th>
-                  <th>OutTime</th>
-                  <th>Location</th>
-                  <th>Date</th>
+                  <th>EmpName</th><th>InTime</th><th>OutTime</th>
+                  <th>Location</th><th>Date</th>
                 </tr>
               </thead>
               <tbody>
-                {attendanceToSave.map((record, index) => (
-                  <tr key={index}>
-                    <td>{record.empName}</td>
-                    <td>{record.inTime}</td>
-                    <td>{record.outTime}</td>
-                    <td>{record.location}</td>
-                    <td>{record.date}</td>
+                {lts.map((r,i) => (
+                  <tr key={i}>
+                    <td>{r.empName}</td>
+                    <td>{r.inTime}</td>
+                    <td>{r.outTime}</td>
+                    <td>{r.location}</td>
+                    <td>{r.date}</td>
                   </tr>
                 ))}
               </tbody>
@@ -185,27 +185,42 @@ const AttendanceEntry = ({
 
       <Row className="mt-3 text-center">
         <Col>
-          <Button variant="primary" className="me-3" onClick={() => {
-            handleFilter();
-            // optionally emit a filter event:
-            socket.emit("attendanceFilterRequested");
-          }}>
+          <Button
+            variant="primary"
+            className="me-3"
+            onClick={() => {
+              handleFilter();
+              socket.emit("attendanceFilterRequested");
+            }}
+          >
             Filter
           </Button>
-          <Button variant="success" onClick={handleSaveAttendance} disabled={loading}>
+          <Button
+            variant="success"
+            onClick={handleSaveAttendance}
+            disabled={loading}
+          >
             {loading ? "Saving..." : "Save"}
           </Button>
         </Col>
       </Row>
 
-      {/* Confirmation Modal */}
-      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
+      <Modal
+        show={showConfirm}
+        onHide={() => setShowConfirm(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Confirm Save</Modal.Title>
         </Modal.Header>
-        <Modal.Body>Are you sure you want to save the attendance records?</Modal.Body>
+        <Modal.Body>
+          Are you sure you want to save the attendance records?
+        </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConfirm(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowConfirm(false)}
+          >
             Cancel
           </Button>
           <Button variant="success" onClick={confirmSave}>
