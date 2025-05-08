@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 import { Tabs, Tab } from "react-bootstrap";
 
 import PendingLeaves      from "./PendingLeaves";
 import ApprovedLeaves     from "./ApprovedLeaves";
 import NotApprovedLeaves  from "./NotApprovedLeaves";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+//const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function RequestStatusEmp() {
   const [key, setKey]     = useState("pending");

@@ -100,6 +100,12 @@ export default function AdminPendingLeaves() {
     if (!selected) return;
     setModalLoading(true);
     setProcessing((ps) => new Set(ps).add(selected.request_id));
+
+    // build CC list including current admin
+    const finalCc = selected.cc_email
+      ? `${selected.cc_email},${currentAdminEmail}`
+      : currentAdminEmail;
+
     try {
       await axios.post(
         `${API_URL}/api/requests/${selected.request_id}/decision`,
@@ -107,7 +113,7 @@ export default function AdminPendingLeaves() {
       );
       await axios.post(`${API_URL}/api/send-decision-email`, {
         to_email: selected.from_email,
-        cc_email: selected.cc_email,
+        cc_email: finalCc,       // <-- your email is added here
         subject: emailSubject,
         body: emailBody,
       });
@@ -183,9 +189,7 @@ export default function AdminPendingLeaves() {
                   </Badge>
                   <Card.Body className="pt-4 pb-2 px-3">
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <Badge bg="warning">{r.leave_type}
-                        {r.leave_type}
-                      </Badge>
+                      <Badge bg="warning">{r.leave_type}</Badge>
                       <small className="text-muted" style={{ fontSize: "0.75rem" }}>
                         {time}
                       </small>
@@ -263,7 +267,7 @@ export default function AdminPendingLeaves() {
                 variant="danger"
                 onClick={() => openEmailEditor("rejected")}
                 disabled={processing.has(selected.request_id)}
-              >Reject</Button>
+              >Not Approved</Button>
             </Modal.Footer>
           </>
         )}

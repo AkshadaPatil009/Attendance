@@ -11,6 +11,7 @@ import {
   Table,
   Spinner,
   Alert,
+  Pagination,
 } from "react-bootstrap";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -34,11 +35,16 @@ const MailRequest = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [validated, setValidated] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [usingCustomSubject, setUsingCustomSubject] = useState(false);
+  const [selectedTemplateSubject, setSelectedTemplateSubject] = useState("");
 
-  // — My Requests state —
+
+  // — My Requests state & pagination —
   const [myReqs, setMyReqs] = useState([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
   const [errorReqs, setErrorReqs] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // fetch subject templates
   useEffect(() => {
@@ -57,7 +63,10 @@ const MailRequest = () => {
         if (!res.ok) throw new Error("Network error");
         return res.json();
       })
-      .then(setMyReqs)
+      .then((data) => {
+        setMyReqs(data);
+        setCurrentPage(1); // reset to first page on reload
+      })
       .catch((err) => {
         console.error("Error fetching my-requests:", err);
         setErrorReqs("Could not load your requests");
@@ -67,6 +76,16 @@ const MailRequest = () => {
   useEffect(() => {
     if (employeeId) loadMyRequests();
   }, [employeeId]);
+
+  // pagination helpers
+  const totalPages = Math.ceil(myReqs.length / itemsPerPage);
+  const paginatedReqs = myReqs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const handlePageChange = (page) => setCurrentPage(page);
+
+  // ... [rest of your existing form-handling code unchanged] ...
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -89,6 +108,26 @@ const MailRequest = () => {
     });
   };
 
+  const handleTemplateSelect = (e) => {
+    const subj = e.target.value;
+    setSelectedTemplateSubject(subj);
+    if (subj === "__custom") {
+      setUsingCustomSubject(true);
+      setLeaveForm((prev) => ({ ...prev, subject: "" }));
+    } else {
+      setUsingCustomSubject(false);
+      setLeaveForm((prev) => {
+        const match = templates.find((t) => t.subject === subj);
+        return {
+          ...prev,
+          subject: subj,
+          body: match ? match.body : prev.body,
+        };
+      });
+    }
+  };
+
+
   const handleAddCc = (e) => {
     e.preventDefault();
     const email = newCc.trim();
@@ -104,14 +143,12 @@ const MailRequest = () => {
     }
     setNewCc("");
   };
-
   const handleRemoveCc = (email) => {
     setLeaveForm((prev) => ({
       ...prev,
       ccList: prev.ccList.filter((c) => c !== email),
     }));
   };
-
   const handleSubmit = (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -123,7 +160,6 @@ const MailRequest = () => {
       setShowConfirmModal(true);
     }
   };
-
   const confirmSend = async () => {
     if (isSending) return;
     setIsSending(true);
@@ -169,6 +205,7 @@ const MailRequest = () => {
         <Card className="p-4 shadow-sm">
           <h5><b>Apply for Leave</b></h5>
           <Form noValidate validated={validated} onSubmit={handleSubmit}>
+            {/* ... your existing leave form fields ... */}
             <Form.Group className="mb-3 mt-2">
               <Form.Label>Leave Type</Form.Label>
               <Form.Select
@@ -187,7 +224,6 @@ const MailRequest = () => {
                 Please select a leave type.
               </Form.Control.Feedback>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>To</Form.Label>
               <Form.Control
@@ -202,7 +238,7 @@ const MailRequest = () => {
                 Please enter a valid recipient email.
               </Form.Control.Feedback>
             </Form.Group>
-
+            {/* CC, Subject, Body fields unchanged */}
             <Form.Group className="mb-3">
               <Form.Label>CC</Form.Label>
               <div className="mb-2">
@@ -234,27 +270,39 @@ const MailRequest = () => {
                 </Button>
               </InputGroup>
             </Form.Group>
-
-            <Form.Group className="mb-3">
+                <Form.Group className="mb-3">
               <Form.Label>Subject</Form.Label>
-              <Form.Control
-                list="subjectList"
-                name="subject"
-                value={leaveForm.subject}
-                onChange={handleFormChange}
-                placeholder="Choose or type subject"
+              <Form.Select
+                name="templateSelect"
+                value={selectedTemplateSubject}
+                onChange={handleTemplateSelect}
                 required
-              />
-              <datalist id="subjectList">
+              >
+                <option value="">-- Select Subject --</option>
                 {templates.map((tpl, i) => (
-                  <option key={i} value={tpl.subject} />
+                  <option key={i} value={tpl.subject}>
+                    {tpl.subject}
+                  </option>
                 ))}
-              </datalist>
+                <option value="__custom">Other</option>
+              </Form.Select>
+
+              {usingCustomSubject && (
+                <Form.Control
+                  type="text"
+                  name="subject"
+                  value={leaveForm.subject}
+                  onChange={handleFormChange}
+                  placeholder="Type your custom subject"
+                  className="mt-2"
+                  required
+                />
+              )}
+
               <Form.Control.Feedback type="invalid">
                 Please enter or select a subject.
               </Form.Control.Feedback>
             </Form.Group>
-
             <Form.Group className="mb-3">
               <Form.Label>Body</Form.Label>
               <Form.Control
@@ -273,7 +321,6 @@ const MailRequest = () => {
                 Please enter the email body.
               </Form.Control.Feedback>
             </Form.Group>
-
             <Button type="submit" variant="primary">
               Send Mail
             </Button>
@@ -285,6 +332,7 @@ const MailRequest = () => {
       <Col md={6}>
         <Card className="p-4 shadow-sm">
           <h5><b>My Leave Requests</b></h5>
+
           {loadingReqs ? (
             <Spinner animation="border" />
           ) : errorReqs ? (
@@ -292,33 +340,65 @@ const MailRequest = () => {
           ) : myReqs.length === 0 ? (
             <Alert variant="info">No requests found.</Alert>
           ) : (
-            <Table striped hover responsive>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Subject</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myReqs.map((r, idx) => (
-                  <tr key={r.request_id}>
-                    <td>{idx + 1}</td>
-                    <td>{r.subject}</td>
-                    <td>
-                      {r.status === "pending" && <Badge bg="warning">Pending</Badge>}
-                      {r.status === "approved" && <Badge bg="success">Approved</Badge>}
-                      {r.status === "rejected" && <Badge bg="danger">Rejected</Badge>}
-                    </td>
+            <>
+              <Table striped hover responsive>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Status</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {paginatedReqs.map((r, idx) => (
+                    <tr key={r.request_id}>
+                      <td>{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                      <td>{new Date(r.created_at).toISOString().slice(0, 10)}</td>
+                      <td>{r.subject}</td>
+                      <td>
+                        {r.status === "pending" && <Badge bg="warning">Pending</Badge>}
+                        {r.status === "approved" && <Badge bg="success">Approved</Badge>}
+                        {r.status === "rejected" && <Badge bg="danger">Rejected</Badge>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+
+              <Pagination className="justify-content-center">
+                <Pagination.First
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                />
+                <Pagination.Prev
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                />
+                {[...Array(totalPages)].map((_, i) => (
+                  <Pagination.Item
+                    key={i + 1}
+                    active={i + 1 === currentPage}
+                    onClick={() => handlePageChange(i + 1)}
+                  >
+                    {i + 1}
+                  </Pagination.Item>
                 ))}
-              </tbody>
-            </Table>
+                <Pagination.Next
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                />
+                <Pagination.Last
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                />
+              </Pagination>
+            </>
           )}
         </Card>
       </Col>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal (unchanged) */}
       <Modal
         show={showConfirmModal}
         onHide={() => setShowConfirmModal(false)}

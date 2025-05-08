@@ -78,7 +78,7 @@ export default function PendingLeaves() {
     const body =
       `Hello ${req.from_name},\n\n` +
       `Your ${req.leave_type} request submitted on ${new Date(req.created_at).toLocaleDateString()} ` +
-      `has been *${decisionText}* by ${currentUserName}.\n\n` +
+      `has been ${decisionText} by ${currentUserName}.\n\n` +
       `Best regards,\n${currentUserName}`;
     return { subj, body };
   };
@@ -98,6 +98,11 @@ export default function PendingLeaves() {
     setModalLoading(true);
     setProcessing(ps => new Set(ps).add(req.request_id));
 
+    // Append current user's email to cc list
+    const finalCc = req.cc_email
+      ? `${req.cc_email},${myEmail}`
+      : myEmail;
+
     try {
       await axios.post(
         `${API_URL}/api/requests/${req.request_id}/decision`,
@@ -105,7 +110,7 @@ export default function PendingLeaves() {
       );
       await axios.post(`${API_URL}/api/send-decision-email`, {
         to_email:    req.from_email,
-        cc_email:    req.cc_email,
+        cc_email:    finalCc,       // <-- current user added here
         subject:     emailSubject,
         body:        emailBody
       });
