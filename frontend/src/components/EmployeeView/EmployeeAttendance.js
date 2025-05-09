@@ -20,14 +20,14 @@ export default function EmployeeAttendance() {
   const [currentDate, setCurrentDate]    = useState(new Date());
   const [loading, setLoading]            = useState(false);
   const [attendanceData, setAttendanceData] = useState([]);
-  const [holidays, setHolidays]          = useState([]);  // for pure-holiday days
+  const [holidays, setHolidays]          = useState([]);
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth     = useMemo(() => new Date(year, month+1, 0).getDate(), [year, month]);
-  const firstDayOfMonth = useMemo(() => new Date(year, month, 1).getDay(),        [year, month]);
+  const firstDayOfMonth = useMemo(() => new Date(year, month, 1).getDay(), [year, month]);
 
-  // Map each date → one record (after backend’s dedupe & merge)
+  // Map each date → one record
   const recordMap = useMemo(() => {
     const m = {};
     attendanceData.forEach(r => { m[r.date] = r; });
@@ -36,7 +36,7 @@ export default function EmployeeAttendance() {
 
   // 3️⃣ Fetch holidays + this user’s attendance
   useEffect(() => {
-    if (!empName) return;            // skip if not logged in yet
+    if (!empName) return;
     setLoading(true);
 
     const holReq = axios
@@ -55,7 +55,7 @@ export default function EmployeeAttendance() {
     Promise.all([holReq, attReq]).finally(() => setLoading(false));
   }, [year, empName]);
 
-  // 4️⃣ Calendar navigation handlers
+  // 4️⃣ Navigation handlers
   const handlePrevMonth = () =>
     setCurrentDate(d => new Date(d.getFullYear(), d.getMonth()-1, 1));
   const handleNextMonth = () =>
@@ -75,11 +75,11 @@ export default function EmployeeAttendance() {
     );
   }
 
-  // build today’s key for highlighting
+  // today’s key
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
 
-  // 5️⃣ Build the 7×N calendar grid
+  // 5️⃣ Build calendar
   const buildCalendar = () => {
     const cells = [];
     const total = firstDayOfMonth + daysInMonth;
@@ -96,8 +96,18 @@ export default function EmployeeAttendance() {
         const isPureHoliday = !rec && holidays.includes(key);
         const isToday = key === todayKey;
 
+        // badge text fix: use in_time / out_time
+        let badgeText = rec?.status?.replace("_"," ") || "";
+        if (rec) {
+          if (!rec.in_time && rec.out_time) badgeText = "Incomplete CI";
+          else if (rec.in_time && !rec.out_time) badgeText = "Incomplete CO";
+        }
+
         cells.push(
-          <td key={key} className="calendar-day-cell">
+          <td
+            key={key}
+            className="calendar-day-cell"
+          >
             <div
               className="day-number"
               style={
@@ -118,14 +128,14 @@ export default function EmployeeAttendance() {
               {day}
             </div>
 
-            {/* 1) Holiday badge */}
+            {/* Holiday badge */}
             {(rec?.isHoliday || isPureHoliday) && (
               <div className="event holiday">
                 {rec?.holiday_name || "Holiday"}
               </div>
             )}
 
-            {/* 2) Attendance/status badge only if not a pure-holiday or duplicate holiday */}
+            {/* Attendance/incomplete badge */}
             {rec && rec.status !== (rec.holiday_name || "Holiday") && (
               <div
                 className="event"
@@ -135,7 +145,7 @@ export default function EmployeeAttendance() {
                   marginTop: (rec.isHoliday || isPureHoliday) ? "4px" : "0"
                 }}
               >
-                {rec.status.replace("_", " ")}
+                {badgeText}
               </div>
             )}
           </td>
@@ -143,7 +153,6 @@ export default function EmployeeAttendance() {
       }
     }
 
-    // slice into weeks
     const rows = [];
     for (let r = 0; r < cells.length; r += 7) {
       rows.push(<tr key={r}>{cells.slice(r, r+7)}</tr>);
@@ -159,7 +168,8 @@ export default function EmployeeAttendance() {
           <Form.Label>Year:</Form.Label>
           <Form.Control
             type="number"
-            min="2000" max="2100"
+            min="2000"
+            max="2100"
             value={year}
             onChange={handleYearChange}
           />
