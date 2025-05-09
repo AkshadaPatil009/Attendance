@@ -75,6 +75,10 @@ export default function EmployeeAttendance() {
     );
   }
 
+  // build today’s key for highlighting
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+
   // 5️⃣ Build the 7×N calendar grid
   const buildCalendar = () => {
     const cells = [];
@@ -88,12 +92,31 @@ export default function EmployeeAttendance() {
         const mm  = String(month+1).padStart(2,"0");
         const dd  = String(day).padStart(2,"0");
         const key = `${year}-${mm}-${dd}`;
-        const rec = recordMap[key];          
+        const rec = recordMap[key];
         const isPureHoliday = !rec && holidays.includes(key);
+        const isToday = key === todayKey;
 
         cells.push(
           <td key={key} className="calendar-day-cell">
-            <div className="day-number">{day}</div>
+            <div
+              className="day-number"
+              style={
+                isToday
+                  ? {
+                      backgroundColor: "#0d6efd",
+                      color: "#fff",
+                      borderRadius: "50%",
+                      width: "28px",
+                      height: "28px",
+                      lineHeight: "28px",
+                      textAlign: "center",
+                      display: "inline-block"
+                    }
+                  : {}
+              }
+            >
+              {day}
+            </div>
 
             {/* 1) Holiday badge */}
             {(rec?.isHoliday || isPureHoliday) && (
