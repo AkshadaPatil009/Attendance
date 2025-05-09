@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Row, Col, Form, Button, Table, Alert, Modal } from "react-bootstrap";
+import { Row, Col, Form, Button, Table, Alert, Modal, Toast, ToastContainer } from "react-bootstrap";
 import io from "socket.io-client";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -18,19 +18,24 @@ const AttendanceEntry = ({
   tableContainerStyle,
 }) => {
   // — local mirrors of your props
-  const [lhm,  setLhm]  = useState(hangoutMessages);
-  const [lat,  setLat]  = useState(attendanceTableData);
-  const [lom,  setLom]  = useState(otherMessagesTableData);
-  const [lts,  setLts]  = useState(attendanceToSave);
+  const [lhm, setLhm] = useState(hangoutMessages);
+  const [lat, setLat] = useState(attendanceTableData);
+  const [lom, setLom] = useState(otherMessagesTableData);
+  const [lts, setLts] = useState(attendanceToSave);
 
   const [errorMessage, setErrorMessage] = useState("");
-  const [showConfirm,   setShowConfirm]   = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastVariant, setToastVariant] = useState("success");
 
   // whenever parent props change (e.g. after you Filter), sync them locally
-  useEffect(() => { setLhm(hangoutMessages)  }, [hangoutMessages]);
+  useEffect(() => { setLhm(hangoutMessages) }, [hangoutMessages]);
   useEffect(() => { setLat(attendanceTableData) }, [attendanceTableData]);
   useEffect(() => { setLom(otherMessagesTableData) }, [otherMessagesTableData]);
-  useEffect(() => { setLts(attendanceToSave)      }, [attendanceToSave]);
+  useEffect(() => { setLts(attendanceToSave) }, [attendanceToSave]);
 
   // real-time notifications
   useEffect(() => {
@@ -56,7 +61,11 @@ const AttendanceEntry = ({
         setErrorMessage(err.error || "Failed to save attendance records");
       } else {
         setErrorMessage("");
-        alert("Attendance records saved successfully!");
+        // show success toast
+        setToastVariant("success");
+        setToastMsg("Attendance records saved successfully!");
+        setShowToast(true);
+
         socket.emit("attendanceSaved", { attendanceRecords: attendanceToSave });
 
         // —— CLEAR ALL LOCAL COPIES —— 
@@ -228,6 +237,24 @@ const AttendanceEntry = ({
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Toast Container */}
+      <ToastContainer position="middle-center" className="p-3">
+        <Toast
+          bg={toastVariant}
+          onClose={() => setShowToast(false)}
+          show={showToast}
+          delay={3000}
+          autohide
+        >
+          <Toast.Header>
+            <strong className="me-auto">
+              {toastVariant === "success" ? "Success" : "Notice"}
+            </strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">{toastMsg}</Toast.Body>
+        </Toast>
+      </ToastContainer>
     </>
   );
 };
