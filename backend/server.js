@@ -647,22 +647,43 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
     allocatedPlannedLeave
   } = req.body;
 
-  const join = new Date(joinDate);
-  if (isNaN(join)) {
-    return res.status(400).json({ error: "Invalid join date" });
+  // 1. Basic validation
+  if (!employeeId || !joinDate ||
+      allocatedUnplannedLeave == null || allocatedPlannedLeave == null) {
+    return res.status(400).json({ error: "Missing required fields." });
   }
 
-  const year        = join.getFullYear();
-  const startOfYear = new Date(year, 0, 1);
-  const endOfYear   = new Date(year, 11, 31);
-  const msPerDay    = 1000 * 60 * 60 * 24;
-  const totalDays   = Math.floor((endOfYear - startOfYear) / msPerDay) + 1;
-  const remainingDays = Math.floor((endOfYear - join) / msPerDay) + 1;
+  const join = new Date(joinDate);
+  if (isNaN(join)) {
+    return res.status(400).json({ error: "Invalid join date." });
+  }
 
-  // prorate only the *remaining* balances
-  const proratedPlanned   = Math.floor((allocatedPlannedLeave   * remainingDays) / totalDays);
-  const proratedUnplanned = Math.floor((allocatedUnplannedLeave * remainingDays) / totalDays);
+  // 2. Annual allocations
+  const annualUnplanned = Number(allocatedUnplannedLeave);
+  const annualPlanned   = Number(allocatedPlannedLeave);
 
+  // 3. Monthly allocations
+  const monthlyUnplanned = annualUnplanned / 12;
+  const monthlyPlanned   = annualPlanned / 12;
+
+  // 4. Join date calculations
+  const joinMonthIndex  = join.getMonth();     // 0 = Jan, 5 = June, etc.
+  const joinDay         = join.getDate();      // 1 - 31
+  const fullMonthsAfter = 11 - joinMonthIndex; // e.g., June = 6 months left
+
+  // 5. Determine prorating factors
+  const plannedJoinFactor   = joinDay <= 15 ? 1.0 : 0.5; // full or half for planned
+  const unplannedJoinFactor = 1.0;                       // always full month for unplanned
+
+  // 6. Calculate months
+  const monthsForPlanned   = fullMonthsAfter + plannedJoinFactor;
+  const monthsForUnplanned = fullMonthsAfter + unplannedJoinFactor;
+
+  // 7. Final leave values
+  const proratedPlanned   = Math.floor(monthlyPlanned * monthsForPlanned);
+  const proratedUnplanned = Math.ceil(monthlyUnplanned * monthsForUnplanned);
+
+  // 8. Insert into DB
   const sql = `
     INSERT INTO employee_leaves (
       employee_id,
@@ -674,20 +695,36 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
       remainingPlannedLeave
     ) VALUES (?, ?, ?, 0, 0, ?, ?)
   `;
+
   db.query(sql, [
     employeeId,
-    allocatedUnplannedLeave,  
-    allocatedPlannedLeave,   
-    proratedUnplanned,        
-    proratedPlanned           
+    annualUnplanned,
+    annualPlanned,
+    proratedUnplanned,
+    proratedPlanned
   ], (err, result) => {
     if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error inserting leave record" });
+      console.error("Database insert error:", err);
+      return res.status(500).json({ error: "Database insert failed." });
     }
+
+    // Success response
     res.json({
       message: `Leave record added for employee ${employeeId}.`,
-      insertedId: result.insertId
+      insertedId: result.insertId,
+      details: {
+        annualUnplanned,
+        annualPlanned,
+        monthlyUnplanned: monthlyUnplanned.toFixed(2),
+        monthlyPlanned: monthlyPlanned.toFixed(2),
+        fullMonthsAfter,
+        plannedJoinFactor,
+        unplannedJoinFactor,
+        monthsForPlanned,
+        monthsForUnplanned,
+        proratedPlanned,
+        proratedUnplanned
+      }
     });
   });
 });
