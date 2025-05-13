@@ -212,7 +212,8 @@ const AttendanceEntry = ({
               setHangoutMessages(e.target.value);
             }}
             style={hangoutTextareaStyle}
-            placeholder="Paste your data here. Press Ctrl+F to search."
+            placeholder="Paste your data here.
+            (Press Ctrl+F to search.)"
           />
         </Col>
 
