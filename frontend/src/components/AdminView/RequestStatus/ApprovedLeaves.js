@@ -53,7 +53,7 @@ export default function ApprovedLeaves() {
   // your exact leave types
   const leaveTypes = [
     "All",
-    "CI/CO Correction",
+    "Attendance CI/CO Correction",
     "Planned Leave",
     "Unplanned Leave",
     "Work From Home Request",
