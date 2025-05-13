@@ -228,7 +228,7 @@ const MailRequest = () => {
                   required
                 >
                   <option value="">-- Select Leave Type --</option>
-                  <option value="CI/CO Correction">CI/CO Correction</option>
+                  <option value="Attendance CI/CO Correction">Attendance CI/CO Correction</option>
                   <option value="Planned Leave">Planned Leave</option>
                   <option value="Unplanned Leave">Unplanned Leave</option>
                   <option value="Work From Home Request">Work From Home Request</option>
