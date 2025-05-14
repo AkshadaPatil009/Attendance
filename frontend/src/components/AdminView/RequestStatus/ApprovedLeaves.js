@@ -148,7 +148,7 @@ export default function ApprovedLeaves() {
       {/* ── Filters ── */}
       <Row className="align-items-center mb-3 gx-2">
         <Col xs="auto">
-          <Button
+      +    <Button
             variant={showMine ? "outline-secondary" : "primary"}
             onClick={() => setShowMine(prev => !prev)}
           >
