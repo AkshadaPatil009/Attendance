@@ -3,17 +3,21 @@ import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 import { Button, Form, Modal, Table, Card, Badge, Row, Col } from "react-bootstrap";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
-import "./Holiday.css";  // ← import the CSS file
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "./Holiday.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Multi‑select dropdown for Locations
 const LocationMultiSelect = ({ options = [], selectedLocations = [], setSelectedLocations }) => {
   const [open, setOpen] = useState(false);
+
   const toggleOption = (opt) =>
     selectedLocations.includes(opt)
       ? setSelectedLocations(selectedLocations.filter((l) => l !== opt))
       : setSelectedLocations([...selectedLocations, opt]);
+
   const toggleSelectAll = () =>
     selectedLocations.length === options.length
       ? setSelectedLocations([])
@@ -83,13 +87,19 @@ const Holiday = () => {
     fetch(`${API_URL}/api/holidays`)
       .then((r) => r.json())
       .then(setHolidays)
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to load holidays.");
+      });
 
   const fetchOffices = () =>
     fetch(`${API_URL}/api/offices`)
       .then((r) => r.json())
       .then((data) => setOffices(data.map((o) => o.name)))
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to load offices.");
+      });
 
   useEffect(() => {
     fetchHolidays();
@@ -114,25 +124,36 @@ const Holiday = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newOfficeName.trim() }),
     })
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then(() => {
         fetchOffices();
+        toast.success(`Office "${newOfficeName}" added.`);
         setNewOfficeName("");
         setShowOfficeConfirm(false);
         setShowOfficeModal(false);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to add office.");
+      });
   };
 
   // Add holiday
   const handleAddHoliday = () => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const sel = new Date(newHoliday.date); sel.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sel = new Date(newHoliday.date);
+    sel.setHours(0, 0, 0, 0);
     if (sel < today) {
       setDateError("Cannot add a holiday in the past.");
       setShowDateError(true);
       return;
     }
     if (!newHoliday.date || !newHoliday.name || newHoliday.locations.length === 0) return;
+
     Promise.all(
       newHoliday.locations.map((loc) =>
         fetch(`${API_URL}/api/holidays`, {
@@ -143,18 +164,25 @@ const Holiday = () => {
             holiday_name: newHoliday.name,
             location: loc,
           }),
-        }).then((r) => r.json())
+        }).then((r) => {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
       )
     )
       .then(() => {
         fetchHolidays();
+        toast.success(`Holiday "${newHoliday.name}" added.`);
         setNewHoliday({ date: "", name: "", locations: [] });
         setShowAddModal(false);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to add holiday.");
+      });
   };
 
-  // Edit holiday
+  // Open edit modal
   const openEdit = (h) => {
     const d = new Date(h.holiday_date);
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -166,9 +194,13 @@ const Holiday = () => {
     });
     setShowEditModal(true);
   };
+
+  // Update holiday
   const handleUpdate = () => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const upd = new Date(editing.holiday_date); upd.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upd = new Date(editing.holiday_date);
+    upd.setHours(0, 0, 0, 0);
     if (upd < today) {
       setDateError("Cannot set the holiday to a past date.");
       setShowDateError(true);
@@ -213,10 +245,14 @@ const Holiday = () => {
     Promise.all(calls)
       .then(() => {
         fetchHolidays();
+        toast.success(`Holiday "${rest.holiday_name}" updated.`);
         setShowEditModal(false);
         setEditing(null);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to update holiday.");
+      });
   };
 
   // Delete holiday
@@ -224,6 +260,7 @@ const Holiday = () => {
     setToDelete(h);
     setShowDeleteModal(true);
   };
+
   const confirmDelete = () => {
     Promise.all(
       toDelete.ids.map((id) =>
@@ -232,17 +269,22 @@ const Holiday = () => {
     )
       .then(() => {
         fetchHolidays();
+        toast.success(`Holiday "${toDelete.holiday_name}" deleted.`);
         setShowDeleteModal(false);
         setToDelete(null);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to delete holiday.");
+      });
   };
 
-  // Approve all
+  // Approve all holidays
   const handleApproveAll = () => {
     const pending = holidays.filter((h) => h.approval_status === "Pending");
     if (!pending.length) {
-      return alert("No pending holidays to approve.");
+      toast.info("No pending holidays to approve.");
+      return;
     }
     if (!window.confirm("Approve all pending holidays?")) return;
     const now = new Date().toISOString();
@@ -257,12 +299,15 @@ const Holiday = () => {
     )
       .then(() => {
         fetchHolidays();
-        alert("All pending holidays approved!");
+        toast.success("All pending holidays approved!");
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to approve holidays.");
+      });
   };
 
-  // Group holidays
+  // Group holidays by date+name
   const grouped = Object.values(
     holidays.reduce((acc, h) => {
       const key = `${h.holiday_date}-${h.holiday_name}`;
@@ -283,98 +328,106 @@ const Holiday = () => {
     }, {})
   ).map((x) => ({ ...x, locations: Array.from(x.locations) }));
 
-  // Compute today
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return (
-    <Card className="mt-4 shadow-sm">
-      <Card.Body className="p-0">
-        {grouped.length > 0 ? (
-          <Table hover responsive bordered className="mb-0">
-            <thead className="table-dark text-center">
-              <tr>
-                <th>Date</th>
-                <th>Holiday</th>
-                {offices.map((o) => <th key={o}>{o}</th>)}
-                <th>Actions</th>
-                <th>Approval</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grouped.map((h, idx) => {
-                const hd = new Date(h.holiday_date);
-                const only = new Date(hd.getFullYear(), hd.getMonth(), hd.getDate());
-                const isPast = only < today;
-                const formatted = hd.toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                });
+    <>
+      <ToastContainer position="top-right" autoClose={3000} />
 
-                return (
-                  <tr key={idx} className={isPast ? "past-row" : ""}>
-                    <td className="text-center align-middle">{formatted}</td>
-                    <td className="align-middle">{h.holiday_name}</td>
-                    {offices.map((o) => (
-                      <td key={o} className="text-center align-middle">
-                        {h.locations.includes(o) && "✓"}
+      <Card className="mt-4 shadow-sm">
+        <Card.Body className="p-0">
+          {grouped.length > 0 ? (
+            <Table hover responsive bordered className="mb-0">
+              <thead className="table-dark text-center">
+                <tr>
+                  <th>Date</th>
+                  <th>Holiday</th>
+                  {offices.map((o) => (
+                    <th key={o}>{o}</th>
+                  ))}
+                  <th>Actions</th>
+                  <th>Approval</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grouped.map((h, idx) => {
+                  const hd = new Date(h.holiday_date);
+                  const only = new Date(hd.getFullYear(), hd.getMonth(), hd.getDate());
+                  const isPast = only < today;
+                  const formatted = hd.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  });
+                  return (
+                    <tr key={idx} className={isPast ? "past-row" : ""}>
+                      <td className="text-center align-middle">{formatted}</td>
+                      <td className="align-middle">{h.holiday_name}</td>
+                      {offices.map((o) => (
+                        <td key={o} className="text-center align-middle">
+                          {h.locations.includes(o) && "✓"}
+                        </td>
+                      ))}
+                      <td className="text-center align-middle">
+                        <FaPencilAlt
+                          onClick={() => !isPast && openEdit(h)}
+                          className={isPast ? "text-muted me-2" : "text-primary me-2"}
+                          style={{ cursor: isPast ? "not-allowed" : "pointer" }}
+                        />
+                        <FaTrash
+                          onClick={() => !isPast && handleDelete(h)}
+                          className={isPast ? "text-muted" : "text-danger"}
+                          style={{ cursor: isPast ? "not-allowed" : "pointer" }}
+                        />
                       </td>
-                    ))}
-                    <td className="text-center align-middle">
-                      <FaPencilAlt
-                        onClick={() => !isPast && openEdit(h)}
-                        className={isPast ? "text-muted me-2" : "text-primary me-2"}
-                        style={{ cursor: isPast ? "not-allowed" : "pointer" }}
-                      />
-                      <FaTrash
-                        onClick={() => !isPast && handleDelete(h)}
-                        className={isPast ? "text-muted" : "text-danger"}
-                        style={{ cursor: isPast ? "not-allowed" : "pointer" }}
-                      />
-                    </td>
-                    <td className="text-center align-middle">
-                      {h.approval_status === "Pending"
-                        ? <Badge bg="warning">Pending</Badge>
-                        : <Badge bg="success">Approved</Badge>}
-                    </td>
-                    <td className="text-center align-middle">
-                      {isPast
-                        ? <Badge bg="secondary">Completed</Badge>
-                        : <Badge bg="info">Upcoming</Badge>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        ) : (
-          <p className="text-center py-4">No holidays found.</p>
-        )}
-      </Card.Body>
+                      <td className="text-center align-middle">
+                        {h.approval_status === "Pending" ? (
+                          <Badge bg="warning">Pending</Badge>
+                        ) : (
+                          <Badge bg="success">Approved</Badge>
+                        )}
+                      </td>
+                      <td className="text-center align-middle">
+                        {isPast ? (
+                          <Badge bg="secondary">Completed</Badge>
+                        ) : (
+                          <Badge bg="info">Upcoming</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          ) : (
+            <p className="text-center py-4">No holidays found.</p>
+          )}
+        </Card.Body>
+        <Card.Footer>
+          <Row className="justify-content-center gx-2">
+            <Col xs="auto">
+              <Button variant="primary" onClick={handleApproveAll}>
+                Approve All Holidays
+              </Button>
+            </Col>
+            <Col xs="auto">
+              <Button variant="primary" onClick={() => setShowOfficeModal(true)}>
+                Add Office
+              </Button>
+            </Col>
+            <Col xs="auto">
+              <Button variant="primary" onClick={() => setShowAddModal(true)}>
+                Add Holiday
+              </Button>
+            </Col>
+          </Row>
+        </Card.Footer>
+      </Card>
 
-      <Card.Footer>
-        <Row className="justify-content-center gx-2">
-          <Col xs="auto">
-            <Button variant="primary" onClick={handleApproveAll}>
-              Approve All Holidays
-            </Button>
-          </Col>
-          <Col xs="auto">
-            <Button variant="primary" onClick={() => setShowOfficeModal(true)}>
-              Add Office
-            </Button>
-          </Col>
-          <Col xs="auto">
-            <Button variant="primary" onClick={() => setShowAddModal(true)}>
-              Add Holiday
-            </Button>
-          </Col>
-        </Row>
-      </Card.Footer>
- {/* Add Office Modal */}
- <Modal show={showOfficeModal} onHide={() => setShowOfficeModal(false)}>
+      {/* Add Office Modal */}
+      <Modal show={showOfficeModal} onHide={() => setShowOfficeModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Add New Office</Modal.Title>
         </Modal.Header>
@@ -390,10 +443,7 @@ const Holiday = () => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowOfficeModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowOfficeModal(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={() => setShowOfficeConfirm(true)}>
@@ -401,19 +451,15 @@ const Holiday = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-      <Modal
-        show={showOfficeConfirm}
-        onHide={() => setShowOfficeConfirm(false)}
-      >
+
+      {/* Confirm Add Office Modal */}
+      <Modal show={showOfficeConfirm} onHide={() => setShowOfficeConfirm(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Confirm Add Office</Modal.Title>
         </Modal.Header>
         <Modal.Body>Are you sure you want to add "{newOfficeName}"?</Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowOfficeConfirm(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowOfficeConfirm(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleAddOffice}>
@@ -434,9 +480,7 @@ const Holiday = () => {
               <Form.Control
                 type="date"
                 value={newHoliday.date}
-                onChange={(e) =>
-                  setNewHoliday({ ...newHoliday, date: e.target.value })
-                }
+                onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
               />
             </Form.Group>
             <Form.Group className="mt-2">
@@ -445,9 +489,7 @@ const Holiday = () => {
                 type="text"
                 placeholder="Enter holiday name"
                 value={newHoliday.name}
-                onChange={(e) =>
-                  setNewHoliday({ ...newHoliday, name: e.target.value })
-                }
+                onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
               />
             </Form.Group>
             <Form.Group className="mt-2">
@@ -455,9 +497,7 @@ const Holiday = () => {
               <LocationMultiSelect
                 options={offices}
                 selectedLocations={newHoliday.locations}
-                setSelectedLocations={(locs) =>
-                  setNewHoliday({ ...newHoliday, locations: locs })
-                }
+                setSelectedLocations={(locs) => setNewHoliday({ ...newHoliday, locations: locs })}
               />
             </Form.Group>
           </Form>
@@ -543,7 +583,7 @@ const Holiday = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Date Error Modal */}
+      {/* Invalid Date Modal */}
       <Modal show={showDateError} onHide={() => setShowDateError(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Invalid Date</Modal.Title>
@@ -555,8 +595,7 @@ const Holiday = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </Card>
-
+    </>
   );
 };
 
