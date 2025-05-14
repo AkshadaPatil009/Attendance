@@ -648,8 +648,12 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
   } = req.body;
 
   // 1. Basic validation
-  if (!employeeId || !joinDate ||
-      allocatedUnplannedLeave == null || allocatedPlannedLeave == null) {
+  if (
+    !employeeId ||
+    !joinDate ||
+    allocatedUnplannedLeave == null ||
+    allocatedPlannedLeave == null
+  ) {
     return res.status(400).json({ error: "Missing required fields." });
   }
 
@@ -658,74 +662,94 @@ app.post("/api/employee-leaves-midyear", (req, res) => {
     return res.status(400).json({ error: "Invalid join date." });
   }
 
-  // 2. Annual allocations
   const annualUnplanned = Number(allocatedUnplannedLeave);
-  const annualPlanned   = Number(allocatedPlannedLeave);
+  const annualPlanned = Number(allocatedPlannedLeave);
 
-  // 3. Monthly allocations
-  const monthlyUnplanned = annualUnplanned / 12;
-  const monthlyPlanned   = annualPlanned / 12;
+  // 2. Validate non-negative numbers
+  if (annualUnplanned < 0 || annualPlanned < 0) {
+    return res.status(400).json({ error: "Allocated leaves must be non-negative numbers." });
+  }
 
-  // 4. Join date calculations
-  const joinMonthIndex  = join.getMonth();     // 0 = Jan, 5 = June, etc.
-  const joinDay         = join.getDate();      // 1 - 31
-  const fullMonthsAfter = 11 - joinMonthIndex; // e.g., June = 6 months left
-
-  // 5. Determine prorating factors
-  const plannedJoinFactor   = joinDay <= 15 ? 1.0 : 0.5; // full or half for planned
-  const unplannedJoinFactor = 1.0;                       // always full month for unplanned
-
-  // 6. Calculate months
-  const monthsForPlanned   = fullMonthsAfter + plannedJoinFactor;
-  const monthsForUnplanned = fullMonthsAfter + unplannedJoinFactor;
-
-  // 7. Final leave values
-  const proratedPlanned   = Math.floor(monthlyPlanned * monthsForPlanned);
-  const proratedUnplanned = Math.ceil(monthlyUnplanned * monthsForUnplanned);
-
-  // 8. Insert into DB
-  const sql = `
-    INSERT INTO employee_leaves (
-      employee_id,
-      allocatedUnplannedLeave,
-      allocatedPlannedLeave,
-      usedUnplannedLeave,
-      usedPlannedLeave,
-      remainingUnplannedLeave,
-      remainingPlannedLeave
-    ) VALUES (?, ?, ?, 0, 0, ?, ?)
-  `;
-
-  db.query(sql, [
-    employeeId,
-    annualUnplanned,
-    annualPlanned,
-    proratedUnplanned,
-    proratedPlanned
-  ], (err, result) => {
-    if (err) {
-      console.error("Database insert error:", err);
-      return res.status(500).json({ error: "Database insert failed." });
+  // 3. Check if record already exists
+  const checkSql = `SELECT * FROM employee_leaves WHERE employee_id = ?`;
+  db.query(checkSql, [employeeId], (checkErr, checkResults) => {
+    if (checkErr) {
+      console.error("Database check error");
+      return res.status(500).json({ error: "Internal server error." });
     }
 
-    // Success response
-    res.json({
-      message: `Leave record added for employee ${employeeId}.`,
-      insertedId: result.insertId,
-      details: {
+    if (checkResults.length > 0) {
+      return res.status(409).json({
+        error: `Leave record already exists for employee ${employeeId}.`
+      });
+    }
+
+    // 4. Monthly allocations
+    const monthlyUnplanned = annualUnplanned / 12;
+    const monthlyPlanned = annualPlanned / 12;
+
+    // 5. Join date calculations
+    const joinMonthIndex = join.getMonth(); // 0 = Jan
+    const joinDay = join.getDate(); // 1 - 31
+    const fullMonthsAfter = 11 - joinMonthIndex;
+
+    const plannedJoinFactor = joinDay <= 15 ? 1.0 : 0.5;
+    const unplannedJoinFactor = 1.0;
+
+    const monthsForPlanned = fullMonthsAfter + plannedJoinFactor;
+    const monthsForUnplanned = fullMonthsAfter + unplannedJoinFactor;
+
+    const proratedPlanned = Math.floor(monthlyPlanned * monthsForPlanned);
+    const proratedUnplanned = Math.ceil(monthlyUnplanned * monthsForUnplanned);
+
+    // 6. Insert into DB
+    const insertSql = `
+      INSERT INTO employee_leaves (
+        employee_id,
+        allocatedUnplannedLeave,
+        allocatedPlannedLeave,
+        usedUnplannedLeave,
+        usedPlannedLeave,
+        remainingUnplannedLeave,
+        remainingPlannedLeave
+      ) VALUES (?, ?, ?, 0, 0, ?, ?)
+    `;
+
+    db.query(
+      insertSql,
+      [
+        employeeId,
         annualUnplanned,
         annualPlanned,
-        monthlyUnplanned: monthlyUnplanned.toFixed(2),
-        monthlyPlanned: monthlyPlanned.toFixed(2),
-        fullMonthsAfter,
-        plannedJoinFactor,
-        unplannedJoinFactor,
-        monthsForPlanned,
-        monthsForUnplanned,
-        proratedPlanned,
-        proratedUnplanned
+        proratedUnplanned,
+        proratedPlanned
+      ],
+      (insertErr, result) => {
+        if (insertErr) {
+          console.error("Database insert error");
+          return res.status(500).json({ error: "Database insert failed." });
+        }
+
+        // Success response
+        res.json({
+          message: `Leave record added for employee ${employeeId}.`,
+          insertedId: result.insertId,
+          details: {
+            annualUnplanned,
+            annualPlanned,
+            monthlyUnplanned: monthlyUnplanned.toFixed(2),
+            monthlyPlanned: monthlyPlanned.toFixed(2),
+            fullMonthsAfter,
+            plannedJoinFactor,
+            unplannedJoinFactor,
+            monthsForPlanned,
+            monthsForUnplanned,
+            proratedPlanned,
+            proratedUnplanned
+          }
+        });
       }
-    });
+    );
   });
 });
 

@@ -17,9 +17,10 @@ const NewJoinerLeaves = () => {
   const [employees, setEmployees] = useState([]);
   const [addEmployeeId, setAddEmployeeId] = useState("");
   const [joinDate, setJoinDate] = useState("");
-  const [addAllocatedPlanned, setAddAllocatedPlanned] = useState(0);
-  const [addAllocatedUnplanned, setAddAllocatedUnplanned] = useState(0);
+  const [addAllocatedPlanned, setAddAllocatedPlanned] = useState("");
+  const [addAllocatedUnplanned, setAddAllocatedUnplanned] = useState("");
   const [message, setMessage] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   useEffect(() => {
     fetch(`${API_URL}/api/employees-list`)
@@ -28,7 +29,6 @@ const NewJoinerLeaves = () => {
       .catch(() => setMessage("Error fetching employee list."));
 
     socket.on("newEmployeeLeave", () => {
-      // refetch list to pick up new records
       fetch(`${API_URL}/api/employees-list`)
         .then((r) => r.json())
         .then(setEmployees);
@@ -43,11 +43,41 @@ const NewJoinerLeaves = () => {
     a.name.localeCompare(b.name)
   );
 
+  const validateInputs = () => {
+    const errors = {};
+    const today = new Date().toISOString().split("T")[0];
+
+    if (!addEmployeeId) {
+      errors.employeeId = "Please select an employee.";
+    }
+
+    if (!joinDate) {
+      errors.joinDate = "Please select a joining date.";
+    } else if (joinDate > today) {
+      errors.joinDate = "Joining date cannot be in the future.";
+    }
+
+    if (addAllocatedUnplanned === "") {
+      errors.unplannedLeave = "Unplanned leave is required.";
+    } else if (isNaN(addAllocatedUnplanned) || Number(addAllocatedUnplanned) < 0) {
+      errors.unplannedLeave = "Unplanned leave must be a non-negative number.";
+    }
+
+    if (addAllocatedPlanned === "") {
+      errors.plannedLeave = "Planned leave is required.";
+    } else if (isNaN(addAllocatedPlanned) || Number(addAllocatedPlanned) < 0) {
+      errors.plannedLeave = "Planned leave must be a non-negative number.";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const addEmployeeLeave = () => {
     setMessage(null);
-    if (!addEmployeeId || !joinDate) {
-      return window.alert("Please select employee and join date.");
-    }
+
+    if (!validateInputs()) return;
+
     fetch(`${API_URL}/api/employee-leaves-midyear`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -63,8 +93,10 @@ const NewJoinerLeaves = () => {
         if (ok) {
           setMessage(body.message || "Leave record added.");
           setJoinDate("");
-          setAddAllocatedPlanned(0);
-          setAddAllocatedUnplanned(0);
+          setAddAllocatedPlanned("");
+          setAddAllocatedUnplanned("");
+          setAddEmployeeId("");
+          setValidationErrors({});
           socket.emit("newEmployeeLeave", { employeeId: addEmployeeId });
         } else {
           setMessage(body.error || "Error adding leave record.");
@@ -89,6 +121,7 @@ const NewJoinerLeaves = () => {
               as="select"
               value={addEmployeeId}
               onChange={e => setAddEmployeeId(e.target.value)}
+              isInvalid={!!validationErrors.employeeId}
             >
               <option value="">-- select an employee --</option>
               {sortedEmployees.map(emp => (
@@ -97,6 +130,11 @@ const NewJoinerLeaves = () => {
                 </option>
               ))}
             </Form.Control>
+            {validationErrors.employeeId && (
+              <Form.Text className="text-danger">
+                {validationErrors.employeeId}
+              </Form.Text>
+            )}
           </Form.Group>
 
           <Form.Group className="mb-3">
@@ -105,7 +143,13 @@ const NewJoinerLeaves = () => {
               type="date"
               value={joinDate}
               onChange={e => setJoinDate(e.target.value)}
+              isInvalid={!!validationErrors.joinDate}
             />
+            {validationErrors.joinDate && (
+              <Form.Text className="text-danger">
+                {validationErrors.joinDate}
+              </Form.Text>
+            )}
           </Form.Group>
 
           <Row>
@@ -116,7 +160,14 @@ const NewJoinerLeaves = () => {
                   type="number"
                   value={addAllocatedUnplanned}
                   onChange={e => setAddAllocatedUnplanned(e.target.value)}
+                  min="0"
+                  isInvalid={!!validationErrors.unplannedLeave}
                 />
+                {validationErrors.unplannedLeave && (
+                  <Form.Text className="text-danger">
+                    {validationErrors.unplannedLeave}
+                  </Form.Text>
+                )}
               </Form.Group>
             </Col>
             <Col>
@@ -126,7 +177,14 @@ const NewJoinerLeaves = () => {
                   type="number"
                   value={addAllocatedPlanned}
                   onChange={e => setAddAllocatedPlanned(e.target.value)}
+                  min="0"
+                  isInvalid={!!validationErrors.plannedLeave}
                 />
+                {validationErrors.plannedLeave && (
+                  <Form.Text className="text-danger">
+                    {validationErrors.plannedLeave}
+                  </Form.Text>
+                )}
               </Form.Group>
             </Col>
           </Row>
