@@ -1,3 +1,4 @@
+// src/components/MailRequest.js
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -12,9 +13,8 @@ import {
   Spinner,
   Alert,
   Pagination,
-  Toast,
-  ToastContainer,
 } from "react-bootstrap";
+import { FaCheckCircle, FaTimes } from "react-icons/fa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -26,10 +26,7 @@ const MailRequest = () => {
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
     to: "",
-    ccList: [
-      "tushar.mahadik@protovec.com",
-      "kalpesh.urunkar@protovec.com",
-    ],
+    ccList: ["tushar.mahadik@protovec.com", "kalpesh.urunkar@protovec.com"],
     subject: "",
     body: "",
   });
@@ -43,7 +40,6 @@ const MailRequest = () => {
   // Toast state
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
-  const [toastVariantState, setToastVariantState] = useState("success");
 
   // — My Requests state & pagination —
   const [myReqs, setMyReqs] = useState([]);
@@ -52,12 +48,19 @@ const MailRequest = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 11;
 
+  // helper to show toast
+  const showCustomToast = (msg) => {
+    setToastMsg(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   // fetch subject templates
   useEffect(() => {
     fetch(`${API_URL}/api/subject-templates`)
       .then((res) => res.json())
       .then(setTemplates)
-      .catch((err) => console.error("Error fetching templates:", err));
+      .catch(() => showCustomToast("Failed to load templates"));
   }, []);
 
   // fetch this employee’s past requests
@@ -66,17 +69,14 @@ const MailRequest = () => {
     setErrorReqs("");
     fetch(`${API_URL}/api/my-requests?employee_id=${employeeId}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Network error");
+        if (!res.ok) throw new Error();
         return res.json();
       })
       .then((data) => {
         setMyReqs(data);
-        setCurrentPage(1); // reset to first page on reload
+        setCurrentPage(1);
       })
-      .catch((err) => {
-        console.error("Error fetching my-requests:", err);
-        setErrorReqs("Could not load your requests");
-      })
+      .catch(() => setErrorReqs("Could not load your requests"))
       .finally(() => setLoadingReqs(false));
   };
   useEffect(() => {
@@ -91,20 +91,19 @@ const MailRequest = () => {
   );
   const handlePageChange = (page) => setCurrentPage(page);
 
+  // form change handler
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setLeaveForm((prev) => {
       const updated = { ...prev };
       if (name === "body") {
-        const wordCount = value.trim().split(/\s+/).length;
-        if (wordCount > 500) return prev;
+        const count = value.trim().split(/\s+/).length;
+        if (count > 500) return prev;
         updated.body = value;
       } else {
         updated[name] = value;
         if (name === "subject") {
-          const match = templates.find(
-            (t) => t.subject.toLowerCase() === value.toLowerCase()
-          );
+          const match = templates.find((t) => t.subject === value);
           if (match) updated.body = match.body;
         }
       }
@@ -112,25 +111,23 @@ const MailRequest = () => {
     });
   };
 
+  // subject template select
   const handleTemplateSelect = (e) => {
     const subj = e.target.value;
     setSelectedTemplateSubject(subj);
     if (subj === "__custom") {
       setUsingCustomSubject(true);
-      setLeaveForm((prev) => ({ ...prev, subject: "" }));
+      setLeaveForm((p) => ({ ...p, subject: "" }));
     } else {
       setUsingCustomSubject(false);
-      setLeaveForm((prev) => {
+      setLeaveForm((p) => {
         const match = templates.find((t) => t.subject === subj);
-        return {
-          ...prev,
-          subject: subj,
-          body: match ? match.body : prev.body,
-        };
+        return { ...p, subject: subj, body: match?.body || p.body };
       });
     }
   };
 
+  // add CC email
   const handleAddCc = (e) => {
     e.preventDefault();
     const email = newCc.trim();
@@ -139,30 +136,32 @@ const MailRequest = () => {
       !leaveForm.ccList.includes(email) &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
-      setLeaveForm((prev) => ({
-        ...prev,
-        ccList: [...prev.ccList, email],
-      }));
+      setLeaveForm((p) => ({ ...p, ccList: [...p.ccList, email] }));
+      showCustomToast(`CC added: ${email}`);
     }
     setNewCc("");
   };
+
+  // remove CC
   const handleRemoveCc = (email) => {
-    setLeaveForm((prev) => ({
-      ...prev,
-      ccList: prev.ccList.filter((c) => c !== email),
-    }));
+    setLeaveForm((p) => ({ ...p, ccList: p.ccList.filter((c) => c !== email) }));
+    showCustomToast(`CC removed: ${email}`);
   };
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    if (form.checkValidity() === false) {
-      event.stopPropagation();
+
+  // form submit
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    if (!form.checkValidity()) {
+      e.stopPropagation();
       setValidated(true);
     } else {
       setValidated(false);
       setShowConfirmModal(true);
     }
   };
+
+  // confirm send
   const confirmSend = async () => {
     if (isSending) return;
     setIsSending(true);
@@ -182,28 +181,12 @@ const MailRequest = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to send email");
-
-      // show success toast
-      setToastVariantState("success");
-      setToastMsg("Email sent successfully!");
-      setShowToast(true);
-
-      setLeaveForm({
-        leaveType: "",
-        to: "",
-        ccList: [],
-        subject: "",
-        body: "",
-      });
-      loadMyRequests(); // refresh list
-    } catch (err) {
-      console.error("Send error:", err);
-
-      // show error toast
-      setToastVariantState("danger");
-      setToastMsg("Error sending leave email.");
-      setShowToast(true);
+      if (!res.ok) throw new Error();
+      showCustomToast("Email sent successfully!");
+      setLeaveForm({ leaveType: "", to: "", ccList: [], subject: "", body: "" });
+      loadMyRequests();
+    } catch {
+      showCustomToast("Error sending email");
     } finally {
       setIsSending(false);
       setShowConfirmModal(false);
@@ -213,12 +196,12 @@ const MailRequest = () => {
   return (
     <>
       <Row className="g-4">
-        {/* Left: Apply for Leave */}
+        {/* Apply for Leave */}
         <Col md={6}>
           <Card className="p-4 shadow-sm">
             <h5><b>Apply for Leave</b></h5>
             <Form noValidate validated={validated} onSubmit={handleSubmit}>
-              {/* ... your existing leave form fields ... */}
+              {/* Leave Type */}
               <Form.Group className="mb-3 mt-2">
                 <Form.Label>Leave Type</Form.Label>
                 <Form.Select
@@ -228,16 +211,18 @@ const MailRequest = () => {
                   required
                 >
                   <option value="">-- Select Leave Type --</option>
-                  <option value="Attendance CI/CO Correction">Attendance CI/CO Correction</option>
-                  <option value="Planned Leave">Planned Leave</option>
-                  <option value="Unplanned Leave">Unplanned Leave</option>
-                  <option value="Work From Home Request">Work From Home Request</option>
-                  <option value="Compup">Compup</option>
+                  <option>Attendance CI/CO Correction</option>
+                  <option>Planned Leave</option>
+                  <option>Unplanned Leave</option>
+                  <option>Work From Home Request</option>
+                  <option>Compup</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
                   Please select a leave type.
                 </Form.Control.Feedback>
               </Form.Group>
+
+              {/* To */}
               <Form.Group className="mb-3">
                 <Form.Label>To</Form.Label>
                 <Form.Control
@@ -245,45 +230,43 @@ const MailRequest = () => {
                   name="to"
                   value={leaveForm.to}
                   onChange={handleFormChange}
-                  placeholder="Enter recipient email"
                   required
                 />
                 <Form.Control.Feedback type="invalid">
-                  Please enter a valid recipient email.
+                  Please enter a valid email.
                 </Form.Control.Feedback>
               </Form.Group>
-              {/* CC, Subject, Body fields unchanged */}
+
+              {/* CC */}
               <Form.Group className="mb-3">
                 <Form.Label>CC</Form.Label>
                 <div className="mb-2">
-                  {leaveForm.ccList.map((email) => (
+                  {leaveForm.ccList.map((c) => (
                     <Badge
                       pill
                       bg="secondary"
-                      key={email}
                       className="me-1"
+                      key={c}
                       style={{ cursor: "pointer" }}
-                      onClick={() => handleRemoveCc(email)}
+                      onClick={() => handleRemoveCc(c)}
                     >
-                      {email} &times;
+                      {c} &times;
                     </Badge>
                   ))}
                 </div>
                 <InputGroup>
                   <Form.Control
                     type="email"
-                    placeholder="Add CC email"
+                    placeholder="Add CC"
                     value={newCc}
                     onChange={(e) => setNewCc(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddCc(e);
-                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddCc(e)}
                   />
-                  <Button variant="outline-secondary" onClick={handleAddCc}>
-                    Add
-                  </Button>
+                  <Button onClick={handleAddCc}>Add</Button>
                 </InputGroup>
               </Form.Group>
+
+              {/* Subject */}
               <Form.Group className="mb-3">
                 <Form.Label>Subject</Form.Label>
                 <Form.Select
@@ -292,65 +275,57 @@ const MailRequest = () => {
                   onChange={handleTemplateSelect}
                   required
                 >
-                  <option value="">-- Select Subject --</option>
-                  {templates.map((tpl, i) => (
-                    <option key={i} value={tpl.subject}>
-                      {tpl.subject}
-                    </option>
+                  <option value="">-- Select --</option>
+                  {templates.map((t, i) => (
+                    <option key={i} value={t.subject}>{t.subject}</option>
                   ))}
                   <option value="__custom">Other</option>
                 </Form.Select>
-
                 {usingCustomSubject && (
                   <Form.Control
                     type="text"
                     name="subject"
                     value={leaveForm.subject}
                     onChange={handleFormChange}
-                    placeholder="Type your custom subject"
                     className="mt-2"
                     required
                   />
                 )}
-
                 <Form.Control.Feedback type="invalid">
-                  Please enter or select a subject.
+                  Please enter a subject.
                 </Form.Control.Feedback>
               </Form.Group>
+
+              {/* Body */}
               <Form.Group className="mb-3">
                 <Form.Label>Body</Form.Label>
                 <Form.Control
                   as="textarea"
                   name="body"
+                  rows={5}
                   value={leaveForm.body}
                   onChange={handleFormChange}
-                  rows={5}
-                  placeholder="Email body will appear here"
                   required
                 />
                 <Form.Text className="text-muted">
-                  {leaveForm.body
-                    .trim()
-                    .split(/\s+/)
-                    .filter(Boolean).length}{" "}
-                  / 500 words
+                  {leaveForm.body.trim().split(/\s+/).filter(Boolean).length}/500 words
                 </Form.Text>
                 <Form.Control.Feedback type="invalid">
                   Please enter the email body.
                 </Form.Control.Feedback>
               </Form.Group>
-              <Button type="submit" variant="primary">
-                Send Mail
+
+              <Button type="submit" disabled={isSending}>
+                {isSending ? <Spinner animation="border" size="sm" /> : "Send Mail"}
               </Button>
             </Form>
           </Card>
         </Col>
 
-        {/* Right: My Leave Requests */}
+        {/* My Leave Requests */}
         <Col md={6}>
           <Card className="p-4 shadow-sm">
             <h5><b>My Leave Requests</b></h5>
-
             {loadingReqs ? (
               <Spinner animation="border" />
             ) : errorReqs ? (
@@ -362,129 +337,89 @@ const MailRequest = () => {
                 <Table striped hover responsive>
                   <thead>
                     <tr>
-                      <th>#</th>
-                      <th>Date</th>
-                      <th>Subject</th>
-                      <th>Status</th>
+                      <th>#</th><th>Date</th><th>Subject</th><th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedReqs.map((r, idx) => (
                       <tr key={r.request_id}>
-                        <td>
-                          {(currentPage - 1) * itemsPerPage + idx + 1}
-                        </td>
-                        <td>
-                          {new Date(r.created_at)
-                            .toISOString()
-                            .slice(0, 10)}
-                        </td>
+                        <td>{(currentPage-1)*itemsPerPage+idx+1}</td>
+                        <td>{new Date(r.created_at).toISOString().slice(0,10)}</td>
                         <td>{r.subject}</td>
                         <td>
-                          {r.status === "pending" && (
-                            <Badge bg="warning">Pending</Badge>
-                          )}
-                          {r.status === "approved" && (
-                            <Badge bg="success">Approved</Badge>
-                          )}
-                          {r.status === "rejected" && (
-                            <Badge bg="danger">Rejected</Badge>
-                          )}
+                          <Badge bg={
+                            r.status==="approved" ? "success" :
+                            r.status==="pending"  ? "warning" : "danger"
+                          }>
+                            {r.status.charAt(0).toUpperCase()+r.status.slice(1)}
+                          </Badge>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
-
                 <Pagination className="justify-content-center">
-                  <Pagination.First
-                    onClick={() => handlePageChange(1)}
-                    disabled={currentPage === 1}
-                  />
-                  <Pagination.Prev
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  />
-                  {[...Array(totalPages)].map((_, i) => (
-                    <Pagination.Item
-                      key={i + 1}
-                      active={i + 1 === currentPage}
-                      onClick={() => handlePageChange(i + 1)}
-                    >
-                      {i + 1}
+                  <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage===1}/>
+                  <Pagination.Prev onClick={() => handlePageChange(currentPage-1)} disabled={currentPage===1}/>
+                  {[...Array(totalPages)].map((_,i)=>(
+                    <Pagination.Item key={i+1} active={i+1===currentPage} onClick={()=>handlePageChange(i+1)}>
+                      {i+1}
                     </Pagination.Item>
                   ))}
-                  <Pagination.Next
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  />
-                  <Pagination.Last
-                    onClick={() => handlePageChange(totalPages)}
-                    disabled={currentPage === totalPages}
-                  />
+                  <Pagination.Next onClick={()=>handlePageChange(currentPage+1)} disabled={currentPage===totalPages}/>
+                  <Pagination.Last onClick={()=>handlePageChange(totalPages)} disabled={currentPage===totalPages}/>
                 </Pagination>
               </>
             )}
           </Card>
         </Col>
 
-        {/* Confirmation Modal (unchanged) */}
-        <Modal
-          show={showConfirmModal}
-          onHide={() => setShowConfirmModal(false)}
-          centered
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>Email Preview</Modal.Title>
-          </Modal.Header>
+        {/* Confirmation Modal */}
+        <Modal show={showConfirmModal} onHide={()=>setShowConfirmModal(false)} centered>
+          <Modal.Header closeButton><Modal.Title>Email Preview</Modal.Title></Modal.Header>
           <Modal.Body>
             <p><strong>To:</strong> {leaveForm.to}</p>
             <p><strong>CC:</strong> {leaveForm.ccList.join(", ")}</p>
             <p><strong>Subject:</strong> {leaveForm.subject}</p>
-            <p><strong>Body:</strong></p>
-            <div
-              className="border rounded p-2 bg-light"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
+            <div className="border p-2 bg-light" style={{whiteSpace:"pre-wrap"}}>
               {leaveForm.body}
             </div>
-            <hr />
-            <p className="text-danger fw-bold">
-              Are you sure you want to send this mail?
-            </p>
+            <hr/>
+            <p className="text-danger"><b>Send this email?</b></p>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={confirmSend}
-              disabled={isSending}
-            >
+            <Button variant="secondary" onClick={()=>setShowConfirmModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={confirmSend} disabled={isSending}>
               {isSending ? "Sending…" : "Yes, Send"}
             </Button>
           </Modal.Footer>
         </Modal>
       </Row>
 
-      {/* Toast Container */}
-      <ToastContainer position="middle-center" className="p-3">
-        <Toast
-          onClose={() => setShowToast(false)}
-          show={showToast}
-          bg={toastVariantState}
-          delay={3000}
-          autohide
-        >
-          <Toast.Header>
-            <strong className="me-auto">
-              {toastVariantState === "success" ? "Success" : "Error"}
-            </strong>
-          </Toast.Header>
-          <Toast.Body className="text-white">{toastMsg}</Toast.Body>
-        </Toast>
-      </ToastContainer>
+      {/* Custom Toast in Top-Right */}
+      {showToast && (
+        <div style={{
+          position: "fixed",
+          top: 20,
+          right: 20,
+          background: "#fff",
+          borderLeft: "4px solid #28a745",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          padding: "10px 16px",
+          borderRadius: 4,
+          display: "flex",
+          alignItems: "center",
+          zIndex: 1050
+        }}>
+          <FaCheckCircle style={{ color: "#28a745", fontSize: 20, marginRight: 8 }} />
+          <span style={{ flex: 1, fontSize: 14, color: "#333" }}>{toastMsg}</span>
+          <button onClick={() => setShowToast(false)} style={{
+            background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 16
+          }}>
+            <FaTimes />
+          </button>
+        </div>
+      )}
     </>
   );
 };
