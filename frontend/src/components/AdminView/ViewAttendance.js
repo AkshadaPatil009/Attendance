@@ -8,7 +8,6 @@ import { io } from "socket.io-client";
 // fallback to localhost for development
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-
 function getDisplayForRecord(record) {
   if (record.day === "Holiday") {
     return { text: "P", style: { backgroundColor: "#ff0000", color: "#fff" } };
@@ -36,8 +35,10 @@ function getDisplayForRecord(record) {
   }
   const validCodes = ["ro", "mo", "rso", "do", "wfh"];
   const locationText = record.location ? record.location.toLowerCase().trim() : "";
-  const isSiteVisit = record.location && !locationText.split(/\s+/).some((word) => validCodes.includes(word));
-  
+  const isSiteVisit =
+    record.location &&
+    !locationText.split(/\s+/).some((word) => validCodes.includes(word));
+
   // work less than 5 hours
   if (
     !isSiteVisit &&
@@ -47,10 +48,9 @@ function getDisplayForRecord(record) {
   ) {
     return { text: "I", style: { backgroundColor: "#ffffff", color: "#000" } };
   }
-  
+
   // Updated Site Visit Logic: if location exists and the day is not Sunday or Holiday.
   if (record.day !== "Sunday" && record.day !== "Holiday" && record.location) {
-    const validCodes = ["ro", "mo", "rso", "do", "wfh"];
     const words = record.location.toLowerCase().trim().split(/\s+/);
     const hasValidCode = words.some((word) => validCodes.includes(word));
     if (!hasValidCode) {
@@ -63,7 +63,7 @@ function getDisplayForRecord(record) {
     }
   }
 
-  //  show "AB".
+  // show "AB".
   if (
     record.day !== "Absent" &&
     record.work_hour !== undefined &&
@@ -74,6 +74,7 @@ function getDisplayForRecord(record) {
       style: { backgroundColor: "#ffffff", color: "#000", fontWeight: "bold" },
     };
   }
+
   switch (record.day) {
     case "Full Day":
       return { text: "P", style: { backgroundColor: "#90EE90" } };
@@ -95,6 +96,14 @@ function getDisplayForRecord(record) {
     default:
       return { text: "", style: {} };
   }
+}
+
+// Helper to format decimal hours into HH:MM so minutes never exceed 60
+function formatWorkHour(decimalHours) {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${hrs}.${mins < 10 ? "0" : ""}${mins}`;
 }
 
 // Helper function to apply late mark logic.
@@ -130,7 +139,6 @@ function areSameDate(date1, date2) {
 
 const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [socket, setSocket] = useState(null);
-
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
@@ -147,12 +155,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   // temporarily hides the download button
   const handleDownload = async () => {
     try {
-      // Hide the download button using its ID ("downloadReport")
       const downloadButton = document.getElementById("downloadReport");
-      if (downloadButton) {
-        downloadButton.style.visibility = "hidden";
-      }
-      // Wait for the DOM to update
+      if (downloadButton) downloadButton.style.visibility = "hidden";
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(attendanceRef.current, {
@@ -165,10 +169,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
       link.download = `attendance_${viewMode}.png`;
       link.click();
 
-      // Restore the download button's visibility
-      if (downloadButton) {
-        downloadButton.style.visibility = "visible";
-      }
+      if (downloadButton) downloadButton.style.visibility = "visible";
     } catch (error) {
       console.error("Error generating image", error);
     }
@@ -229,119 +230,128 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     setSocket(s);
     return () => s.disconnect();
   }, []);
-  
-  // Second effect: listen to events once socket is available
+
   useEffect(() => {
     if (!socket) return;
-  
-    const handleAttendanceChanged = (data) => {
-      console.log("Attendance changed event received:", data);
-      fetchAttendance();
-    };
-  
-    const handleHolidayChanged = (data) => {
-      console.log("Holiday changed event received:", data);
+    const handleAttendanceChanged = () => fetchAttendance();
+    const handleHolidayChanged = () => {
       axios
         .get(`${API_URL}/api/holidays`)
-        .then((response) => setHolidays(response.data))
-        .catch((error) => console.error("Error fetching holidays:", error));
-  
+        .then((res) => setHolidays(res.data))
+        .catch((err) => console.error(err));
       fetchAttendance();
     };
-  
     socket.on("attendanceChanged", handleAttendanceChanged);
     socket.on("holidayChanged", handleHolidayChanged);
-  
     return () => {
       socket.off("attendanceChanged", handleAttendanceChanged);
       socket.off("holidayChanged", handleHolidayChanged);
     };
   }, [socket, fetchAttendance]);
 
-  // Group attendance records per employee per day.
-  const groupAttendanceByDay = () => {
-    const pivotData = {};
-    attendanceData.forEach((rec) => {
-      applyLateMarkLogic(rec);
+// Group attendance records per employee per day.
+const groupAttendanceByDay = () => {
+  const pivotData = {};
+  attendanceData.forEach((rec) => {
+    applyLateMarkLogic(rec);
 
-      //  if location exists and the record is not for Sunday/Holiday.
-      if (rec.location && rec.day !== "Sunday" && rec.day !== "Holiday") {
-        const validCodes = ["ro", "mo", "rso", "do", "wfh"];
-        const words = rec.location.toLowerCase().trim().split(/\s+/);
-        const hasValidCode = words.some((word) => validCodes.includes(word));
-        if (!hasValidCode) {
-          if (!rec.in_time || !rec.out_time) {
-            rec.day = "SV.I";
-          } else {
-            rec.day = "SV.P";
-          }
+    // Site Visit logic
+    if (
+      rec.location &&
+      rec.day !== "Sunday" &&
+      rec.day !== "Holiday"
+    ) {
+      const validCodes = ["ro", "mo", "rso", "do", "wfh"];
+      const words = rec.location.toLowerCase().trim().split(/\s+/);
+      const hasValidCode = words.some((word) =>
+        validCodes.includes(word)
+      );
+      if (!hasValidCode) {
+        if (!rec.in_time || !rec.out_time) {
+          rec.day = "SV.I";
+        } else {
+          rec.day = "SV.P";
         }
       }
-      const emp = rec.emp_name;
-      if (!pivotData[emp]) {
-        pivotData[emp] = {
-          days: {},
-          presentDays: 0,
-          lateMarkCount: 0,
-          totalHours: 0,
-          daysWorked: 0,
-        };
-      }
-      const recDate = new Date(rec.date);
-      const dayNum = recDate.getDate();
-      if (!pivotData[emp].days[dayNum]) {
-        pivotData[emp].days[dayNum] = {
-          work_hour: Number(rec.work_hour) || 0,
-          in_time: rec.in_time || "",
-          out_time: rec.out_time || "",
-          day: rec.day,
-          location: rec.location || "",
-          date: rec.date,
-        };
-      } else {
-        pivotData[emp].days[dayNum].work_hour += Number(rec.work_hour) || 0;
-        if (rec.in_time) {
-          if (
-            !pivotData[emp].days[dayNum].in_time ||
-            moment(rec.in_time, "YYYY-MM-DD HH:mm:ss").isBefore(
-              moment(pivotData[emp].days[dayNum].in_time, "YYYY-MM-DD HH:mm:ss")
-            )
-          ) {
-            pivotData[emp].days[dayNum].in_time = rec.in_time;
-          }
-        }
-        if (rec.out_time) {
-          if (
-            !pivotData[emp].days[dayNum].out_time ||
-            moment(rec.out_time, "YYYY-MM-DD HH:mm:ss").isAfter(
-              moment(pivotData[emp].days[dayNum].out_time, "YYYY-MM-DD HH:mm:ss")
-            )
-          ) {
-            pivotData[emp].days[dayNum].out_time = rec.out_time;
-          }
-        }
-        if (rec.day === "Late Mark") {
-          pivotData[emp].days[dayNum].day = "Late Mark";
-        }
-        if (!pivotData[emp].days[dayNum].location && rec.location) {
-          pivotData[emp].days[dayNum].location = rec.location;
-        }
-      }
-    });
+    }
 
-    // Compute a new "displayStatus" for each aggregated day without modifying the original "day"
-    Object.keys(pivotData).forEach((emp) => {
-      Object.keys(pivotData[emp].days).forEach((dayKey) => {
-        let rec = pivotData[emp].days[dayKey];
-        const recordDate = new Date(rec.date);
-        // Compute displayStatus for records not marked as SV.I, SV.P, Absent, or Holiday.
+    const emp = rec.emp_name;
+    if (!pivotData[emp]) {
+      pivotData[emp] = {
+        days: {},
+        presentDays: 0,
+        lateMarkCount: 0,
+        totalHours: 0,
+        daysWorked: 0,
+      };
+    }
+
+    const recDate = new Date(rec.date);
+    const dayNum = recDate.getDate();
+    if (!pivotData[emp].days[dayNum]) {
+      pivotData[emp].days[dayNum] = {
+        work_hour: Number(rec.work_hour) || 0,
+        in_time: rec.in_time || "",
+        out_time: rec.out_time || "",
+        day: rec.day,
+        location: rec.location || "",
+        date: rec.date,
+      };
+    } else {
+      const cell = pivotData[emp].days[dayNum];
+      cell.work_hour += Number(rec.work_hour) || 0;
+
+      if (rec.in_time) {
         if (
-          rec.in_time &&
-          rec.day !== "SV.I" &&
-          rec.day !== "SV.P" &&
-          rec.day !== "Absent" &&
-          rec.day !== "Holiday"
+          !cell.in_time ||
+          moment(rec.in_time, "YYYY-MM-DD HH:mm:ss").isBefore(
+            moment(cell.in_time, "YYYY-MM-DD HH:mm:ss")
+          )
         ) {
+          cell.in_time = rec.in_time;
+        }
+      }
+      if (rec.out_time) {
+        if (
+          !cell.out_time ||
+          moment(rec.out_time, "YYYY-MM-DD HH:mm:ss").isAfter(
+            moment(cell.out_time, "YYYY-MM-DD HH:mm:ss")
+          )
+        ) {
+          cell.out_time = rec.out_time;
+        }
+      }
+      if (rec.day === "Late Mark") {
+        cell.day = "Late Mark";
+      }
+      if (!cell.location && rec.location) {
+        cell.location = rec.location;
+      }
+    }
+  });
+
+  // Compute displayStatus for each day
+  Object.keys(pivotData).forEach((emp) => {
+    Object.keys(pivotData[emp].days).forEach((dayKey) => {
+      const rec = pivotData[emp].days[dayKey];
+      const recordDate = new Date(rec.date);
+
+      if (
+        rec.in_time &&
+        !["SV.I", "SV.P", "Absent", "Holiday"].includes(rec.day)
+      ) {
+        // **Sunday override**: never apply late‑mark threshold on Sundays
+        if (recordDate.getDay() === 0) {
+          if (rec.work_hour < 5) {
+            rec.displayStatus = "AB";
+          } else if (rec.work_hour < 8.5) {
+            rec.displayStatus = "Half Day";
+          } else {
+            rec.displayStatus = "Full Day";
+          }
+          rec.day = rec.displayStatus;
+        } else {
+          // original logic for Mon–Sat
           if (rec.work_hour < 5) {
             rec.displayStatus = "AB";
           } else if (rec.work_hour < 8.5) {
@@ -357,129 +367,55 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               ? "Late Mark"
               : "Full Day";
           }
-          if (recordDate.getDay() === 0) {
-            rec.day = rec.displayStatus;
-          }
-        } else {
-          rec.displayStatus = rec.day;
+          rec.day = rec.displayStatus;
         }
-      });
+      } else {
+        rec.displayStatus = rec.day;
+      }
     });
+  });
 
-    // Calculate summary status per employee.
-    Object.keys(pivotData).forEach((emp) => {
-      const days = pivotData[emp].days;
-      Object.keys(days).forEach((dayKey) => {
-        const currentDay = days[dayKey];
-        if (currentDay.day === "SV.P") {
+  // Summarize per employee
+  Object.keys(pivotData).forEach((emp) => {
+    const days = pivotData[emp].days;
+    Object.keys(days).forEach((dayKey) => {
+      const cur = days[dayKey];
+      if (cur.day === "SV.P") {
+        pivotData[emp].presentDays += 1;
+        pivotData[emp].daysWorked += 1;
+        pivotData[emp].totalHours += cur.work_hour;
+      } else if (cur.day === "SV.I") {
+        pivotData[emp].totalHours += cur.work_hour;
+      } else if (cur.day !== "Absent" && cur.work_hour >= 5) {
+        if (cur.day === "Half Day") {
+          pivotData[emp].presentDays += 0.5;
+          pivotData[emp].daysWorked += 0.5;
+        } else {
           pivotData[emp].presentDays += 1;
           pivotData[emp].daysWorked += 1;
-          pivotData[emp].totalHours += currentDay.work_hour;
-        } else if (currentDay.day === "SV.I") {
-          // Do not count as present if site visit is incomplete
-          pivotData[emp].totalHours += currentDay.work_hour;
-        } else if (currentDay.day !== "Absent" && currentDay.work_hour >= 5) {
-          if (currentDay.day === "Half Day") {
-            pivotData[emp].presentDays += 0.5;
-            pivotData[emp].daysWorked += 0.5;
-          } else {
-            pivotData[emp].presentDays += 1;
-            pivotData[emp].daysWorked += 1;
-          }
-          pivotData[emp].totalHours += currentDay.work_hour;
         }
-        if (currentDay.day === "Late Mark") {
-          pivotData[emp].lateMarkCount++;
-        }
-      });
+        pivotData[emp].totalHours += cur.work_hour;
+      }
+      if (cur.day === "Late Mark") {
+        pivotData[emp].lateMarkCount++;
+      }
     });
-    return pivotData;
-  };
+  });
 
-  // Updated renderDatewiseTable: now shows "Site Visit Incomplete" or "Site Visit Present"
-  const renderDatewiseTable = () => {
-    const sortedData = [...attendanceData].sort((a, b) =>
-      a.emp_name.localeCompare(b.emp_name)
-    );
-    return (
-      <div style={{ overflowX: "auto" }}>
-        <Table
-          bordered
-          hover
-          size="sm"
-          style={{ fontSize: "0.75rem", minWidth: "800px" }}
-        >
-          <thead style={{ fontSize: "0.75rem" }}>
-            <tr>
-              <th>Employee</th>
-              <th>Date</th>
-              <th>In Time</th>
-              <th>Out Time</th>
-              <th>Work Hr</th>
-              <th>Day</th>
-              <th>Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedData.map((rec, idx) => {
-              const dayDisplay = getDisplayForRecord(rec);
+  return pivotData;
+};
 
-              // Determine full text for Day column,
-              // with site‑visit detail if applicable:
-              let fullText = "";
 
-              // 1) If getDisplayForRecord flagged it as “I”, show Incomplete Attendance:
-              if (dayDisplay.text === "I") {
-                fullText = "Incomplete Attendance";
-              }
-              // 2) else if it’s a site-visit without a location code, use your existing SV logic:
-              else if (
-                rec.location &&
-                !rec.location
-                  .toLowerCase()
-                  .trim()
-                  .split(/\s+/)
-                  .some((w) => ["ro","mo","rso","do","wfh"].includes(w))
-              ) {
-                fullText = !rec.in_time || !rec.out_time
-                  ? "Site Visit Incomplete"
-                  : "Site Visit Present";
-              }
-              // 3) otherwise fall back to your switch on rec.day:
-              else {
-                switch (rec.day) {
-                  case "Holiday":     fullText = "Holiday"; break;
-                  case "Full Day":    fullText = "Full Day"; break;
-                  case "Half Day":    fullText = "Half Day"; break;
-                  case "Late Mark":   fullText = "Full Day (Late Mark)"; break;
-                  case "Absent":      fullText = "Absent"; break;
-                  case "Sunday":      fullText = "Sunday"; break;
-                  default:            fullText = rec.day; break;
-                }
-              }
-              
-
-              return (
-                <tr key={idx}>
-                  <td>{rec.emp_name}</td>
-                  <td>{moment(rec.date).format("YYYY-MM-DD")}</td>
-                  <td>{rec.in_time}</td>
-                  <td>{rec.out_time}</td>
-                  <td>{rec.work_hour}</td>
-                  <td style={dayDisplay.style}>{fullText}</td>
-                  <td>{rec.location}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </div>
-    );
-  };
-
+  // Render Monthwise (unchanged)
   const renderMonthwiseTable = () => {
-    const daysInMonth = new Date(selectedYear, parseInt(selectedMonth, 10), 0).getDate();
+    const daysInMonth = new Date(
+      selectedYear,
+      parseInt(selectedMonth, 10),
+      0
+    ).getDate();
     const pivotData = groupAttendanceByDay();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     return (
       <div style={{ overflowX: "auto" }}>
         <Table
@@ -499,11 +435,16 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               <th style={{ width: "60px", textAlign: "center" }}>Present</th>
               <th style={{ width: "60px", textAlign: "center" }}>Late</th>
               <th style={{ width: "60px", textAlign: "center" }}>AvgHr</th>
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => (
-                <th key={dayNum} style={{ width: "30px", textAlign: "center" }}>
-                  {dayNum}
-                </th>
-              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                (dayNum) => (
+                  <th
+                    key={dayNum}
+                    style={{ width: "30px", textAlign: "center" }}
+                  >
+                    {dayNum}
+                  </th>
+                )
+              )}
             </tr>
           </thead>
           <tbody style={{ fontSize: "0.75rem" }}>
@@ -511,10 +452,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               .sort((a, b) => a.localeCompare(b))
               .map((emp) => {
                 const rowData = pivotData[emp];
-                // NEW: calculate average in hours.minutes format
                 let avgHours;
                 if (rowData.daysWorked > 0) {
-                  const avgDecimal = rowData.totalHours / rowData.daysWorked;
+                  const avgDecimal =
+                    rowData.totalHours / rowData.daysWorked;
                   const totalMins = Math.round(avgDecimal * 60);
                   const hrs = Math.floor(totalMins / 60);
                   const mins = totalMins % 60;
@@ -525,13 +466,28 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 return (
                   <tr key={emp}>
                     <td style={{ width: "180px" }}>{emp}</td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
+                    <td
+                      style={{
+                        width: "60px",
+                        textAlign: "center",
+                      }}
+                    >
                       {rowData.presentDays}
                     </td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
+                    <td
+                      style={{
+                        width: "60px",
+                        textAlign: "center",
+                      }}
+                    >
                       {rowData.lateMarkCount}
                     </td>
-                    <td style={{ width: "60px", textAlign: "center" }}>
+                    <td
+                      style={{
+                        width: "60px",
+                        textAlign: "center",
+                      }}
+                    >
                       {avgHours}
                     </td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
@@ -541,15 +497,24 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                         parseInt(selectedMonth, 10) - 1,
                         dayNumber
                       );
-                      const dayOfWeek = cellDate.getDay(); // 0 is Sunday
-                      const holidayFound = holidays.find((holiday) =>
-                        areSameDate(new Date(holiday.holiday_date), cellDate)
+                      const dayOfWeek = cellDate.getDay();
+                      const holidayFound = holidays.find((h) =>
+                        areSameDate(new Date(h.holiday_date), cellDate)
                       );
                       let forcedStyle = {};
                       let cellText = "";
+                      // --- NEW: mark any past, non-Sunday, non-holiday day with no record as Absent ---
                       const rec = rowData.days[dayNumber];
+                        const isPastAndMissing =
+                        !rec && cellDate < todayStart && dayOfWeek !== 0 && !holidayFound;
+                        if (isPastAndMissing) {
+                          forcedStyle = { backgroundColor: "#FFC0CB" };
+                        }
                       if (holidayFound) {
-                        forcedStyle = { backgroundColor: "#ff0000", color: "#fff" };
+                        forcedStyle = {
+                          backgroundColor: "#ff0000",
+                          color: "#fff",
+                        };
                       } else if (dayOfWeek === 0) {
                         forcedStyle = { backgroundColor: "#ff9900" };
                       }
@@ -585,6 +550,97 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
+  // Updated renderDatewiseTable to use formatWorkHour()
+  const renderDatewiseTable = () => {
+    const sortedData = [...attendanceData].sort((a, b) =>
+      a.emp_name.localeCompare(b.emp_name)
+    );
+    return (
+      <div style={{ overflowX: "auto", border: "1px solid #000" }}>
+        <Table
+          bordered
+          hover
+          size="sm"
+          style={{ fontSize: "0.75rem", minWidth: "800px", border: "1px solid #000" }}
+        >
+          <thead style={{ fontSize: "0.75rem" }}>
+            <tr>
+              <th>Employee</th>
+              <th>Date</th>
+              <th>In Time</th>
+              <th>Out Time</th>
+              <th>Work Hr</th>
+              <th>Day</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedData.map((rec, idx) => {
+              const dayDisplay = getDisplayForRecord(rec);
+
+              let fullText = "";
+              if (dayDisplay.text === "I") {
+                fullText = "Incomplete Attendance";
+              } else if (
+                rec.location &&
+                !rec.location
+                  .toLowerCase()
+                  .trim()
+                  .split(/\s+/)
+                  .some((w) =>
+                    ["ro", "mo", "rso", "do", "wfh"].includes(w)
+                  )
+              ) {
+                fullText = !rec.in_time || !rec.out_time
+                  ? "Site Visit Incomplete"
+                  : "Site Visit Present";
+              } else {
+                switch (rec.day) {
+                  case "Holiday":
+                    fullText = "Holiday";
+                    break;
+                  case "Full Day":
+                    fullText = "Full Day";
+                    break;
+                  case "Half Day":
+                    fullText = "Half Day";
+                    break;
+                  case "Late Mark":
+                    fullText = "Full Day (Late Mark)";
+                    break;
+                  case "Absent":
+                    fullText = "Absent";
+                    break;
+                  case "Sunday":
+                    fullText = "Sunday";
+                    break;
+                  default:
+                    fullText = rec.day;
+                }
+              }
+
+              return (
+                <tr key={idx}>
+                  <td>{rec.emp_name}</td>
+                  <td>{moment(rec.date).format("YYYY-MM-DD")}</td>
+                  <td>{rec.in_time}</td>
+                  <td>{rec.out_time}</td>
+                  <td>
+                    {rec.work_hour != null
+                      ? formatWorkHour(Number(rec.work_hour))
+                      : ""}
+                  </td>
+                  <td style={dayDisplay.style}>{fullText}</td>
+                  <td>{rec.location}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
     <div ref={attendanceRef}>
       <Container
@@ -603,7 +659,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         >
           {/* Filter Controls */}
           <Col md={3}>
-            <Form.Label className="fw-bold me-1" style={{ fontSize: "0.8rem" }}>
+            <Form.Label
+              className="fw-bold me-1"
+              style={{ fontSize: "0.8rem" }}
+            >
               View By :
             </Form.Label>
             <div style={{ fontSize: "1.2rem" }}>
@@ -632,7 +691,9 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
           <Col md={4} className="g-0">
             <Row className="g-1">
               <Col md={12}>
-                <Form.Label style={{ fontSize: "1rem" }}>Employee Name</Form.Label>
+                <Form.Label style={{ fontSize: "1rem" }}>
+                  Employee Name
+                </Form.Label>
                 <Form.Select
                   className="mb-1"
                   style={{ fontSize: "0.9rem" }}
@@ -711,7 +772,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                 padding: "45px 20px",
               }}
             >
-              {/* Updated legend items */}
               <div
                 style={{
                   display: "grid",
@@ -720,7 +780,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   fontSize: "1rem",
                 }}
               >
-                {/* Half Day (5 Hrs) */}
+                {/* Legend items */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -733,7 +793,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span style={{ fontSize: "0.8rem" }}>Half Day (5 Hrs)</span>
                 </div>
 
-                {/* Full Day (8.5 Hrs) */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -746,7 +805,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span style={{ fontSize: "0.8rem" }}>Full Day (8.5 Hrs)</span>
                 </div>
 
-                {/* Absent */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -759,7 +817,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span style={{ fontSize: "0.8rem" }}>Absent</span>
                 </div>
 
-                {/* Sunday */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -772,8 +829,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span style={{ fontSize: "0.8rem" }}>Sunday</span>
                 </div>
 
-               
-                {/* Late Mark with _ in white box */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -787,12 +842,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: "15px", color: "black" }}>_</span>
+                    <span style={{ fontSize: "15px", color: "black" }}>
+                      _
+                    </span>
                   </div>
                   <span style={{ fontSize: "0.8rem" }}>Late Mark</span>
                 </div>
 
-                {/* Working < 5 Hrs with AB in box */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -806,12 +862,13 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                       justifyContent: "center",
                     }}
                   >
-                    <span style={{ fontSize: "10px", color: "black" }}>AB</span>
+                    <span style={{ fontSize: "10px", color: "black" }}>
+                      AB
+                    </span>
                   </div>
                   <span style={{ fontSize: "0.8rem" }}>Working &lt; 5 Hrs</span>
                 </div>
-                 
-                  {/* Incomplete Attendances*/}
+
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -827,10 +884,11 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   >
                     <span style={{ fontSize: "15px", color: "black" }}>I</span>
                   </div>
-                  <span style={{ fontSize: "0.8rem" }}>Incomplete Attendance</span>
+                  <span style={{ fontSize: "0.8rem" }}>
+                    Incomplete Attendance
+                  </span>
                 </div>
 
-                {/* Site Visit */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
@@ -843,7 +901,6 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
                   <span style={{ fontSize: "0.8rem" }}>Site Visit</span>
                 </div>
 
-                {/* Holiday */}
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <div
                     style={{
