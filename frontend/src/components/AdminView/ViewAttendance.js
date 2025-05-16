@@ -414,6 +414,8 @@ const groupAttendanceByDay = () => {
       0
     ).getDate();
     const pivotData = groupAttendanceByDay();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     return (
       <div style={{ overflowX: "auto" }}>
         <Table
@@ -504,10 +506,7 @@ const groupAttendanceByDay = () => {
                       // --- NEW: mark any past, non-Sunday, non-holiday day with no record as Absent ---
                       const rec = rowData.days[dayNumber];
                         const isPastAndMissing =
-                          !rec &&
-                          cellDate < new Date() &&
-                          dayOfWeek !== 0 &&
-                          !holidayFound;
+                        !rec && cellDate < todayStart && dayOfWeek !== 0 && !holidayFound;
                         if (isPastAndMissing) {
                           forcedStyle = { backgroundColor: "#FFC0CB" };
                         }
