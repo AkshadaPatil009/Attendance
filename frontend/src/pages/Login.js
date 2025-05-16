@@ -9,35 +9,39 @@ const Login = ({ setUser }) => {
   const [error, setError]       = useState("");
   const navigate                = useNavigate();
 
+  // Your backend URL
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
+    // Base64-encode the plain-text password
+    const encodedPassword = btoa(password);
+
     try {
       const res = await axios.post(
         `${API_URL}/login`,
-        { email, password },
-        { validateStatus: () => true }      // allow handling 4xx/5xx manually
+        { email, password: encodedPassword },
+        { validateStatus: () => true } // allow manual status handling
       );
 
-      // if server says disabled
+      // 403 = disabled account
       if (res.status === 403 && res.data.error) {
         setError(res.data.error);
         return;
       }
 
-      // any other error
+      // Any other non-200 error
       if (res.status !== 200) {
         setError(res.data.error || "Login failed. Please try again.");
         return;
       }
 
-      // success: capture returned payload
+      // Successful login: extract payload
       const userData = {
-        role:       res.data.role,       // numeric code
-        roleName:   res.data.roleName,   // if your server returns it
+        role:       res.data.role,
+        roleName:   res.data.roleName,
         name:       res.data.name,
         token:      res.data.token,
         employeeId: res.data.employeeId,
@@ -45,6 +49,7 @@ const Login = ({ setUser }) => {
         location:   res.data.location,
       };
 
+      // Persist user session
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
       navigate("/dashboard");
