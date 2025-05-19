@@ -149,7 +149,7 @@ export default function Dashboard() {
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
                   >
-                    Attendance Report
+                    Attendance
                   </Button>
                   <Button
                     variant={activeSection === "holidays" ? "secondary" : "light"}
@@ -164,22 +164,6 @@ export default function Dashboard() {
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
                     Add Leaves
-                  </Button>
-                  {/* Show Attendance (Employee view) */}
-                  <Button
-                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
-                    onClick={() => setActiveSection("employeeAttendance")}
-                  >
-                    Attendance
-                  </Button>
-                  {/* NEW: Leave Balance (Employee Leaves view) */}
-                  <Button
-                    variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
-                    onClick={() => setActiveSection("leavesEmployee")}
-                  >
-                    Leave Balance
                   </Button>
                 </>
               )}
@@ -232,12 +216,12 @@ export default function Dashboard() {
               {/* Admin-only: Mail Request in Admin panel */}
               {isAdmin && (
                 <Button
-                  variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                  className="me-2 mb-2 uniform-button"
-                  onClick={() => setActiveSection("mailRequest")}
-                >
-                  Mail Request
-                </Button>
+                    variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                    className="me-2 mb-2 uniform-button"
+                    onClick={() => setActiveSection("mailRequest")}
+                  >
+                    Mail Request
+                  </Button>
               )}
 
               <Button
@@ -259,12 +243,11 @@ export default function Dashboard() {
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
         {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
 
-        {/* Employee Attendance and Leaves now accessible to Admin */}
-        {activeSection === "employeeAttendance" && <EmployeeAttendance />}
-        {activeSection === "leavesEmployee"     && <LeavesEmployee />}
-        {activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
-        {activeSection === "mailRequest"        && !isAdmin && <MailRequest />}
-        {activeSection === "requestStatus"      && isTL    && <RequestStatusEmp />}
+        {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
+        {activeSection === "leavesEmployee"    && <LeavesEmployee />}
+        {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
+        {activeSection === "mailRequest"       && !isAdmin && <MailRequest />}
+        {activeSection === "requestStatus"     && isTL    && <RequestStatusEmp />}
       </div>
 
       <Footer />
