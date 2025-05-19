@@ -296,40 +296,72 @@ app.post("/api/attendance", (req, res) => {
               ? allowedEmployeeNames.filter((name) => !recordedNames.has(name))
               : [];
 
-            const valuesValid = validRecords.map((record) => {
+            // Build VALUES clause for present employees with dynamic CASE logic
+            const presentValueClauses = validRecords.map((record) => {
               const { work_hour, dayStatus } = calculateWorkHoursAndDay(
                 record.inTime,
                 record.outTime
               );
-              return [
-                record.empName,
-                record.inTime,
-                record.outTime,
-                record.location,
-                record.date,
-                work_hour,
-                dayStatus,
-                0,
-              ];
+              // sanitize all values via db.escape
+              const empEsc = db.escape(record.empName);
+              const inEsc = db.escape(record.inTime);
+              const outEsc = db.escape(record.outTime);
+              const locEsc = db.escape(record.location);
+              const dateEsc = db.escape(record.date);
+              const workEsc = db.escape(work_hour);
+              const dayEsc = db.escape(dayStatus);
+              const absentEsc = db.escape(0);
+
+              return `(
+  CASE
+    WHEN EXISTS (
+      SELECT 1 FROM employee_master em
+      WHERE em.Name = ${empEsc}
+    )
+    THEN (
+      SELECT em2.NickName
+      FROM employee_master em2
+      WHERE em2.Name = ${empEsc}
+      LIMIT 1
+    )
+    ELSE ${empEsc}
+  END,
+  ${inEsc},
+  ${outEsc},
+  ${locEsc},
+  ${dateEsc},
+  ${workEsc},
+  ${dayEsc},
+  ${absentEsc}
+)`;
             });
 
-            const valuesAbsent = absentEmployees.map((empName) => [
-              empName,
-              "",
-              "",
-              "",
-              commonDate,
-              0,
-              "Absent",
-              1,
-            ]);
-            const allValues = valuesValid.concat(valuesAbsent);
+            // Build VALUES clause for absent employees (literal names)
+            const absentValueClauses = absentEmployees.map((empName) => {
+              const empEsc = db.escape(empName);
+              const dateEsc = db.escape(commonDate);
+              return `(
+  ${empEsc},
+  '',
+  '',
+  '',
+  ${dateEsc},
+  0,
+  'Absent',
+  1
+)`;
+            });
+
+            const allValueClauses = presentValueClauses.concat(absentValueClauses).join(",\n");
 
             const insertQuery = `
-          INSERT INTO attendance (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
-          VALUES ?
-        `;
-            db.query(insertQuery, [allValues], (err, result) => {
+              INSERT INTO attendance
+                (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
+              VALUES
+              ${allValueClauses};
+            `;
+
+            db.query(insertQuery, (err, result) => {
               if (err) {
                 console.error(err);
                 return res
@@ -346,6 +378,7 @@ app.post("/api/attendance", (req, res) => {
     }
   );
 });
+
 
 // PUT Attendance API – Updated to only change is_absent status based on updated clock fields.
 app.put("/api/attendance/:id", (req, res) => {
