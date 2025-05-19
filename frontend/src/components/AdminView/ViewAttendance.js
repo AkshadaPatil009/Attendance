@@ -945,21 +945,15 @@ const groupAttendanceByDay = () => {
           </Col>
         </Row>
 
-        <Row className="mt-1 g-0">
+        <Row className="g-0">
           <Col style={{ fontSize: "0.75rem" }}>
             {viewMode === "datewise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                  Datewise Attendance
-                </h5>
                 {renderDatewiseTable()}
               </>
             )}
             {viewMode === "monthwise" && (
               <>
-                <h5 className="mb-1" style={{ fontSize: "0.8rem" }}>
-                  Monthwise Attendance
-                </h5>
                 {renderMonthwiseTable()}
               </>
             )}
