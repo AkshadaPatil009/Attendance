@@ -1245,12 +1245,12 @@ app.post("/api/requests/:id/decision", (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // copy into permanent table with status
+      // copy into permanent table with status — now including request_id
       await conn.query(
         `INSERT INTO leave_mails
-           (employee_id, from_name, to_email, subject, leave_type, status, created_at)
+           (request_id, employee_id, from_name, to_email, subject, leave_type, status, created_at)
          SELECT
-           employee_id, from_name, to_email, subject, leave_type, ?, NOW()
+           request_id, employee_id, from_name, to_email, subject, leave_type, ?, NOW()
          FROM leave_mail_requests
          WHERE request_id = ?`,
         [decision, requestId]
@@ -1272,6 +1272,7 @@ app.post("/api/requests/:id/decision", (req, res) => {
     }
   })();
 });
+
 
 // POST → notify employee that their leave was approved/rejected
 app.post("/api/send-decision-email", async (req, res) => {
@@ -1341,29 +1342,29 @@ app.get("/api/my-requests", (req, res) => {
 
   // We'll UNION pending table with the permanent table
   const sql = `
-    SELECT 
-      request_id,
-      employee_id,
-      from_name,
-      subject,
-      leave_type,
-      created_at,
-      'pending' AS status
-    FROM leave_mail_requests
-    WHERE employee_id = ?
-    UNION ALL
-    SELECT
-      id         AS request_id,
-      employee_id,
-      from_name,
-      subject,
-      leave_type,
-      created_at,
-      status
-    FROM leave_mails
-    WHERE employee_id = ?
-    ORDER BY created_at DESC
-  `;
+  SELECT 
+    request_id,
+    employee_id,
+    from_name,
+    subject,
+    leave_type,
+    created_at,
+    'pending' AS status
+  FROM leave_mail_requests
+  WHERE employee_id = ?
+  UNION ALL
+  SELECT
+    request_id      AS request_id,
+    employee_id,
+    from_name,
+    subject,
+    leave_type,
+    created_at,
+    status
+  FROM leave_mails
+  WHERE employee_id = ?
+  ORDER BY created_at DESC
+`;
   db.query(sql, [employee_id, employee_id], (err, rows) => {
     if (err) {
       console.error("DB fetch my‑requests error:", err);
