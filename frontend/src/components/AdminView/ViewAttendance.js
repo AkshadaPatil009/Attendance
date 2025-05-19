@@ -149,6 +149,10 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
 
+  // ▼ NEW: location filter state
+ const [locationFilter, setLocationFilter] = useState("All");
+ const [locationOptions, setLocationOptions] = useState([]);
+
   // for PNG download
   const attendanceRef = useRef(null);
 
@@ -203,23 +207,26 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   }, []);
 
   // Fetch attendance based on filters.
-  const fetchAttendance = useCallback(() => {
+   const fetchAttendance = useCallback(() => {
     const params = { viewMode };
-    if (selectedEmployee) params.empName = selectedEmployee;
-    if (viewMode === "datewise" && selectedDate) params.date = selectedDate;
-    if (viewMode === "monthwise") {
-      params.month = selectedMonth;
-      params.year = selectedYear;
-    }
-    axios
-      .get(`${API_URL}/api/attendanceview`, { params })
-      .then((response) => {
-        setAttendanceData(response.data);
-      })
-      .catch((error) => {
-        console.error("Error fetching attendance:", error);
-      });
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+     if (selectedEmployee) params.empName = selectedEmployee;
+     if (viewMode === "datewise" && selectedDate) params.date = selectedDate;
+     if (viewMode === "monthwise") {
+       params.month = selectedMonth;
+       params.year = selectedYear;
+     }
+     axios
+       .get(`${API_URL}/api/attendanceview`, { params })
+       .then((response) => {
+         setAttendanceData(response.data);
+         // build location dropdown options
+         const locs = Array.from(new Set(response.data.map(r => r.location).filter(l => l)));
+         setLocationOptions(["All", ...locs.sort()]);
+       })
+       .catch((error) => {
+         console.error("Error fetching attendance:", error);
+       });
+  }, [ viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear ]);
 
   useEffect(() => {
     fetchAttendance();
@@ -552,9 +559,9 @@ const groupAttendanceByDay = () => {
 
   // Updated renderDatewiseTable to use formatWorkHour()
   const renderDatewiseTable = () => {
-    const sortedData = [...attendanceData].sort((a, b) =>
-      a.emp_name.localeCompare(b.emp_name)
-    );
+    const sortedData = attendanceData
+   .filter(rec => locationFilter === "All" || rec.location === locationFilter)
+   .sort((a, b) => a.emp_name.localeCompare(b.emp_name));
     return (
       <div style={{ overflowX: "auto", border: "1px solid #000" }}>
         <Table
@@ -564,16 +571,29 @@ const groupAttendanceByDay = () => {
           style={{ fontSize: "0.75rem", minWidth: "800px", border: "1px solid #000" }}
         >
           <thead style={{ fontSize: "0.75rem" }}>
-            <tr>
-              <th>Employee</th>
-              <th>Date</th>
-              <th>In Time</th>
-              <th>Out Time</th>
-              <th>Work Hr</th>
-              <th>Day</th>
-              <th>Location</th>
-            </tr>
-          </thead>
+  <tr>
+    <th>Employee</th>
+    <th>Date</th>
+    <th>In Time</th>
+    <th>Out Time</th>
+    <th>Work Hr</th>
+    <th>Day</th>
+    <th>
+      <Form.Select
+        size="sm"
+        value={locationFilter}
+        onChange={e => setLocationFilter(e.target.value)}
+        style={{ fontSize: "0.75rem" }}
+      >
+        {locationOptions.map((loc, i) => (
+          <option key={i} value={loc}>
+            {loc}
+          </option>
+        ))}
+      </Form.Select>
+    </th>
+  </tr>
+</thead>
           <tbody>
             {sortedData.map((rec, idx) => {
               const dayDisplay = getDisplayForRecord(rec);
