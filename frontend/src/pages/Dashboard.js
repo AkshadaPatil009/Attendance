@@ -149,7 +149,7 @@ export default function Dashboard() {
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
                   >
-                    Attendance
+                    Attendance Report
                   </Button>
                   <Button
                     variant={activeSection === "holidays" ? "secondary" : "light"}
@@ -164,6 +164,14 @@ export default function Dashboard() {
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
                     Add Leaves
+                  </Button>
+                  {/* NEW: Show Attendance (Employee view) */}
+                  <Button
+                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    className="me-2 mb-2 uniform-button"
+                    onClick={() => setActiveSection("employeeAttendance")}
+                  >
+                    Attendance
                   </Button>
                 </>
               )}
@@ -221,7 +229,7 @@ export default function Dashboard() {
                     onClick={() => setActiveSection("mailRequest")}
                   >
                     Mail Request
-                  </Button>
+                </Button>
               )}
 
               <Button
@@ -243,6 +251,7 @@ export default function Dashboard() {
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
         {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
 
+        {/* Employee Attendance is now accessible in Admin panel via Show Attendance */}
         {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
