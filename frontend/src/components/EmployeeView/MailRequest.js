@@ -46,7 +46,7 @@ const MailRequest = () => {
   const [loadingReqs, setLoadingReqs] = useState(false);
   const [errorReqs, setErrorReqs] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 11;
+  const itemsPerPage = 10;
 
   // helper to show toast
   const showCustomToast = (msg) => {
@@ -341,28 +341,37 @@ const MailRequest = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedReqs.map((r, idx) => (
-                      <tr key={r.request_id}>
-                        <td>{(currentPage-1)*itemsPerPage+idx+1}</td>
-                        <td>{new Date(r.created_at).toISOString().slice(0,10)}</td>
-                        <td>{r.subject}</td>
-                        <td>
-                          <Badge bg={
-                            r.status==="approved" ? "success" :
-                            r.status==="pending"  ? "warning" : "danger"
-                          }>
-                            {r.status.charAt(0).toUpperCase()+r.status.slice(1)}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {paginatedReqs.map((r) => {
+                      // compute the global index of this request
+                      const globalIndex =
+                        myReqs.findIndex((item) => item.request_id === r.request_id) + 1;
+                      return (
+                        <tr key={r.request_id}>
+                          <td>{globalIndex}</td>
+                          <td>{new Date(r.created_at).toISOString().slice(0,10)}</td>
+                          <td>{r.subject}</td>
+                          <td>
+                            <Badge bg={
+                              r.status==="approved" ? "success" :
+                              r.status==="pending"  ? "warning" : "danger"
+                            }>
+                              {r.status.charAt(0).toUpperCase()+r.status.slice(1)}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </Table>
                 <Pagination className="justify-content-center">
                   <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage===1}/>
                   <Pagination.Prev onClick={() => handlePageChange(currentPage-1)} disabled={currentPage===1}/>
                   {[...Array(totalPages)].map((_,i)=>(
-                    <Pagination.Item key={i+1} active={i+1===currentPage} onClick={()=>handlePageChange(i+1)}>
+                    <Pagination.Item
+                      key={i+1}
+                      active={i+1===currentPage}
+                      onClick={()=>handlePageChange(i+1)}
+                    >
                       {i+1}
                     </Pagination.Item>
                   ))}
