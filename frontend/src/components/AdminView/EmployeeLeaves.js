@@ -286,13 +286,13 @@ const EmployeeLeaves = () => {
     return sorted;
   }, [filteredLeaves, sortConfig]);
 
-  // always show a single arrow; direction flips on click
+  // only show arrow on the active sort column
   const getArrow = (key) =>
     sortConfig.key === key
       ? sortConfig.direction === "ascending"
         ? " ↑"
         : " ↓"
-      : " ↑";
+      : "";
 
   return (
     <div style={{ padding: 16, maxWidth: 900, margin: "auto" }}>

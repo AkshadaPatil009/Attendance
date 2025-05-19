@@ -128,8 +128,8 @@ const EmployeeLeaveApplication = () => {
                 >
                   <thead>
                     <tr>
-                      <th>Leave Date</th>
-                      <th>Leave Type</th>
+                      <th>Date</th>
+                      <th>Type</th>
                     </tr>
                   </thead>
                   <tbody>
