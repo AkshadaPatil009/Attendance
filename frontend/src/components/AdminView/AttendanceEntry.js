@@ -37,8 +37,9 @@ const AttendanceEntry = ({
   const [errorMessage, setErrorMessage] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // search state
+  // search & replace state
   const [searchTerm, setSearchTerm] = useState("");
+  const [replaceTerm, setReplaceTerm] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [matches, setMatches] = useState([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -101,6 +102,19 @@ const AttendanceEntry = ({
   const nextMatch   = () => selectMatch((currentMatchIndex+1)%matches.length) && setCurrentMatchIndex(n=> (n+1)%matches.length);
   const prevMatch   = () => selectMatch((currentMatchIndex-1+matches.length)%matches.length) && setCurrentMatchIndex(n=> (n-1+matches.length)%matches.length);
 
+  // replace matches
+  const doReplace = () => {
+    if (!searchTerm) return;
+    const regex = new RegExp(searchTerm, "gi");
+    const newText = lhm.replace(regex, replaceTerm);
+    setLhm(newText);
+    setHangoutMessages(newText);
+    setSearchTerm("");
+    setReplaceTerm("");
+    setMatches([]);
+    setCurrentMatchIndex(0);
+  };
+
   // real-time alert
   useEffect(()=>{
     socket.on("attendanceSaved", ()=> alert("Attendance saved by another user."));
@@ -162,9 +176,17 @@ const AttendanceEntry = ({
                 onChange={e=>setSearchTerm(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&jumpToMatch()}
               />
-              <Button onClick={prevMatch} disabled={!matches.length}>Prev</Button>
+              
               <Button onClick={jumpToMatch} disabled={!matches.length}>Go</Button>
               <Button onClick={nextMatch} disabled={!matches.length}>Next</Button>
+              <Form.Control
+                placeholder="Replace with..."
+                value={replaceTerm}
+                onChange={e=>setReplaceTerm(e.target.value)}
+              />
+              <Button variant="warning" onClick={doReplace} disabled={!matches.length && !searchTerm}>
+                Replace
+              </Button>
             </InputGroup>
           )}
           <Form.Control
