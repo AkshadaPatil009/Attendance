@@ -1575,36 +1575,6 @@ io.on("connection", (socket) => {
     console.log("Client disconnected:", socket.id);
   });
 });
-
-// 2) Team‐members endpoint using Escalator union-query
-//    GET /api/team-members/:userId
-app.get('/api/team-members/:userId', async (req, res) => {
-  const userId = req.params.userId;
-
-  try {
-    // UNION of everybody whose Escalator list contains this userId, plus the user themself
-    const [rows] = await pool.query(
-      `
-      SELECT id,
-             Name AS name
-        FROM logincrd
-       WHERE Escalator LIKE ?
-      UNION
-      SELECT id,
-             Name AS name
-        FROM logincrd
-       WHERE id = ?
-      `,
-      [`%${userId}%`, userId]
-    );
-
-    res.json(rows);  // → [ { id: 5, name: 'Alice' }, … ]
-  } catch (err) {
-    console.error('Error in /api/team-members:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '127.0.0.1';
 // Start the server using the HTTP server with Socket.IO
