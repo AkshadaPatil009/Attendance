@@ -12,32 +12,47 @@ const monthNames = [
 const daysOfWeek = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function EmployeeAttendance() {
-  // 1️⃣ Grab the logged-in user’s name
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const empName    = storedUser.name || "";
+  const empId      = storedUser.employeeId || "";
 
-  // 2️⃣ State for calendar
   const [currentDate, setCurrentDate]    = useState(new Date());
   const [loading, setLoading]            = useState(false);
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays]          = useState([]);
+  const [escalatedEmployees, setEscalatedEmployees] = useState([]);
+  const [selectedEmpId, setSelectedEmpId] = useState(empId); // Default to logged-in user
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth     = useMemo(() => new Date(year, month+1, 0).getDate(), [year, month]);
   const firstDayOfMonth = useMemo(() => new Date(year, month, 1).getDay(), [year, month]);
 
-  // Map each date → one record
   const recordMap = useMemo(() => {
     const m = {};
     attendanceData.forEach(r => { m[r.date] = r; });
     return m;
   }, [attendanceData]);
 
-  // 3️⃣ Fetch holidays + this user’s attendance
   useEffect(() => {
-    if (!empName) return;
+    if (!empId) return;
+    axios.get(`${API_URL}/api/reports-by-id`, {
+      params: { empId }
+    })
+    .then(res => {
+      setEscalatedEmployees(res.data || []);
+    })
+    .catch(err => {
+      console.error("Error loading dropdown:", err);
+      setEscalatedEmployees([]);
+    });
+  }, [empId]);
+
+  useEffect(() => {
+    if (!empName || !selectedEmpId) return;
     setLoading(true);
+
+    const selectedEmpName = escalatedEmployees.find(e => e.id === selectedEmpId)?.name || empName;
 
     const holReq = axios
       .get(`${API_URL}/api/holidays`, { params: { year } })
@@ -47,15 +62,14 @@ export default function EmployeeAttendance() {
 
     const attReq = axios
       .get(`${API_URL}/api/attendancecalendar`, {
-        params: { year, empName }
+        params: { year, empName: selectedEmpName }
       })
       .then(r => setAttendanceData(r.data))
       .catch(() => setAttendanceData([]));
 
     Promise.all([holReq, attReq]).finally(() => setLoading(false));
-  }, [year, empName]);
+  }, [year, selectedEmpId, escalatedEmployees, empName]);
 
-  // 4️⃣ Navigation handlers
   const handlePrevMonth = () =>
     setCurrentDate(d => new Date(d.getFullYear(), d.getMonth()-1, 1));
   const handleNextMonth = () =>
@@ -67,19 +81,9 @@ export default function EmployeeAttendance() {
     setCurrentDate(d => new Date(y, d.getMonth(), 1));
   };
 
-  if (loading) {
-    return (
-      <div className="text-center my-5">
-        <Spinner animation="border" /> Loading…
-      </div>
-    );
-  }
-
-  // today’s key
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
 
-  // 5️⃣ Build calendar
   const buildCalendar = () => {
     const cells = [];
     const total = firstDayOfMonth + daysInMonth;
@@ -96,7 +100,6 @@ export default function EmployeeAttendance() {
         const isPureHoliday = !rec && holidays.includes(key);
         const isToday = key === todayKey;
 
-        // badge text fix: use in_time / out_time
         let badgeText = rec?.status?.replace("_"," ") || "";
         if (rec) {
           if (!rec.in_time && rec.out_time) badgeText = "Incomplete CI";
@@ -128,14 +131,12 @@ export default function EmployeeAttendance() {
               {day}
             </div>
 
-            {/* Holiday badge */}
             {(rec?.isHoliday || isPureHoliday) && (
               <div className="event holiday">
                 {rec?.holiday_name || "Holiday"}
               </div>
             )}
 
-            {/* Attendance/incomplete badge */}
             {rec && rec.status !== (rec.holiday_name || "Holiday") && (
               <div
                 className="event"
@@ -160,11 +161,19 @@ export default function EmployeeAttendance() {
     return rows;
   };
 
+  if (loading) {
+    return (
+      <div className="text-center my-5">
+        <Spinner animation="border" /> Loading…
+      </div>
+    );
+  }
+
   return (
     <div className="employee-attendance-container p-3">
       {/* Controls */}
       <Row className="align-items-center mb-3">
-        <Col md={6}>
+        <Col md={3}>
           <Form.Label>Year:</Form.Label>
           <Form.Control
             type="number"
@@ -174,7 +183,23 @@ export default function EmployeeAttendance() {
             onChange={handleYearChange}
           />
         </Col>
-        <Col md={6} className="text-end">
+
+        <Col md={5}>
+          <Form.Label>Select Employee:</Form.Label>
+          <Form.Select
+            value={selectedEmpId || ""}
+            onChange={e => setSelectedEmpId(Number(e.target.value))}
+          >
+            <option value={empId}>{empName} (You)</option>
+            {escalatedEmployees
+              .filter(emp => emp.id !== empId)
+              .map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+          </Form.Select>
+        </Col>
+
+        <Col md={4} className="text-end mt-4">
           <Button onClick={handleToday} className="me-2">Today</Button>
           <Button onClick={handlePrevMonth}>&larr;</Button>
           <strong className="mx-2">{monthNames[month]} {year}</strong>
@@ -186,7 +211,7 @@ export default function EmployeeAttendance() {
       <Card>
         <Card.Body>
           <Card.Title className="text-center mb-4">
-            {monthNames[month]} {year} — {empName}
+            {monthNames[month]} {year} — {escalatedEmployees.find(e => e.id === selectedEmpId)?.name || empName}
           </Card.Title>
           <Table bordered className="calendar-table" size="sm">
             <thead>

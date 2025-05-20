@@ -1568,6 +1568,39 @@ app.get("/api/attendancecalendar", (req, res) => {
     });
   });
 });
+
+app.get("/api/reports-by-id", async (req, res) => {
+  const empId = req.query.empId;
+
+  if (!empId) {
+    return res.status(400).json({ error: "Missing empId" });
+  }
+
+  const sql = `
+    SELECT id, Name AS name
+    FROM logincrd
+    WHERE FIND_IN_SET(?, REPLACE(Escalator, ' ', ''))
+    UNION
+    SELECT id, Name AS name
+    FROM logincrd
+    WHERE id = ?
+    ORDER BY name
+  `;
+
+  db.query(sql, [empId, empId], (err, results) => {
+    if (err) {
+      console.error("SQL Error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (!Array.isArray(results)) {
+      return res.status(500).json({ error: "Unexpected result format" });
+    }
+
+    res.json(results);
+  });
+});
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
