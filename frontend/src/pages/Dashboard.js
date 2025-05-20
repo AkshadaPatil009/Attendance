@@ -151,7 +151,7 @@ export default function Dashboard() {
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
                   >
-                    Attendance
+                    Attendance Report
                   </Button>
                   <Button
                     size="sm"
@@ -168,6 +168,22 @@ export default function Dashboard() {
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
                     Add Leaves
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    className="me-2 mb-2 uniform-button"
+                    onClick={() => setActiveSection("employeeAttendance")}
+                  >
+                    Employee Attendance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
+                    className="me-2 mb-2 uniform-button"
+                    onClick={() => setActiveSection("leavesEmployee")}
+                  >
+                    Employee Leaves
                   </Button>
                 </>
               )}
@@ -226,23 +242,23 @@ export default function Dashboard() {
               {isAdmin && (
                 <Button
                   size="sm"
-                    variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
-                    onClick={() => setActiveSection("mailRequest")}
-                  >
-                    Mail Request
-                  </Button>
+                  variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                  className="me-2 mb-2 uniform-button"
+                  onClick={() => setActiveSection("mailRequest")}
+                >
+                  Mail Request
+                </Button>
               )}
 
+              {/* Logout as circle icon */}
               <Button
-  variant="light"
-  className="logout-circle-button"
-  onClick={handleLogout}
-  title="Logout"
->
-  <BoxArrowRight color="red" size={20} />
-</Button>
-
+                variant="light"
+                className="logout-circle-button"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                <BoxArrowRight color="red" size={20} />
+              </Button>
             </Nav>
           </Navbar.Collapse>
         </Container>
