@@ -155,6 +155,23 @@ const UpdateAttendance = () => {
     setUpdateLocation(false);
   };
 
+  // Helper to clear form after success
+  const resetForm = () => {
+    setSelectedEmployee("");
+    setSelectedRecord(null);
+    setApprovedBy("");
+    setReason("");
+    setLocation("");
+    setClockIn("");
+    setClockOut("");
+    setUpdateClockIn(false);
+    setUpdateClockOut(false);
+    setUpdateApprovedBy(false);
+    setUpdateReason(false);
+    setUpdateLocation(false);
+    setManualSelection(false);
+  };
+
   // Perform update
   const doUpdate = async () => {
     if (!selectedRecord) {
@@ -186,6 +203,7 @@ const UpdateAttendance = () => {
         requestBody
       );
       toast.success("Attendance updated successfully!");
+      resetForm(); // <-- clear the form here
     } catch (error) {
       console.error("Error updating attendance:", error);
       toast.error("Failed to update attendance record.");
