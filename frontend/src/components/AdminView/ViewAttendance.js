@@ -150,8 +150,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   const [holidays, setHolidays] = useState([]);
 
   // ▼ NEW: location filter state
-  const [locationFilter, setLocationFilter] = useState("All");
-  const [locationOptions, setLocationOptions] = useState([]);
+ const [locationFilter, setLocationFilter] = useState("All");
+ const [locationOptions, setLocationOptions] = useState([]);
 
   // for PNG download
   const attendanceRef = useRef(null);
@@ -207,26 +207,26 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   }, []);
 
   // Fetch attendance based on filters.
-  const fetchAttendance = useCallback(() => {
+   const fetchAttendance = useCallback(() => {
     const params = { viewMode };
-    if (selectedEmployee) params.empName = selectedEmployee;
-    if (viewMode === "datewise" && selectedDate) params.date = selectedDate;
-    if (viewMode === "monthwise") {
-      params.month = selectedMonth;
-      params.year = selectedYear;
-    }
-    axios
-      .get(`${API_URL}/api/attendanceview`, { params })
-      .then((response) => {
-        setAttendanceData(response.data);
-        // build location dropdown options
-        const locs = Array.from(new Set(response.data.map(r => r.location).filter(l => l)));
-        setLocationOptions(["All", ...locs.sort()]);
-      })
-      .catch((error) => {
-        console.error("Error fetching attendance:", error);
-      });
-  }, [viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear]);
+     if (selectedEmployee) params.empName = selectedEmployee;
+     if (viewMode === "datewise" && selectedDate) params.date = selectedDate;
+     if (viewMode === "monthwise") {
+       params.month = selectedMonth;
+       params.year = selectedYear;
+     }
+     axios
+       .get(`${API_URL}/api/attendanceview`, { params })
+       .then((response) => {
+         setAttendanceData(response.data);
+         // build location dropdown options
+         const locs = Array.from(new Set(response.data.map(r => r.location).filter(l => l)));
+         setLocationOptions(["All", ...locs.sort()]);
+       })
+       .catch((error) => {
+         console.error("Error fetching attendance:", error);
+       });
+  }, [ viewMode, selectedEmployee, selectedDate, selectedMonth, selectedYear ]);
 
   useEffect(() => {
     fetchAttendance();
@@ -256,8 +256,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     };
   }, [socket, fetchAttendance]);
 
-  // Group attendance records per employee per day.
-  const groupAttendanceByDay = () => {
+// Group attendance records per employee per day.
+const groupAttendanceByDay = () => {
   const pivotData = {};
   attendanceData.forEach((rec) => {
     applyLateMarkLogic(rec);
@@ -412,7 +412,8 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
   return pivotData;
 };
 
-  // Render Monthwise (unchanged except header styles)
+
+  // Render Monthwise (unchanged)
   const renderMonthwiseTable = () => {
     const daysInMonth = new Date(
       selectedYear,
@@ -423,14 +424,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     return (
-      <div
-        style={{
-          overflowX: "auto",
-          overflowY: "auto",
-          maxHeight: "60vh",
-          border: "1px solid #000",
-        }}
-      >
+      <div style={{ overflowX: "auto" }}>
         <Table
           bordered
           hover
@@ -444,66 +438,15 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
         >
           <thead style={{ fontSize: "0.75rem" }}>
             <tr>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  width: "180px",
-                  textAlign: "center",
-                }}
-              >
-                Employee Name
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  width: "60px",
-                  textAlign: "center",
-                }}
-              >
-                Present
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  width: "60px",
-                  textAlign: "center",
-                }}
-              >
-                Late
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  width: "60px",
-                  textAlign: "center",
-                }}
-              >
-                AvgHr
-              </th>
+              <th style={{ width: "180px" }}>Employee Name</th>
+              <th style={{ width: "60px", textAlign: "center" }}>Present</th>
+              <th style={{ width: "60px", textAlign: "center" }}>Late</th>
+              <th style={{ width: "60px", textAlign: "center" }}>AvgHr</th>
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
                 (dayNum) => (
                   <th
                     key={dayNum}
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      backgroundColor: "#fff",
-                      zIndex: 2,
-                      width: "30px",
-                      textAlign: "center",
-                    }}
+                    style={{ width: "30px", textAlign: "center" }}
                   >
                     {dayNum}
                   </th>
@@ -511,7 +454,7 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
               )}
             </tr>
           </thead>
-         <tbody style={{ fontSize: "0.75rem" }}>
+          <tbody style={{ fontSize: "0.75rem" }}>
             {Object.keys(pivotData)
               .sort((a, b) => a.localeCompare(b))
               .map((emp) => {
@@ -614,118 +557,44 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
     );
   };
 
-  // Updated renderDatewiseTable to use formatWorkHour() + sticky headers
+  // Updated renderDatewiseTable to use formatWorkHour()
   const renderDatewiseTable = () => {
     const sortedData = attendanceData
-      .filter(
-        (rec) => locationFilter === "All" || rec.location === locationFilter
-      )
-      .sort((a, b) => a.emp_name.localeCompare(b.emp_name));
+   .filter(rec => locationFilter === "All" || rec.location === locationFilter)
+   .sort((a, b) => a.emp_name.localeCompare(b.emp_name));
     return (
-      <div style={{ overflowX: "auto", border: "1px solid #000", maxHeight: "60vh" }}>
+      <div style={{ overflowX: "auto", border: "1px solid #000" }}>
         <Table
           bordered
           hover
           size="sm"
-          style={{
-            fontSize: "0.75rem",
-            minWidth: "800px",
-            border: "1px solid #000",
-          }}
+          style={{ fontSize: "0.75rem", minWidth: "800px", border: "1px solid #000" }}
         >
           <thead style={{ fontSize: "0.75rem" }}>
-            <tr>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                Employee
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                Date
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                In Time
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                Out Time
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                Work Hr
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                Day
-              </th>
-              <th
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#fff",
-                  zIndex: 2,
-                  textAlign: "center",
-                }}
-              >
-                <Form.Select
-                  size="sm"
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  style={{ fontSize: "0.75rem" }}
-                >
-                  {locationOptions.map((loc, i) => (
-                    <option key={i} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </Form.Select>
-              </th>
-            </tr>
-          </thead>
-              <tbody>
+  <tr>
+    <th>Employee</th>
+    <th>Date</th>
+    <th>In Time</th>
+    <th>Out Time</th>
+    <th>Work Hr</th>
+    <th>Day</th>
+    <th>
+      <Form.Select
+        size="sm"
+        value={locationFilter}
+        onChange={e => setLocationFilter(e.target.value)}
+        style={{ fontSize: "0.75rem" }}
+      >
+        {locationOptions.map((loc, i) => (
+          <option key={i} value={loc}>
+            {loc}
+          </option>
+        ))}
+      </Form.Select>
+    </th>
+  </tr>
+</thead>
+          <tbody>
             {sortedData.map((rec, idx) => {
               const dayDisplay = getDisplayForRecord(rec);
 
@@ -1078,8 +947,16 @@ const ViewAttendance = ({ viewMode, setViewMode }) => {
 
         <Row className="g-0">
           <Col style={{ fontSize: "0.75rem" }}>
-            {viewMode === "datewise" && renderDatewiseTable()}
-            {viewMode === "monthwise" && renderMonthwiseTable()}
+            {viewMode === "datewise" && (
+              <>
+                {renderDatewiseTable()}
+              </>
+            )}
+            {viewMode === "monthwise" && (
+              <>
+                {renderMonthwiseTable()}
+              </>
+            )}
           </Col>
         </Row>
       </Container>
