@@ -14,6 +14,7 @@ import {
   Badge,
   Card
 } from "react-bootstrap";
+import { BoxArrowRight } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
 
 // Admin views
@@ -145,6 +146,7 @@ export default function Dashboard() {
               {isAdmin && (
                 <>
                   <Button
+                    size="sm"
                     variant={activeSection === "attendanceForm" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
@@ -152,6 +154,7 @@ export default function Dashboard() {
                     Attendance
                   </Button>
                   <Button
+                    size="sm"
                     variant={activeSection === "holidays" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("holidays")}
@@ -159,6 +162,7 @@ export default function Dashboard() {
                     Add Holidays
                   </Button>
                   <Button
+                    size="sm"
                     variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("adminemployeeView")}
@@ -172,6 +176,7 @@ export default function Dashboard() {
               {!isAdmin && (
                 <>
                   <Button
+                    size="sm"
                     variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("employeeAttendance")}
@@ -179,6 +184,7 @@ export default function Dashboard() {
                     Attendance
                   </Button>
                   <Button
+                    size="sm"
                     variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("leavesEmployee")}
@@ -186,6 +192,7 @@ export default function Dashboard() {
                     Leaves
                   </Button>
                   <Button
+                    size="sm"
                     variant={activeSection === "holidaysEmployee" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("holidaysEmployee")}
@@ -193,6 +200,7 @@ export default function Dashboard() {
                     Holidays
                   </Button>
                   <Button
+                    size="sm"
                     variant={activeSection === "mailRequest" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("mailRequest")}
@@ -205,6 +213,7 @@ export default function Dashboard() {
               {/* Admin & TL: Request Status */}
               {(isAdmin || isTL) && (
                 <Button
+                  size="sm"
                   variant={activeSection === "requestStatus" ? "secondary" : "light"}
                   className="me-2 mb-2 uniform-button"
                   onClick={() => setActiveSection("requestStatus")}
@@ -216,6 +225,7 @@ export default function Dashboard() {
               {/* Admin-only: Mail Request in Admin panel */}
               {isAdmin && (
                 <Button
+                  size="sm"
                     variant={activeSection === "mailRequest" ? "secondary" : "light"}
                     className="me-2 mb-2 uniform-button"
                     onClick={() => setActiveSection("mailRequest")}
@@ -225,12 +235,14 @@ export default function Dashboard() {
               )}
 
               <Button
-                variant="danger"
-                className="mb-2 uniform-button"
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
+  variant="light"
+  className="logout-circle-button"
+  onClick={handleLogout}
+  title="Logout"
+>
+  <BoxArrowRight color="red" size={20} />
+</Button>
+
             </Nav>
           </Navbar.Collapse>
         </Container>
@@ -308,7 +320,7 @@ export default function Dashboard() {
           </ListGroup>
         </Modal.Body>
         <Modal.Footer className="border-0">
-          <Button variant="primary" onClick={() => setShowPendingModal(false)}>
+          <Button size="sm" variant="primary" onClick={() => setShowPendingModal(false)}>
             OK
           </Button>
         </Modal.Footer>

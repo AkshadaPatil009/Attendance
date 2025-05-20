@@ -7,9 +7,9 @@ import { format } from "date-fns";
 // Customize border colors based on leave type
 const BORDER_COLORS = {
   Vacation: "#4da6ff",
-  Sick: "#ff6666",
+  Sick:     "#ff6666",
   Personal: "#ffcc66",
-  Other: "#ffa500",
+  Other:    "#ffa500",
 };
 
 export default function NotificationBell({ requests = [] }) {
@@ -32,9 +32,9 @@ export default function NotificationBell({ requests = [] }) {
     >
       <OverlayTrigger placement="bottom" overlay={renderTooltip}>
         <Dropdown.Toggle
-          variant="light"
+          as="button"
           id="notification-bell"
-          className="position-relative p-2 shadow-sm"
+          className="position-relative p-0 border-0 bg-transparent"
         >
           <BellFill size={20} />
           {requests.length > 0 && (

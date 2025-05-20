@@ -1,5 +1,6 @@
 /* src/pages/Dashboard.css */
-/* Force completed rows to use a light gray background */ 
+
+/* Force completed rows to use a light gray background */
 tr.completedHoliday td {
   background-color: rgb(212, 205, 205) !important;
 }
@@ -9,25 +10,25 @@ tr.completedHoliday td {
   border: 2px solid black;
 }
 
-.custom-border-table th
+.custom-border-table th,
 .custom-border-table td {
   border: 1px solid black !important;
 }
 
-/* Uniform button size: fixed width, reduced height, and smaller padding */
+/* Uniform button size: reduced width and height, smaller padding and font */
 .uniform-button {
-  width: 120px;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
-  height: 40px;
-  line-height: 1.2;
+  width: 100px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  height: 32px;
+  line-height: 1.1;
 }
 
 /* Smaller navbar height */
 .custom-navbar {
   padding-top: 0.3rem !important;
   padding-bottom: 0.3rem !important;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 /* Float the Admin buttons group into the top-right corner */
@@ -48,4 +49,21 @@ tr.completedHoliday td {
     margin-top: 0.5rem;
     justify-content: center;
   }
+}
+.logout-circle-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  border: 1px solid red;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.logout-circle-button:hover {
+  background-color: #ffe6e6;
+  transform: scale(1.05);
 }
