@@ -1630,6 +1630,56 @@ app.get("/api/escalated-employees", async (req, res) => {
   });
 });
 
+// GET unsettled comp-offs summary
+app.get('/api/comp-off-requests', (req, res) => {
+  const sql = `
+    SELECT 
+      employee_id,
+      from_name AS employeeName,
+      SUM(CASE WHEN leave_type = 'Compensatory Off(Leave)' THEN 1 ELSE 0 END) AS leaveCount,
+      SUM(CASE WHEN leave_type = 'Compensatory Off(Cash)' THEN 1 ELSE 0 END) AS cashCount
+    FROM leave_mails
+    WHERE status = 'approved'
+      AND settled = 0
+      AND leave_type IN ('Compensatory Off(Leave)', 'Compensatory Off(Cash)')
+    GROUP BY employee_id, from_name
+    ORDER BY from_name ASC;
+  `;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error running query:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    res.json(results);
+  });
+});
+
+// PATCH to partially settle comp-offs
+app.patch('/api/comp-off-requests/settle', (req, res) => {
+  const { employee_id, leave_type, count } = req.body;
+  if (!employee_id || !leave_type || typeof count !== 'number' || count < 1) {
+    return res.status(400).json({ error: 'employee_id, leave_type and a positive numeric count are required' });
+  }
+
+  const sql = `
+    UPDATE leave_mails
+    SET settled = 1
+    WHERE employee_id = ?
+      AND leave_type  = ?
+      AND status      = 'approved'
+      AND settled     = 0
+    ORDER BY created_at ASC
+    LIMIT ?
+  `;
+  db.query(sql, [employee_id, leave_type, count], (err, result) => {
+    if (err) {
+      console.error('Error settling comp-off:', err);
+      return res.status(500).json({ error: 'Could not settle comp-off' });
+    }
+    res.json({ settledRows: result.affectedRows });
+  });
+});
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);

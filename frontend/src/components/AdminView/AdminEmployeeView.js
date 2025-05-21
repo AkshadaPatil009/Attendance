@@ -4,6 +4,7 @@ import { Tabs, Tab, Container } from "react-bootstrap";
 import AnnualLeaves from "./AdminEmployeeView/AnnualLeaves";
 import UpdateLeaves from "./AdminEmployeeView/UpdateLeaves";
 import NewJoinerLeaves from "./AdminEmployeeView/NewJoinerLeaves";
+import CompOffRequests from "./AdminEmployeeView/CompOffRequests";
 
 const AdminEmployeeView = () => {
   const [activeTab, setActiveTab] = useState("annual");
@@ -25,6 +26,9 @@ const AdminEmployeeView = () => {
         </Tab>
         <Tab eventKey="newjoiner" title="New Joiner Leaves">
           <NewJoinerLeaves />
+        </Tab>
+        <Tab eventKey="compoff" title="Comp Off Requests">
+          <CompOffRequests />
         </Tab>
       </Tabs>
     </Container>

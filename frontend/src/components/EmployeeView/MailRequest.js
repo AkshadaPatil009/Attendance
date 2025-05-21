@@ -215,7 +215,8 @@ const MailRequest = () => {
                   <option>Planned Leave</option>
                   <option>Unplanned Leave</option>
                   <option>Work From Home Request</option>
-                  <option>Compensatory Off</option>
+                  <option>Compensatory Off(Leave)</option>
+                  <option>Compensatory Off(Cash)</option>
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
                   Please select a leave type.
