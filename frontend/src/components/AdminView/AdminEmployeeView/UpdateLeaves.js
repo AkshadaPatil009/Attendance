@@ -20,6 +20,9 @@ const UpdateLeaves = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [message, setMessage] = useState(null);
 
+  // track both used and remaining
+  const [usedUnplannedLeave, setUsedUnplannedLeave] = useState(0);
+  const [usedPlannedLeave, setUsedPlannedLeave] = useState(0);
   const [remainingUnplannedLeave, setRemainingUnplannedLeave] = useState(0);
   const [remainingPlannedLeave, setRemainingPlannedLeave] = useState(0);
 
@@ -29,33 +32,49 @@ const UpdateLeaves = () => {
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
 
   const selectedEmployeeIdRef = useRef(selectedEmployeeId);
-  useEffect(() => { selectedEmployeeIdRef.current = selectedEmployeeId; }, [selectedEmployeeId]);
+  useEffect(() => {
+    selectedEmployeeIdRef.current = selectedEmployeeId;
+  }, [selectedEmployeeId]);
 
-  // Fetch & socket setup
+  // fetch and socket setup
   useEffect(() => {
     fetch(`${API_URL}/api/employees-list`)
-      .then((res) => res.json())
-      .then(setEmployees)
+      .then(res => res.json())
+      .then(data => {
+        setEmployees(data);
+        const emp = data.find(e => e.id.toString() === selectedEmployeeIdRef.current);
+        if (emp) populateLeaveFields(emp);
+      })
       .catch(() => setMessage("Error fetching employee list."));
 
-    socket.on("employeesListUpdated", (updated) => {
+    socket.on("employeesListUpdated", updated => {
       setEmployees(updated);
       const emp = updated.find(e => e.id.toString() === selectedEmployeeIdRef.current);
       if (emp) populateLeaveFields(emp);
     });
-    socket.on("employeeLeavesUpdated", ({ employeeId, remainingPlanned, remainingUnplanned }) => {
+
+    socket.on("employeeLeavesUpdated", ({ employeeId, remainingPlanned, remainingUnplanned, usedPlanned, usedUnplanned }) => {
       setEmployees(prev =>
         prev.map(x =>
           x.id.toString() === employeeId.toString()
-            ? { ...x, remainingPlannedLeave: remainingPlanned, remainingUnplannedLeave: remainingUnplanned }
+            ? {
+                ...x,
+                remainingPlannedLeave: remainingPlanned,
+                remainingUnplannedLeave: remainingUnplanned,
+                usedPlannedLeave: usedPlanned,
+                usedUnplannedLeave: usedUnplanned
+              }
             : x
         )
       );
       if (employeeId.toString() === selectedEmployeeIdRef.current) {
         setRemainingPlannedLeave(remainingPlanned);
         setRemainingUnplannedLeave(remainingUnplanned);
+        setUsedPlannedLeave(usedPlanned);
+        setUsedUnplannedLeave(usedUnplanned);
       }
     });
+
     return () => {
       socket.off("employeesListUpdated");
       socket.off("employeeLeavesUpdated");
@@ -63,22 +82,24 @@ const UpdateLeaves = () => {
     };
   }, []);
 
-  // When selection changes
+  // update when selection changes
   useEffect(() => {
     const emp = employees.find(x => x.id.toString() === selectedEmployeeId);
     if (emp) populateLeaveFields(emp);
   }, [selectedEmployeeId, employees]);
 
-  const populateLeaveFields = (emp) => {
+  const populateLeaveFields = emp => {
     setRemainingUnplannedLeave(emp.remainingUnplannedLeave || 0);
     setRemainingPlannedLeave(emp.remainingPlannedLeave || 0);
+    setUsedUnplannedLeave(emp.usedUnplannedLeave || 0);
+    setUsedPlannedLeave(emp.usedPlannedLeave || 0);
   };
 
   const sortedEmployees = [...employees].sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 
-  const handleEmployeeChange = (e) => {
+  const handleEmployeeChange = e => {
     setMessage(null);
     setSelectedEmployeeId(e.target.value);
   };
@@ -88,9 +109,11 @@ const UpdateLeaves = () => {
       prev.map((r, idx) => (idx === i ? { ...r, [field]: val } : r))
     );
   };
+
   const addUpdateLeaveRecord = () =>
     setUpdateLeaveRecords(prev => [...prev, { leaveDate: "", leaveType: "Planned" }]);
-  const removeUpdateLeaveRecord = (i) => {
+
+  const removeUpdateLeaveRecord = i => {
     if (updateLeaveRecords.length > 1)
       setUpdateLeaveRecords(prev => prev.filter((_, idx) => idx !== i));
   };
@@ -103,20 +126,19 @@ const UpdateLeaves = () => {
       return;
     }
 
-    const currUnplanned = emp.remainingUnplannedLeave || 0;
-    const currPlanned = emp.remainingPlannedLeave || 0;
     const addPlannedCount = updateLeaveRecords.filter(r => r.leaveType === "Planned" && r.leaveDate).length;
     const addUnplannedCount = updateLeaveRecords.filter(r => r.leaveType === "Unplanned" && r.leaveDate).length;
 
-    const newUsedPlanned = (emp.usedPlannedLeave || 0) + addPlannedCount;
-    const newUsedUnplanned = (emp.usedUnplannedLeave || 0) + addUnplannedCount;
-    const newRemPlanned = currPlanned - addPlannedCount;
-    const newRemUnplanned = currUnplanned - addUnplannedCount;
+    const newUsedPlanned = usedPlannedLeave + addPlannedCount;
+    const newUsedUnplanned = usedUnplannedLeave + addUnplannedCount;
+    const newRemPlanned = remainingPlannedLeave - addPlannedCount;
+    const newRemUnplanned = remainingUnplannedLeave - addUnplannedCount;
 
     if (newRemPlanned < 0 || newRemUnplanned < 0) {
       return window.alert("Insufficient leave balance.");
     }
 
+    // PUT aggregates for single employee
     fetch(`${API_URL}/api/employee-leaves/${selectedEmployeeId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -132,8 +154,15 @@ const UpdateLeaves = () => {
         socket.emit("employeeLeavesUpdated", {
           employeeId: selectedEmployeeId,
           remainingPlanned: newRemPlanned,
-          remainingUnplanned: newRemUnplanned
+          remainingUnplanned: newRemUnplanned,
+          usedPlanned: newUsedPlanned,
+          usedUnplanned: newUsedUnplanned
         });
+        // update local state
+        setRemainingPlannedLeave(newRemPlanned);
+        setRemainingUnplannedLeave(newRemUnplanned);
+        setUsedPlannedLeave(newUsedPlanned);
+        setUsedUnplannedLeave(newUsedUnplanned);
         setEmployees(prev =>
           prev.map(x =>
             x.id.toString() === selectedEmployeeId
@@ -147,8 +176,7 @@ const UpdateLeaves = () => {
               : x
           )
         );
-        setRemainingUnplannedLeave(newRemUnplanned);
-        setRemainingPlannedLeave(newRemPlanned);
+        // then post each leave date record
         return Promise.all(
           updateLeaveRecords.map(r =>
             fetch(`${API_URL}/api/employee-leaves-date`, {
@@ -207,6 +235,21 @@ const UpdateLeaves = () => {
               ))}
             </Form.Control>
           </Form.Group>
+
+          <Row>
+            <Col>
+              <Form.Group className="mb-3">
+                <Form.Label>Used Unplanned Leave</Form.Label>
+                <Form.Control type="number" value={usedUnplannedLeave} readOnly />
+              </Form.Group>
+            </Col>
+            <Col>
+              <Form.Group className="mb-3">
+                <Form.Label>Used Planned Leave</Form.Label>
+                <Form.Control type="number" value={usedPlannedLeave} readOnly />
+              </Form.Group>
+            </Col>
+          </Row>
 
           <Row>
             <Col>

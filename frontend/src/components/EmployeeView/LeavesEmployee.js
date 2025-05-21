@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Card, Row, Col, Form, Table, Spinner } from "react-bootstrap";
 import io from "socket.io-client";
-import "./EmployeeLeaveApplication.css";    // ← import the new stylesheet
+import "./EmployeeLeaveApplication.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -10,6 +10,9 @@ const EmployeeLeaveApplication = () => {
   const employeeId = storedUser.employeeId;
   const socketRef = useRef(null);
 
+  // ─── STATE ──────────────────────────────────────────────────────────────
+  const [escalatedEmployees, setEscalatedEmployees] = useState([]);
+  const [selectedEscalationId, setSelectedEscalationId] = useState(employeeId);
   const [employeeLeaves, setEmployeeLeaves] = useState({
     unplannedLeave: 0,
     plannedLeave: 0,
@@ -19,19 +22,34 @@ const EmployeeLeaveApplication = () => {
   const [leaveRecords, setLeaveRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // socket init & join
+  // ─── SOCKET.IO JOIN ─────────────────────────────────────────────────────
   useEffect(() => {
     socketRef.current = io(API_URL, { transports: ["polling"] });
     socketRef.current.emit("join", { userId: storedUser.id });
     return () => socketRef.current.disconnect();
   }, [storedUser.id]);
 
-  // fetch leave balances
+  // ─── FETCH ESCALATABLE LIST ─────────────────────────────────────────────
   useEffect(() => {
     if (!employeeId) return;
-    fetch(`${API_URL}/api/employees-leaves/${employeeId}`)
-      .then((res) => res.json())
-      .then((data) =>
+    fetch(`${API_URL}/api/escalated-employees?empId=${employeeId}`)
+      .then(res => res.json())
+      .then(data => {
+        setEscalatedEmployees(data);
+        setSelectedEscalationId(employeeId);
+      })
+      .catch(err => {
+        console.error("Error loading escalations:", err);
+        setEscalatedEmployees([{ id: employeeId, name: storedUser.name }]);
+      });
+  }, [employeeId]);
+
+  // ─── FETCH LEAVE BALANCES ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedEscalationId) return;
+    fetch(`${API_URL}/api/employees-leaves/${selectedEscalationId}`)
+      .then(res => res.json())
+      .then(data =>
         setEmployeeLeaves({
           unplannedLeave: data.usedUnplannedLeave || 0,
           plannedLeave: data.usedPlannedLeave || 0,
@@ -39,32 +57,47 @@ const EmployeeLeaveApplication = () => {
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
         })
       )
-      .catch((err) => console.error("Error fetching employee leaves:", err));
-  }, [employeeId]);
+      .catch(err => console.error("Error fetching leaves:", err));
+  }, [selectedEscalationId]);
 
-  // fetch detailed leave records
+  // ─── FETCH DETAILED LEAVE RECORDS ──────────────────────────────────────
   useEffect(() => {
-    if (!employeeId) return;
+    if (!selectedEscalationId) return;
     setLoadingRecords(true);
-
-    fetch(
-      `${API_URL}/api/employeeleavesdate?employeeId=${employeeId}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setLeaveRecords(Array.isArray(data) ? data : []);
-      })
-      .catch((err) => {
-        console.error("Error fetching detailed leave records:", err);
+    fetch(`${API_URL}/api/employeeleavesdate?employeeId=${selectedEscalationId}`)
+      .then(res => res.json())
+      .then(data => setLeaveRecords(Array.isArray(data) ? data : []))
+      .catch(err => {
+        console.error("Error fetching leave records:", err);
         setLeaveRecords([]);
       })
       .finally(() => setLoadingRecords(false));
-  }, [employeeId]);
+  }, [selectedEscalationId]);
 
   return (
     <div className="leave-application-container">
+      {/* ── TOP ROW: Dropdown ─────────────────────────────────────────────── */}
       <Row className="mt-3 gx-4">
-        {/* Used / Remaining Leaves */}
+        <Col lg={6} className="mb-3">
+          <Form.Group controlId="escalate-to">
+            <Form.Label>View Records For:</Form.Label>
+            <Form.Select
+              value={selectedEscalationId}
+              onChange={e => setSelectedEscalationId(Number(e.target.value))}
+            >
+              {escalatedEmployees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} {emp.id === employeeId ? "(You)" : ""}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+        </Col>
+      </Row>
+
+      {/* ── SECOND ROW: Balances & Records ───────────────────────────────── */}
+      <Row className="gx-4">
+        {/* Leave Balances */}
         <Col lg={6} className="mb-4">
           <Card className="shadow-sm leave-card">
             <Card.Header className="leave-card-header">
@@ -108,11 +141,14 @@ const EmployeeLeaveApplication = () => {
           </Card>
         </Col>
 
-        {/* Detailed Leave Records */}
+        {/* Leave Records (horizontal) */}
         <Col lg={6}>
           <Card className="shadow-sm leave-card">
             <Card.Header className="leave-card-header">
-              <h5>Leave Records</h5>
+              <h5>
+                Leave Records —{" "}
+                {escalatedEmployees.find(e => e.id === selectedEscalationId)?.name}
+              </h5>
             </Card.Header>
             <Card.Body className="record-table-container">
               {loadingRecords ? (
@@ -120,12 +156,7 @@ const EmployeeLeaveApplication = () => {
                   <Spinner animation="border" variant="secondary" />
                 </div>
               ) : (
-                <Table
-                  bordered
-                  hover
-                  size="sm"
-                  className="leave-records-table"
-                >
+                <Table bordered hover size="sm" className="leave-records-table">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -140,7 +171,7 @@ const EmployeeLeaveApplication = () => {
                         </td>
                       </tr>
                     ) : (
-                      leaveRecords.map((rec) => (
+                      leaveRecords.map(rec => (
                         <tr key={rec.id}>
                           <td>{rec.leave_date}</td>
                           <td>{rec.leave_type}</td>
