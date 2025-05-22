@@ -194,13 +194,13 @@ export default function Dashboard() {
                 </Button>
               )}
 
+              {/* ─── RED CIRCULAR LOGOUT BUTTON ─── */}
               <Button
-                variant="light"
-                className="logout-circle-button"
                 onClick={handleLogout}
+                className="logout-circle-button"
                 title="Logout"
               >
-                <BoxArrowRight color="red" size={20} />
+                <BoxArrowRight size={20} color="white" />
               </Button>
             </Nav>
           </Navbar.Collapse>
@@ -222,6 +222,6 @@ export default function Dashboard() {
       </div>
 
       <Footer />
+
     </div>
-  );
-}
+);}

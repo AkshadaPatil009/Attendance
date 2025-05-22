@@ -67,3 +67,21 @@ tr.completedHoliday td {
   background-color: #ffe6e6;
   transform: scale(1.05);
 }
+.logout-circle-button {
+  background-color: #dc3545;    /* bootstrap “danger” red */
+  border: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.1s;
+}
+
+.logout-circle-button:hover,
+.logout-circle-button:focus {
+  transform: scale(1.1);
+}
