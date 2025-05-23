@@ -1388,6 +1388,58 @@ app.get("/api/subject-templates", (req, res) => {
   });
 });
 
+// ── GET subject-templates ──
+app.get("/api/subject-templates", (req, res) => {
+  const sql = "SELECT id, subject, body FROM subject_templates ORDER BY id";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching templates:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+// POST /api/subject-templates
+app.post("/api/subject-templates", (req, res) => {
+  const { subject, body } = req.body;
+  if (typeof subject !== "string" || !subject.trim() ||
+      typeof body    !== "string" || !body.trim()
+  ) {
+    return res.status(400).json({ error: "Subject and body are required" });
+  }
+
+  const sql = "INSERT INTO subject_templates (subject, body) VALUES (?, ?)";
+  db.query(sql, [subject.trim(), body.trim()], (err, result) => {
+    if (err) {
+      console.error("Error inserting template:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({ id: result.insertId, subject, body });
+  });
+});
+
+// ── PUT update a single template body ──
+app.put("/api/subject-templates/:id", (req, res) => {
+  const { id } = req.params;
+  const { body } = req.body;
+
+  if (typeof body !== "string" || !body.trim()) {
+    return res.status(400).json({ error: "Invalid body" });
+  }
+
+  const sql = "UPDATE subject_templates SET body = ? WHERE id = ?";
+  db.query(sql, [body, id], (err, result) => {
+    if (err) {
+      console.error("Error updating template:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    res.json({ success: true });
+  });
+});
+
 app.get("/api/attendancecalendar", (req, res) => {
   const { year, empName = "" } = req.query;
   const y = parseInt(year, 10);
