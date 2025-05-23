@@ -14,17 +14,17 @@ const CompOffRequests = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalProps, setModalProps] = useState({ employee_id: null, leaveType: '', maxCount: 0 });
   const [inputCount, setInputCount] = useState(1);
+
+  // New confirmation-modal state
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const [processing, setProcessing] = useState(false);
-  
 
   // Toast state
   const [toast, setToast] = useState({ show: false, message: '', variant: 'success' });
-
   const showToast = (message, variant = 'success') => {
     setToast({ show: true, message, variant });
-    setTimeout(() => {
-      setToast({ show: false, message: '', variant: 'success' });
-    }, 3000);
+    setTimeout(() => setToast({ show: false, message: '', variant: 'success' }), 3000);
   };
 
   const fetchRequests = async () => {
@@ -51,15 +51,17 @@ const CompOffRequests = () => {
     setShowModal(true);
   };
 
-  const handleSettle = async () => {
-    const { employee_id, leaveType, maxCount } = modalProps;
-    if (inputCount < 1 || inputCount > maxCount) {
-      return;
-    }
-    if (!window.confirm(`Settle ${inputCount} of ${maxCount} comp-offs?`)) {
-      return;
-    }
+  // Called when user clicks "Settle" in the first modal
+  const handleSettleClick = () => {
+    const { maxCount } = modalProps;
+    if (inputCount < 1 || inputCount > maxCount) return;
+    // instead of window.confirm, show our confirm modal
+    setShowConfirm(true);
+  };
 
+  // Actual API call once confirmed
+  const handleConfirmSettle = async () => {
+    const { employee_id, leaveType } = modalProps;
     setProcessing(true);
     try {
       const resp = await axios.patch(`${API_URL}/api/comp-off-requests/settle`, {
@@ -69,6 +71,7 @@ const CompOffRequests = () => {
       });
       showToast(`Successfully settled ${resp.data.settledRows} comp-off(s).`, 'success');
       fetchRequests();
+      setShowConfirm(false);
       setShowModal(false);
     } catch (err) {
       console.error(err);
@@ -193,7 +196,7 @@ const CompOffRequests = () => {
 
       </div>
 
-      {/* Modal Popup */}
+      {/* Settle Input Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Settle {modalProps.leaveType}</Modal.Title>
@@ -214,8 +217,26 @@ const CompOffRequests = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)} disabled={processing}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSettle} disabled={processing}>
+          <Button variant="primary" onClick={handleSettleClick} disabled={processing}>
             {processing ? <Spinner as="span" animation="border" size="sm" /> : 'Settle'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Settlement</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to settle {inputCount} of {modalProps.maxCount} comp-offs?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={processing}>
+            No
+          </Button>
+          <Button variant="danger" onClick={handleConfirmSettle} disabled={processing}>
+            {processing ? <Spinner as="span" animation="border" size="sm" /> : 'Yes, settle'}
           </Button>
         </Modal.Footer>
       </Modal>
