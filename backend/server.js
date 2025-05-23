@@ -1680,6 +1680,51 @@ app.patch('/api/comp-off-requests/settle', (req, res) => {
   });
 });
 
+//status
+
+app.get('/api/status', (req, res) => {
+  const sql = `
+    SELECT emp_name, location, status
+    FROM (
+      SELECT 
+        emp_name,
+        location,
+        in_time,
+        CASE 
+          WHEN (in_time IS NOT NULL AND in_time <> '') AND (out_time IS NULL OR out_time = '') 
+          THEN 'online'
+          ELSE 'offline'
+        END AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY emp_name 
+          ORDER BY in_time DESC
+        ) as rn
+      FROM attendance 
+      WHERE date = CURDATE()
+    ) AS ranked
+    WHERE rn = 1
+    UNION 
+    SELECT Name, Location, 'Absent' as status
+    FROM logincrd
+    WHERE Name NOT IN (
+      SELECT emp_name FROM attendance WHERE date = CURDATE()
+    )
+    UNION
+    SELECT NickName, location, 'Absent' as status
+    FROM employee_master
+    WHERE NickName NOT IN (
+      SELECT emp_name FROM attendance WHERE date = CURDATE()
+    );
+  `;
+
+  db.query(sql, (error, results) => {
+    if (error) {
+      console.error('Error fetching status:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(results);
+  });
+});
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
