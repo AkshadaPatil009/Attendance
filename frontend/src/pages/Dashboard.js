@@ -59,10 +59,10 @@ export default function Dashboard() {
   const isTL    = user.role === 2;
 
   const navbarTitle = isAdmin
-    ?`Admin Panel – Welcome-${user.name}`
+    ?`Admin Panel:Welcome, ${user.name}`
     : isTL
-      ? `TL Dashboard – Welcome, ${user.name}`
-      : `Employee Dashboard – Welcome, ${user.name}`;
+      ? `TL Dashboard:Welcome, ${user.name}`
+      : `Employee Dashboard:Welcome, ${user.name}`;
 
   const goToRequest = (id) => {
     setActiveSection("requestStatus");
