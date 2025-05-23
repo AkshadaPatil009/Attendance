@@ -1,4 +1,3 @@
-// src/components/MailRequest.js
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -14,56 +13,73 @@ import {
   Alert,
   Pagination,
 } from "react-bootstrap";
-import { FaCheckCircle, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaTimes, FaEdit, FaSave, FaUndo, FaPlus } from "react-icons/fa";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const MailRequest = () => {
   const storedUser = JSON.parse(localStorage.getItem("user")) || {};
   const employeeId = storedUser.employeeId;
+  const isAdmin = storedUser.role === 4; // role 4 = admin
 
+  // templates list
   const [templates, setTemplates] = useState([]);
+
+  // Add-template modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newSubject, setNewSubject] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
+
+  // existing leave form state
   const [leaveForm, setLeaveForm] = useState({
     leaveType: "",
     to: "",
     ccList: ["tushar.mahadik@protovec.com", "kalpesh.urunkar@protovec.com"],
     subject: "",
+    customSubject: "",
     body: "",
   });
   const [newCc, setNewCc] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [validated, setValidated] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [usingCustomSubject, setUsingCustomSubject] = useState(false);
-  const [selectedTemplateSubject, setSelectedTemplateSubject] = useState("");
 
-  // Toast state
+  // inline-edit state for body
+  const [editingBody, setEditingBody] = useState(false);
+  const [editBody, setEditBody] = useState("");
+
+  // inline-edit state for subject
+  const [editingSubject, setEditingSubject] = useState(false);
+  const [editSubject, setEditSubject] = useState("");
+
+  // toast
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  // — My Requests state & pagination —
+  // my requests
   const [myReqs, setMyReqs] = useState([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
   const [errorReqs, setErrorReqs] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // helper to show toast
   const showCustomToast = (msg) => {
     setToastMsg(msg);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  // fetch subject templates
-  useEffect(() => {
+  // ── load templates ──
+  const loadTemplates = () => {
     fetch(`${API_URL}/api/subject-templates`)
       .then((res) => res.json())
       .then(setTemplates)
       .catch(() => showCustomToast("Failed to load templates"));
-  }, []);
+  };
+  useEffect(loadTemplates, []);
 
-  // fetch this employee’s past requests
+  // ── load my requests ──
   const loadMyRequests = () => {
     setLoadingReqs(true);
     setErrorReqs("");
@@ -83,7 +99,7 @@ const MailRequest = () => {
     if (employeeId) loadMyRequests();
   }, [employeeId]);
 
-  // pagination helpers
+  // ── pagination ──
   const totalPages = Math.ceil(myReqs.length / itemsPerPage);
   const paginatedReqs = myReqs.slice(
     (currentPage - 1) * itemsPerPage,
@@ -91,7 +107,7 @@ const MailRequest = () => {
   );
   const handlePageChange = (page) => setCurrentPage(page);
 
-  // form change handler
+  // ── leave form handlers ──
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setLeaveForm((prev) => {
@@ -102,32 +118,23 @@ const MailRequest = () => {
         updated.body = value;
       } else {
         updated[name] = value;
+        // clear customSubject if switching off "__custom"
+        if (name === "subject" && value !== "__custom") {
+          updated.customSubject = "";
+        }
         if (name === "subject") {
           const match = templates.find((t) => t.subject === value);
-          if (match) updated.body = match.body;
+          if (match) {
+            updated.body = match.body;
+            setEditingBody(false);
+            setEditBody(match.body);
+          }
         }
       }
       return updated;
     });
   };
 
-  // subject template select
-  const handleTemplateSelect = (e) => {
-    const subj = e.target.value;
-    setSelectedTemplateSubject(subj);
-    if (subj === "__custom") {
-      setUsingCustomSubject(true);
-      setLeaveForm((p) => ({ ...p, subject: "" }));
-    } else {
-      setUsingCustomSubject(false);
-      setLeaveForm((p) => {
-        const match = templates.find((t) => t.subject === subj);
-        return { ...p, subject: subj, body: match?.body || p.body };
-      });
-    }
-  };
-
-  // add CC email
   const handleAddCc = (e) => {
     e.preventDefault();
     const email = newCc.trim();
@@ -142,13 +149,11 @@ const MailRequest = () => {
     setNewCc("");
   };
 
-  // remove CC
   const handleRemoveCc = (email) => {
     setLeaveForm((p) => ({ ...p, ccList: p.ccList.filter((c) => c !== email) }));
     showCustomToast(`CC removed: ${email}`);
   };
 
-  // form submit
   const handleSubmit = (e) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -161,7 +166,6 @@ const MailRequest = () => {
     }
   };
 
-  // confirm send
   const confirmSend = async () => {
     if (isSending) return;
     setIsSending(true);
@@ -172,7 +176,10 @@ const MailRequest = () => {
       leave_type: leaveForm.leaveType,
       to_email: leaveForm.to,
       cc_email: leaveForm.ccList.join(","),
-      subject: leaveForm.subject,
+      subject:
+        leaveForm.subject === "__custom"
+          ? leaveForm.customSubject
+          : leaveForm.subject,
       body: leaveForm.body,
     };
     try {
@@ -183,13 +190,76 @@ const MailRequest = () => {
       });
       if (!res.ok) throw new Error();
       showCustomToast("Email sent successfully!");
-      setLeaveForm({ leaveType: "", to: "", ccList: [], subject: "", body: "" });
+      setLeaveForm({
+        leaveType: "",
+        to: "",
+        ccList: [],
+        subject: "",
+        customSubject: "",
+        body: "",
+      });
       loadMyRequests();
     } catch {
       showCustomToast("Error sending email");
     } finally {
       setIsSending(false);
       setShowConfirmModal(false);
+    }
+  };
+
+  // ── inline edit + save body ──
+  const saveEditBody = async () => {
+    const tmpl = templates.find((t) => t.subject === leaveForm.subject);
+    if (!tmpl) return;
+    setEditingBody(false);
+    try {
+      const res = await fetch(`${API_URL}/api/subject-templates/${tmpl.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: editBody }),
+      });
+      if (!res.ok) throw new Error();
+      showCustomToast("Template updated");
+      loadTemplates();
+      setLeaveForm((p) => ({ ...p, body: editBody }));
+    } catch {
+      showCustomToast("Failed to update template");
+    }
+  };
+
+  // ── add-template save ──
+  const saveNewTemplate = async () => {
+    if (!newSubject.trim() || !newBody.trim()) return;
+    setAddSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/api/subject-templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: newSubject.trim(), body: newBody.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      showCustomToast("New template added");
+      setShowAddModal(false);
+      setNewSubject("");
+      setNewBody("");
+      loadTemplates();
+    } catch {
+      showCustomToast("Failed to add template");
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  // commit edited subject
+  const commitSubjectEdit = () => {
+    const val = editSubject.trim();
+    if (val) {
+      setLeaveForm((p) => ({
+        ...p,
+        subject: "__custom",
+        customSubject: val,
+      }));
+      setEditingSubject(false);
     }
   };
 
@@ -244,10 +314,10 @@ const MailRequest = () => {
                 <div className="mb-2">
                   {leaveForm.ccList.map((c) => (
                     <Badge
+                      key={c}
                       pill
                       bg="secondary"
                       className="me-1"
-                      key={c}
                       style={{ cursor: "pointer" }}
                       onClick={() => handleRemoveCc(c)}
                     >
@@ -267,28 +337,75 @@ const MailRequest = () => {
                 </InputGroup>
               </Form.Group>
 
-              {/* Subject */}
+              {/* Subject + inline edit + add-button */}
               <Form.Group className="mb-3">
                 <Form.Label>Subject</Form.Label>
-                <Form.Select
-                  name="templateSelect"
-                  value={selectedTemplateSubject}
-                  onChange={handleTemplateSelect}
-                  required
-                >
-                  <option value="">-- Select --</option>
-                  {templates.map((t, i) => (
-                    <option key={i} value={t.subject}>{t.subject}</option>
-                  ))}
-                  <option value="__custom">Other</option>
-                </Form.Select>
-                {usingCustomSubject && (
+
+                {editingSubject ? (
                   <Form.Control
                     type="text"
-                    name="subject"
-                    value={leaveForm.subject}
-                    onChange={handleFormChange}
+                    value={editSubject}
+                    autoFocus
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    onBlur={commitSubjectEdit}
+                    onKeyDown={(e) => e.key === "Enter" && commitSubjectEdit()}
+                    required
+                  />
+                ) : (
+                  <InputGroup onDoubleClick={() => {
+                    setEditingSubject(true);
+                    setEditSubject(
+                      leaveForm.subject === "__custom"
+                        ? leaveForm.customSubject
+                        : leaveForm.subject
+                    );
+                  }}>
+                    <Form.Select
+                      name="subject"
+                      value={leaveForm.subject}
+                      onChange={handleFormChange}
+                      required
+                    >
+                      <option value="">-- Select --</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.subject}>
+                          {t.subject}
+                        </option>
+                      ))}
+                      <option value="__custom">Other</option>
+                    </Form.Select>
+                    {isAdmin && (
+                      <>
+                        {leaveForm.subject && leaveForm.subject !== "__custom" && (
+                          <Button
+                            variant="outline-secondary"
+                            onClick={() => {
+                              setEditingBody((e) => !e);
+                              setEditBody(leaveForm.body);
+                            }}
+                          >
+                            <FaEdit />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline-primary"
+                          onClick={() => setShowAddModal(true)}
+                        >
+                          <FaPlus />
+                        </Button>
+                      </>
+                    )}
+                  </InputGroup>
+                )}
+
+                {leaveForm.subject === "__custom" && !editingSubject && (
+                  <Form.Control
                     className="mt-2"
+                    type="text"
+                    placeholder="Enter custom subject"
+                    value={leaveForm.customSubject}
+                    onChange={handleFormChange}
+                    name="customSubject"
                     required
                   />
                 )}
@@ -297,20 +414,53 @@ const MailRequest = () => {
                 </Form.Control.Feedback>
               </Form.Group>
 
-              {/* Body */}
+              {/* Body or inline edit view */}
               <Form.Group className="mb-3">
                 <Form.Label>Body</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  name="body"
-                  rows={5}
-                  value={leaveForm.body}
-                  onChange={handleFormChange}
-                  required
-                />
-                <Form.Text className="text-muted">
-                  {leaveForm.body.trim().split(/\s+/).filter(Boolean).length}/500 words
-                </Form.Text>
+                {editingBody ? (
+                  <>
+                    <Form.Control
+                      as="textarea"
+                      rows={5}
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                    />
+                    <div className="mt-2">
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={saveEditBody}
+                        className="me-2"
+                      >
+                        <FaSave /> Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setEditingBody(false);
+                          setEditBody(leaveForm.body);
+                        }}
+                      >
+                        <FaUndo /> Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Form.Control
+                    as="textarea"
+                    name="body"
+                    rows={5}
+                    value={leaveForm.body}
+                    onChange={handleFormChange}
+                    required
+                  />
+                )}
+                {!editingBody && (
+                  <Form.Text className="text-muted">
+                    {leaveForm.body.trim().split(/\s+/).filter(Boolean).length}/500 words
+                  </Form.Text>
+                )}
                 <Form.Control.Feedback type="invalid">
                   Please enter the email body.
                 </Form.Control.Feedback>
@@ -336,40 +486,33 @@ const MailRequest = () => {
             ) : (
               <>
                 <Table striped hover responsive>
-                  <thead>
-                    <tr>
-                      <th>#</th><th>Date</th><th>Subject</th><th>Status</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>#</th><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
                   <tbody>
-                    {paginatedReqs.map((r) => {
-                      // compute the global index of this request
-                      const globalIndex =
-                        myReqs.findIndex((item) => item.request_id === r.request_id) + 1;
-                      return (
-                        <tr key={r.request_id}>
-                          <td>{globalIndex}</td>
-                          <td>{new Date(r.created_at).toISOString().slice(0,10)}</td>
-                          <td>{r.subject}</td>
-                          <td>
-                            <Badge bg={
-                              r.status==="approved" ? "success" :
-                              r.status==="pending"  ? "warning" : "danger"
-                            }>
-                              {r.status.charAt(0).toUpperCase()+r.status.slice(1)}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {paginatedReqs.map((r) => (
+                      <tr key={r.request_id}>
+                        <td>
+                          {myReqs.findIndex((x) => x.request_id === r.request_id) + 1}
+                        </td>
+                        <td>{new Date(r.created_at).toISOString().slice(0,10)}</td>
+                        <td>{r.subject}</td>
+                        <td>
+                          <Badge bg={
+                            r.status==="approved" ? "success" :
+                            r.status==="pending"  ? "warning" : "danger"
+                          }>
+                            {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </Table>
                 <Pagination className="justify-content-center">
                   <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage===1}/>
                   <Pagination.Prev onClick={() => handlePageChange(currentPage-1)} disabled={currentPage===1}/>
-                  {[...Array(totalPages)].map((_,i)=>(
+                  {[...Array(totalPages)].map((_, i) => (
                     <Pagination.Item
-                      key={i+1}
+                      key={i}
                       active={i+1===currentPage}
                       onClick={()=>handlePageChange(i+1)}
                     >
@@ -383,43 +526,71 @@ const MailRequest = () => {
             )}
           </Card>
         </Col>
-
-        {/* Confirmation Modal */}
-        <Modal show={showConfirmModal} onHide={()=>setShowConfirmModal(false)} centered>
-          <Modal.Header closeButton><Modal.Title>Email Preview</Modal.Title></Modal.Header>
-          <Modal.Body>
-            <p><strong>To:</strong> {leaveForm.to}</p>
-            <p><strong>CC:</strong> {leaveForm.ccList.join(", ")}</p>
-            <p><strong>Subject:</strong> {leaveForm.subject}</p>
-            <div className="border p-2 bg-light" style={{whiteSpace:"pre-wrap"}}>
-              {leaveForm.body}
-            </div>
-            <hr/>
-            <p className="text-danger"><b>Send this email?</b></p>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={()=>setShowConfirmModal(false)}>Cancel</Button>
-            <Button variant="primary" onClick={confirmSend} disabled={isSending}>
-              {isSending ? "Sending…" : "Yes, Send"}
-            </Button>
-          </Modal.Footer>
-        </Modal>
       </Row>
 
-      {/* Custom Toast in Top-Right */}
+      {/* Confirmation Modal */}
+      <Modal show={showConfirmModal} onHide={() => setShowConfirmModal(false)} centered>
+        <Modal.Header closeButton><Modal.Title>Email Preview</Modal.Title></Modal.Header>
+        <Modal.Body>
+          <p><strong>To:</strong> {leaveForm.to}</p>
+          <p><strong>CC:</strong> {leaveForm.ccList.join(", ")}</p>
+          <p>
+            <strong>Subject:</strong>{" "}
+            {leaveForm.subject === "__custom"
+              ? leaveForm.customSubject
+              : leaveForm.subject}
+          </p>
+          <div className="border p-2 bg-light" style={{ whiteSpace: "pre-wrap" }}>
+            {leaveForm.body}
+          </div>
+          <hr/>
+          <p className="text-danger"><b>Send this email?</b></p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={confirmSend} disabled={isSending}>
+            {isSending ? "Sending…" : "Yes, Send"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Add-Template Modal */}
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered>
+        <Modal.Header closeButton><Modal.Title>Add New Template</Modal.Title></Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Subject</Form.Label>
+            <Form.Control
+              type="text"
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Body</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={5}
+              value={newBody}
+              onChange={(e) => setNewBody(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={saveNewTemplate} disabled={addSaving}>
+            {addSaving ? <Spinner size="sm" animation="border" /> : <><FaPlus /> Add</>}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Toast */}
       {showToast && (
         <div style={{
-          position: "fixed",
-          top: 20,
-          right: 20,
-          background: "#fff",
-          borderLeft: "4px solid #28a745",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-          padding: "10px 16px",
-          borderRadius: 4,
-          display: "flex",
-          alignItems: "center",
-          zIndex: 1050
+          position: "fixed", top: 20, right: 20, background: "#fff",
+          borderLeft: "4px solid #28a745", boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          padding: "10px 16px", borderRadius: 4, display: "flex",
+          alignItems: "center", zIndex: 1050
         }}>
           <FaCheckCircle style={{ color: "#28a745", fontSize: 20, marginRight: 8 }} />
           <span style={{ flex: 1, fontSize: 14, color: "#333" }}>{toastMsg}</span>
