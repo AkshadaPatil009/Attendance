@@ -1684,37 +1684,47 @@ app.patch('/api/comp-off-requests/settle', (req, res) => {
 
 app.get('/api/status', (req, res) => {
   const sql = `
-    SELECT emp_name, location, status
-    FROM (
-      SELECT 
-        emp_name,
-        location,
-        in_time,
-        CASE 
-          WHEN (in_time IS NOT NULL AND in_time <> '') AND (out_time IS NULL OR out_time = '') 
-          THEN 'online'
-          ELSE 'offline'
-        END AS status,
-        ROW_NUMBER() OVER (
-          PARTITION BY emp_name 
-          ORDER BY in_time DESC
-        ) as rn
-      FROM attendance 
-      WHERE date = CURDATE()
-    ) AS ranked
-    WHERE rn = 1
-    UNION 
-    SELECT Name, Location, 'Absent' as status
-    FROM logincrd
-    WHERE Name NOT IN (
-      SELECT emp_name FROM attendance WHERE date = CURDATE()
-    )
-    UNION
-    SELECT NickName, location, 'Absent' as status
-    FROM employee_master
-    WHERE NickName NOT IN (
-      SELECT emp_name FROM attendance WHERE date = CURDATE()
-    );
+ SELECT emp_name, location, status
+FROM (
+  SELECT 
+    emp_name,
+    location,
+    in_time,
+    CASE 
+      WHEN (in_time IS NOT NULL AND in_time <> '') AND (out_time IS NULL OR out_time = '') 
+      THEN 'online'
+      ELSE 'offline'
+    END AS status,
+    ROW_NUMBER() OVER (
+      PARTITION BY emp_name 
+      ORDER BY in_time DESC
+    ) as rn
+  FROM attendance 
+  WHERE date = CURDATE()
+) AS ranked
+WHERE rn = 1
+  AND emp_name NOT IN ('Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar','Makarand Mhaiskar')
+
+UNION 
+
+SELECT Name, Location, 'Absent' as status
+FROM logincrd
+WHERE disableemp = 0
+  AND Name NOT IN (
+    SELECT emp_name FROM attendance WHERE date = CURDATE()
+  )
+  AND Name NOT IN ('Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar','Makarand Mhaiskar')
+
+UNION
+
+SELECT NickName, location, 'Absent' as status
+FROM employee_master
+WHERE NickName NOT IN (
+  SELECT emp_name FROM attendance WHERE date = CURDATE()
+)
+AND NickName IN (
+  SELECT Name FROM logincrd WHERE disableemp = 0
+);
   `;
 
   db.query(sql, (error, results) => {
