@@ -24,8 +24,11 @@ import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
 import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
+import StatusSection from "../components/StatusSection";
 
 import "../pages/Dashboard.css";
+
+
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -33,7 +36,6 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [activeSection, setActiveSection] = useState("employeeAttendance");
 
-  // On mount: auth + default section
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("user"));
     if (!stored) {
@@ -57,12 +59,11 @@ export default function Dashboard() {
   const isTL    = user.role === 2;
 
   const navbarTitle = isAdmin
-    ? `Admin Panel – Welcome, ${user.name}`
+    ?`Admin Panel – Welcome-${user.name}`
     : isTL
       ? `TL Dashboard – Welcome, ${user.name}`
       : `Employee Dashboard – Welcome, ${user.name}`;
 
-  // Navigate to Request Status with query param
   const goToRequest = (id) => {
     setActiveSection("requestStatus");
     navigate(`${location.pathname}?section=requestStatus&requestId=${id}`);
@@ -83,6 +84,7 @@ export default function Dashboard() {
           <Navbar.Toggle aria-controls="navbar-nav" />
           <Navbar.Collapse id="navbar-nav">
             <Nav className="ms-auto d-flex align-items-center">
+
               {(isAdmin || isTL) && (
                 <NotificationBell
                   user={user}
@@ -95,7 +97,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "attendanceForm" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
                   >
                     Attendance Report
@@ -103,7 +105,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "holidays" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("holidays")}
                   >
                     Add Holidays
@@ -111,7 +113,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
                     Add Leaves
@@ -119,7 +121,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("employeeAttendance")}
                   >
                     Employee Attendance
@@ -127,7 +129,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("leavesEmployee")}
                   >
                     Employee Leaves
@@ -140,7 +142,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("employeeAttendance")}
                   >
                     Attendance
@@ -148,7 +150,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("leavesEmployee")}
                   >
                     Leaves
@@ -156,7 +158,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "holidaysEmployee" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("holidaysEmployee")}
                   >
                     Holidays
@@ -164,7 +166,7 @@ export default function Dashboard() {
                   <Button
                     size="sm"
                     variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                    className="me-2 mb-2 uniform-button"
+                    className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("mailRequest")}
                   >
                     Mail Request
@@ -176,7 +178,7 @@ export default function Dashboard() {
                 <Button
                   size="sm"
                   variant={activeSection === "requestStatus" ? "secondary" : "light"}
-                  className="me-2 mb-2 uniform-button"
+                  className="me-2 mb-1 uniform-button"
                   onClick={() => setActiveSection("requestStatus")}
                 >
                   Request Status
@@ -187,14 +189,23 @@ export default function Dashboard() {
                 <Button
                   size="sm"
                   variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                  className="me-2 mb-2 uniform-button"
+                  className="me-2 mb-1 uniform-button"
                   onClick={() => setActiveSection("mailRequest")}
                 >
                   Mail Request
                 </Button>
               )}
 
-              {/* ─── RED CIRCULAR LOGOUT BUTTON ─── */}
+              {/* New Status button */}
+              <Button
+                size="sm"
+                variant={activeSection === "status" ? "secondary" : "light"}
+                className="me-2 mb-1 uniform-button"
+                onClick={() => setActiveSection("status")}
+              >
+                Present Status
+              </Button>
+
               <Button
                 onClick={handleLogout}
                 className="logout-circle-button"
@@ -213,15 +224,16 @@ export default function Dashboard() {
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
         {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
-
         {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
         {activeSection === "mailRequest"       && !isAdmin && <MailRequest />}
-        {activeSection === "requestStatus"     && isTL    && <RequestStatusEmp />}
+        {activeSection === "requestStatus"     && isTL && <RequestStatusEmp />}
+        {activeSection === "status" && <StatusSection />}
+
       </div>
 
       <Footer />
-
     </div>
-);}
+  );
+}

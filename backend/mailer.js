@@ -23,6 +23,8 @@ async function sendLeaveEmail({ from_email, from_name, to_email, cc_email, subje
     subject,
     text: body,
   });
+  console.log('SMTP user:', process.env.SENDER_MAIL);
+  console.log('SMTP pass:', process.env.PASSWORD);
 }
 
 // new helper to send decision notifications
