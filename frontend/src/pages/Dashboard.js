@@ -203,7 +203,7 @@ export default function Dashboard() {
                 className="me-2 mb-1 uniform-button"
                 onClick={() => setActiveSection("status")}
               >
-                Present Status
+                Presenty Status
               </Button>
 
               <Button
