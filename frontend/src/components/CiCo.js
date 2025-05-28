@@ -18,7 +18,7 @@ export default function CiCoEntry() {
     const location = locationParts.join(" ");
 
     if (!["CI", "CO"].includes(type) || !location) {
-      setMessage("Please enter in format: CI RO or CO RO");
+      setMessage("Please enter in format: CI or CO ");
       return;
     }
 
@@ -40,7 +40,7 @@ export default function CiCoEntry() {
 
   return (
     <div style={{ padding: "20px", textAlign: "center" }}>
-      <h3>Welcome, {userName}</h3>
+      
 
       <input
         type="text"
