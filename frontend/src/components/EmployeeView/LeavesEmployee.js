@@ -105,21 +105,7 @@ const EmployeeLeaveApplication = () => {
             </Card.Header>
             <Card.Body>
               <div className="balances-section">
-                <h6>Used</h6>
-                <Form.Group controlId="used-unplanned" className="mb-2">
-                  <Form.Label>Unplanned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.unplannedLeave}
-                  />
-                </Form.Group>
-                <Form.Group controlId="used-planned" className="mb-3">
-                  <Form.Label>Planned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.plannedLeave}
-                  />
-                </Form.Group>
+                
 
                 <h6 className="mt-4">Remaining</h6>
                 <Form.Group controlId="remaining-unplanned" className="mb-2">
