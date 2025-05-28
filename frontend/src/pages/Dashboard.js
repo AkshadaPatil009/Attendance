@@ -1,4 +1,3 @@
-// src/pages/Dashboard.js
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
@@ -24,11 +23,12 @@ import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
 import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
-import StatusSection from "../components/StatusSection";
+import StatusSection      from "../components/StatusSection";
+
+// New CI/CO component
+import CiCo from "../components/CiCo";
 
 import "../pages/Dashboard.css";
-
-
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -59,10 +59,10 @@ export default function Dashboard() {
   const isTL    = user.role === 2;
 
   const navbarTitle = isAdmin
-    ?`Admin Panel:Welcome, ${user.name}`
+    ? `Admin Panel: Welcome, ${user.name}`
     : isTL
-      ? `TL Dashboard:Welcome, ${user.name}`
-      : `Employee Dashboard:Welcome, ${user.name}`;
+      ? `TL Dashboard: Welcome, ${user.name}`
+      : `Employee Dashboard: Welcome, ${user.name}`;
 
   const goToRequest = (id) => {
     setActiveSection("requestStatus");
@@ -203,7 +203,17 @@ export default function Dashboard() {
                 className="me-2 mb-1 uniform-button"
                 onClick={() => setActiveSection("status")}
               >
-                Presenty Status
+                Employee Status
+              </Button>
+
+              {/* NEW CI/CO button for everyone */}
+              <Button
+                size="sm"
+                variant={activeSection === "cico" ? "secondary" : "light"}
+                className="me-2 mb-1 uniform-button"
+                onClick={() => setActiveSection("cico")}
+              >
+                CI/CO
               </Button>
 
               <Button
@@ -228,12 +238,12 @@ export default function Dashboard() {
         {activeSection === "leavesEmployee"    && <LeavesEmployee />}
         {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
         {activeSection === "mailRequest"       && !isAdmin && <MailRequest />}
-        {activeSection === "requestStatus"     && isTL && <RequestStatusEmp />}
-        {activeSection === "status" && <StatusSection />}
-
+        {activeSection === "requestStatus"     && isTL    && <RequestStatusEmp />}
+        {activeSection === "status"            && <StatusSection />}
+        {activeSection === "cico"              && <CiCo />}
       </div>
 
       <Footer />
     </div>
-  );
+);
 }
