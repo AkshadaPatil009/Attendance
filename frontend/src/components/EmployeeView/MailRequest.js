@@ -352,27 +352,33 @@ const MailRequest = () => {
                     required
                   />
                 ) : (
-                  <InputGroup onDoubleClick={() => {
-                    setEditingSubject(true);
-                    setEditSubject(
-                      leaveForm.subject === "__custom"
-                        ? leaveForm.customSubject
-                        : leaveForm.subject
-                    );
-                  }}>
+                  <InputGroup
+                    onDoubleClick={() => {
+                      setEditingSubject(true);
+                      setEditSubject(
+                        leaveForm.subject === "__custom"
+                          ? leaveForm.customSubject
+                          : leaveForm.subject
+                      );
+                    }}
+                  >
                     <Form.Select
                       name="subject"
                       value={leaveForm.subject}
                       onChange={handleFormChange}
                       required
                     >
-                      <option value="">-- Select --</option>
+                      <option key="default" value="">
+                        -- Select --
+                      </option>
                       {templates.map((t) => (
                         <option key={t.id} value={t.subject}>
                           {t.subject}
                         </option>
                       ))}
-                      <option value="__custom">Other</option>
+                      <option key="__custom" value="__custom">
+                        Other
+                      </option>
                     </Form.Select>
                     {isAdmin && (
                       <>
