@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 const Login = ({ setUser }) => {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError]       = useState("");
   const navigate                = useNavigate();
 
@@ -59,6 +61,8 @@ const Login = ({ setUser }) => {
     }
   };
 
+  const toggleShowPassword = () => setShowPassword(prev => !prev);
+
   return (
     <div className="d-flex justify-content-center align-items-center vh-100">
       <div className="card p-4 shadow-lg" style={{ width: "350px" }}>
@@ -77,13 +81,23 @@ const Login = ({ setUser }) => {
           </div>
           <div className="mb-3">
             <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
+            <div className="input-group">
+              <input
+                type={showPassword ? "text" : "password"}
+                className="form-control"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={toggleShowPassword}
+                tabIndex={-1}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
           </div>
           <button type="submit" className="btn btn-primary w-100">
             Login
