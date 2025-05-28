@@ -10,10 +10,10 @@ import {
 } from "react-bootstrap";
 import { BoxArrowRight } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
+import EmployeeTabs from "../components/AdminView/EmployeeTabs";
 
 // Admin views
 import AttendanceForm    from "../components/AdminView/AttendanceForm";
-//import Holidays          from "../components/AdminView/Holiday";
 import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
 import RequestStatus     from "../components/AdminView/RequestStatus";
 
@@ -102,7 +102,7 @@ export default function Dashboard() {
                   >
                     Attendance Report
                   </Button>
-                  
+
                   <Button
                     size="sm"
                     variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
@@ -111,21 +111,14 @@ export default function Dashboard() {
                   >
                     Holiday/Leaves
                   </Button>
+
                   <Button
                     size="sm"
-                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    variant={activeSection === "employeeTabs" ? "secondary" : "light"}
                     className="me-2 mb-1 uniform-button"
-                    onClick={() => setActiveSection("employeeAttendance")}
+                    onClick={() => setActiveSection("employeeTabs")}
                   >
-                    Employee Attendance
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
-                    className="me-2 mb-1 uniform-button"
-                    onClick={() => setActiveSection("leavesEmployee")}
-                  >
-                    Employee Leaves
+                    Employee Overview
                   </Button>
                 </>
               )}
@@ -189,17 +182,6 @@ export default function Dashboard() {
                 </Button>
               )}
 
-              {/* New Status button */}
-              <Button
-                size="sm"
-                variant={activeSection === "status" ? "secondary" : "light"}
-                className="me-2 mb-1 uniform-button"
-                onClick={() => setActiveSection("status")}
-              >
-                Employee Status
-              </Button>
-
-              {/* NEW CI/CO button for everyone */}
               <Button
                 size="sm"
                 variant={activeSection === "cico" ? "secondary" : "light"}
@@ -222,21 +204,25 @@ export default function Dashboard() {
       </Navbar>
 
       <div className="w-100">
-        {activeSection === "attendanceForm"    && <AttendanceForm />}
-        
-        {activeSection === "adminemployeeView" && <AdminEmployeeView />}
-        {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
-        {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
-        {activeSection === "employeeAttendance"&& <EmployeeAttendance />}
-        {activeSection === "leavesEmployee"    && <LeavesEmployee />}
-        {activeSection === "holidaysEmployee"  && <HolidaysEmployee />}
-        {activeSection === "mailRequest"       && !isAdmin && <MailRequest />}
-        {activeSection === "requestStatus"     && isTL    && <RequestStatusEmp />}
-        {activeSection === "status"            && <StatusSection />}
-        {activeSection === "cico"              && <CiCo />}
+        {/* Admin-only */}
+        {activeSection === "attendanceForm"       && <AttendanceForm />}
+        {activeSection === "adminemployeeView"    && <AdminEmployeeView />}
+        {activeSection === "employeeTabs" && isAdmin && <EmployeeTabs />}
+        {activeSection === "requestStatus" && isAdmin && <RequestStatus />}
+        {activeSection === "mailRequest"   && isAdmin && <MailRequest />}
+
+        {/* Employee and TL views */}
+        {!isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
+        {!isAdmin && activeSection === "leavesEmployee"     && <LeavesEmployee />}
+        {!isAdmin && activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
+        {!isAdmin && activeSection === "mailRequest"        && <MailRequest />}
+        {isTL && activeSection === "requestStatus"          && <RequestStatusEmp />}
+
+        {/* Shared */}
+        {activeSection === "cico" && <CiCo />}
       </div>
 
       <Footer />
     </div>
-);
+  );
 }
