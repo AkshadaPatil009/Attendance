@@ -2,12 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import {
-  Navbar,
-  Nav,
-  Container,
-  Button
-} from "react-bootstrap";
+import {Navbar,Nav,Container,Button} from "react-bootstrap";
 import { BoxArrowRight } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
@@ -23,7 +18,6 @@ import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
 import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
-import StatusSection      from "../components/StatusSection";
 
 // New CI/CO component
 import CiCo from "../components/CiCo";
