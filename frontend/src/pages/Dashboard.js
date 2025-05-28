@@ -13,7 +13,7 @@ import NotificationBell from "../components/NotificationBell";
 
 // Admin views
 import AttendanceForm    from "../components/AdminView/AttendanceForm";
-import Holidays          from "../components/AdminView/Holiday";
+//import Holidays          from "../components/AdminView/Holiday";
 import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
 import RequestStatus     from "../components/AdminView/RequestStatus";
 
@@ -102,21 +102,14 @@ export default function Dashboard() {
                   >
                     Attendance Report
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={activeSection === "holidays" ? "secondary" : "light"}
-                    className="me-2 mb-1 uniform-button"
-                    onClick={() => setActiveSection("holidays")}
-                  >
-                    Add Holidays
-                  </Button>
+                  
                   <Button
                     size="sm"
                     variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
-                    Add Leaves
+                    Holiday/Leaves
                   </Button>
                   <Button
                     size="sm"
@@ -230,7 +223,7 @@ export default function Dashboard() {
 
       <div className="w-100">
         {activeSection === "attendanceForm"    && <AttendanceForm />}
-        {activeSection === "holidays"          && <Holidays />}
+        
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
         {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
