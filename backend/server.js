@@ -392,6 +392,7 @@ app.post('/api/attendance/manual', (req, res) => {
   }
 
   if (type === "CI") {
+    // Insert new CI record
     db.query(
       `INSERT INTO attendance
         (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
@@ -407,7 +408,7 @@ app.post('/api/attendance/manual', (req, res) => {
       }
     );
   } else {
-    // CO
+    // Handle CO
     db.query(
       `SELECT id, in_time 
          FROM attendance
@@ -421,36 +422,48 @@ app.post('/api/attendance/manual', (req, res) => {
       (err, results) => {
         if (err) {
           console.error(err);
-          return res.status(500).json({ error: 'Error fetching unmatched CI' });
+          return res.status(500).json({ error: 'Error checking CI entry' });
         }
 
         if (results.length === 0) {
-          return res.status(400).json({ error: 'No unmatched CI entry for today' });
-        }
-
-        const { id, in_time } = results[0];
-        const { work_hour, dayStatus } = calculateWorkHoursAndDay(in_time, timestamp);
-
-        db.query(
-          `UPDATE attendance
-             SET out_time = ?, location = ?, work_hour = ?, day = ?, is_absent = 0
-           WHERE id = ?`,
-          [timestamp, location, work_hour, dayStatus, id],
-          (updateErr) => {
-            if (updateErr) {
-              console.error(updateErr);
-              return res.status(500).json({ error: 'Failed to update CO entry' });
+          // No CI, insert CO as standalone
+          db.query(
+            `INSERT INTO attendance
+              (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
+             VALUES (?, "", ?, ?, ?, 0, "", 0)`,
+            [empName, timestamp, location, date],
+            (insertErr) => {
+              if (insertErr) {
+                console.error(insertErr);
+                return res.status(500).json({ error: 'Failed to insert standalone CO' });
+              }
+              emitAttendanceChange();
+              res.json({ message: 'Standalone CO entry added at ' + timestamp });
             }
-            emitAttendanceChange();
-            res.json({ message: 'CO entry paired at ' + timestamp });
-          }
-        );
+          );
+        } else {
+          const { id, in_time } = results[0];
+          const { work_hour, dayStatus } = calculateWorkHoursAndDay(in_time, timestamp);
+
+          db.query(
+            `UPDATE attendance
+               SET out_time = ?, location = ?, work_hour = ?, day = ?, is_absent = 0
+             WHERE id = ?`,
+            [timestamp, location, work_hour, dayStatus, id],
+            (updateErr) => {
+              if (updateErr) {
+                console.error(updateErr);
+                return res.status(500).json({ error: 'Failed to update CO entry' });
+              }
+              emitAttendanceChange();
+              res.json({ message: 'CO entry paired at ' + timestamp });
+            }
+          );
+        }
       }
     );
   }
 });
-
-
 
 // PUT Attendance API – Updated to only change is_absent status based on updated clock fields.
 app.put("/api/attendance/:id", (req, res) => {
