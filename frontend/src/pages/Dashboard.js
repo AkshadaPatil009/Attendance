@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import {Navbar,Nav,Container,Button} from "react-bootstrap";
+import { Navbar, Nav, Container, Button } from "react-bootstrap";
 import { BoxArrowRight } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
@@ -28,7 +28,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
-  const [activeSection, setActiveSection] = useState("employeeAttendance");
+  const [activeSection, setActiveSection] = useState("cico");
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("user"));
@@ -36,9 +36,7 @@ export default function Dashboard() {
       navigate("/");
     } else {
       setUser(stored);
-      if (stored.role === 4) {
-        setActiveSection("attendanceForm");
-      }
+      setActiveSection("cico");
     }
   }, [navigate]);
 
@@ -85,9 +83,18 @@ export default function Dashboard() {
                   onSelect={goToRequest}
                 />
               )}
+               <Button
+                size="sm"
+                variant={activeSection === "cico" ? "secondary" : "light"}
+                className="me-2 mb-1 uniform-button"
+                onClick={() => setActiveSection("cico")}
+              >
+                CI/CO
+              </Button>
 
               {isAdmin && (
                 <>
+
                   <Button
                     size="sm"
                     variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -119,6 +126,7 @@ export default function Dashboard() {
 
               {!isAdmin && (
                 <>
+                 
                   <Button
                     size="sm"
                     variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
@@ -155,6 +163,7 @@ export default function Dashboard() {
               )}
 
               {(isAdmin || isTL) && (
+                
                 <Button
                   size="sm"
                   variant={activeSection === "requestStatus" ? "secondary" : "light"}
@@ -175,15 +184,6 @@ export default function Dashboard() {
                   Mail Request
                 </Button>
               )}
-
-              <Button
-                size="sm"
-                variant={activeSection === "cico" ? "secondary" : "light"}
-                className="me-2 mb-1 uniform-button"
-                onClick={() => setActiveSection("cico")}
-              >
-                CI/CO
-              </Button>
 
               <Button
                 onClick={handleLogout}
@@ -210,7 +210,7 @@ export default function Dashboard() {
         {!isAdmin && activeSection === "leavesEmployee"     && <LeavesEmployee />}
         {!isAdmin && activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
         {!isAdmin && activeSection === "mailRequest"        && <MailRequest />}
-        {isTL && activeSection === "requestStatus"          && <RequestStatusEmp />}
+        {isTL    && activeSection === "requestStatus"       && <RequestStatusEmp />}
 
         {/* Shared */}
         {activeSection === "cico" && <CiCo />}
@@ -218,5 +218,5 @@ export default function Dashboard() {
 
       <Footer />
     </div>
-  );
+);
 }
