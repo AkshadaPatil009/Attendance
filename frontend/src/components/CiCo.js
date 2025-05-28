@@ -1,55 +1,64 @@
 import React, { useState } from "react";
-import { Container, Row, Col, Form, Button } from "react-bootstrap";
+import axios from "axios";
+import moment from "moment";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 export default function CiCoEntry() {
-  const [ci, setCi] = useState("");
-  const [co, setCo] = useState("");
+  const storedUser = JSON.parse(localStorage.getItem("user")) || {};
+  const userName = storedUser.name || storedUser.empName || "Unknown";
 
-  const handleGo = () => {
-    // decide which one was filled
-    const payload = ci ? { type: "in", value: ci } : { type: "out", value: co };
-    console.log("Submit:", payload);
-    // TODO: POST to your API...
-    setCi("");
-    setCo("");
+  const [entryText, setEntryText] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleGo = async () => {
+    const [typeRaw, ...locationParts] = entryText.trim().split(" ");
+    const type = typeRaw?.toUpperCase();
+    const location = locationParts.join(" ");
+
+    if (!["CI", "CO"].includes(type) || !location) {
+      setMessage("Please enter in format: CI RO or CO RO");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const timestamp = moment().format("YYYY-MM-DD h:mmA");
+      const { data } = await axios.post(`${API_URL}/api/attendance/manual`, {
+        empName: userName,
+        timestamp,
+        entryText: entryText.trim()
+      });      
+      setMessage(data.message);
+    } catch (err) {
+      setMessage(err.response?.data?.error || "Error processing entry");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Container className="mt-4" style={{ maxWidth: "400px" }}>
-      <Row>
-        <Col>
-          <Form.Group controlId="ciInput">
-            <Form.Label>CI</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter check‐in"
-              value={ci}
-              onChange={e => setCi(e.target.value)}
-              disabled={!!co}
-            />
-          </Form.Group>
-        </Col>
-        <Col>
-          <Form.Group controlId="coInput">
-            <Form.Label>CO</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Enter check‐out"
-              value={co}
-              onChange={e => setCo(e.target.value)}
-              disabled={!!ci}
-            />
-          </Form.Group>
-        </Col>
-      </Row>
+    <div style={{ padding: "20px", textAlign: "center" }}>
+      <h3>Welcome, {userName}</h3>
 
-      <Row className="mt-3">
-        <Col className="text-center">
-          <Button variant="primary" onClick={handleGo}>
-            Go
-          </Button>
-        </Col>
-      </Row>
-    </Container>
+      <input
+        type="text"
+        placeholder='Type "CI " or "CO "'
+        value={entryText}
+        onChange={(e) => setEntryText(e.target.value)}
+        style={{ padding: "8px", width: "250px", marginBottom: "10px" }}
+      />
+      <br />
+      <button
+        onClick={handleGo}
+        disabled={loading}
+        style={{ padding: "10px 20px" }}
+      >
+        {loading ? "Processing..." : "Go"}
+      </button>
+
+      {message && <p style={{ marginTop: "15px" }}>{message}</p>}
+    </div>
   );
 }

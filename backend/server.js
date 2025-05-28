@@ -379,6 +379,78 @@ app.post("/api/attendance", (req, res) => {
   );
 });
 
+app.post('/api/attendance/manual', (req, res) => {
+  const { empName, timestamp, entryText } = req.body;
+
+  const [typeRaw, ...locationParts] = entryText.trim().split(" ");
+  const type = typeRaw?.toUpperCase();
+  const location = locationParts.join(" ").trim();
+  const date = moment(timestamp, 'YYYY-MM-DD h:mmA').format('YYYY-MM-DD');
+
+  if (!["CI", "CO"].includes(type) || !location) {
+    return res.status(400).json({ error: 'Invalid entry format. Use "CI RO" or "CO RO"' });
+  }
+
+  if (type === "CI") {
+    db.query(
+      `INSERT INTO attendance
+        (emp_name, in_time, out_time, location, date, work_hour, day, is_absent)
+       VALUES (?, ?, "", ?, ?, 0, "", 0)`,
+      [empName, timestamp, location, date],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Failed to save CI entry' });
+        }
+        emitAttendanceChange();
+        res.json({ message: 'CI entry recorded at ' + timestamp });
+      }
+    );
+  } else {
+    // CO
+    db.query(
+      `SELECT id, in_time 
+         FROM attendance
+        WHERE emp_name = ? 
+          AND date = ? 
+          AND in_time <> "" 
+          AND (out_time = "" OR out_time IS NULL)
+        ORDER BY in_time DESC
+        LIMIT 1`,
+      [empName, date],
+      (err, results) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Error fetching unmatched CI' });
+        }
+
+        if (results.length === 0) {
+          return res.status(400).json({ error: 'No unmatched CI entry for today' });
+        }
+
+        const { id, in_time } = results[0];
+        const { work_hour, dayStatus } = calculateWorkHoursAndDay(in_time, timestamp);
+
+        db.query(
+          `UPDATE attendance
+             SET out_time = ?, location = ?, work_hour = ?, day = ?, is_absent = 0
+           WHERE id = ?`,
+          [timestamp, location, work_hour, dayStatus, id],
+          (updateErr) => {
+            if (updateErr) {
+              console.error(updateErr);
+              return res.status(500).json({ error: 'Failed to update CO entry' });
+            }
+            emitAttendanceChange();
+            res.json({ message: 'CO entry paired at ' + timestamp });
+          }
+        );
+      }
+    );
+  }
+});
+
+
 
 // PUT Attendance API – Updated to only change is_absent status based on updated clock fields.
 app.put("/api/attendance/:id", (req, res) => {
