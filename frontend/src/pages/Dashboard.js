@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Navbar, Nav, Container, Button } from "react-bootstrap";
-import { BoxArrowRight } from 'react-bootstrap-icons';
+import { Navbar, Nav, Container, Button, Dropdown } from "react-bootstrap";
+import { BoxArrowRight, GearFill } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
 
@@ -21,6 +21,7 @@ import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
 
 // New CI/CO component
 import CiCo from "../components/CiCo";
+import ProfileUpdate from "../components/ProfileUpdate";
 
 import "../pages/Dashboard.css";
 
@@ -83,7 +84,7 @@ export default function Dashboard() {
                   onSelect={goToRequest}
                 />
               )}
-               <Button
+              <Button
                 size="sm"
                 variant={activeSection === "cico" ? "secondary" : "light"}
                 className="me-2 mb-1 uniform-button"
@@ -94,7 +95,6 @@ export default function Dashboard() {
 
               {isAdmin && (
                 <>
-
                   <Button
                     size="sm"
                     variant={activeSection === "attendanceForm" ? "secondary" : "light"}
@@ -103,7 +103,6 @@ export default function Dashboard() {
                   >
                     Attendance Report
                   </Button>
-
                   <Button
                     size="sm"
                     variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
@@ -112,7 +111,6 @@ export default function Dashboard() {
                   >
                     Holiday/Leaves
                   </Button>
-
                   <Button
                     size="sm"
                     variant={activeSection === "employeeTabs" ? "secondary" : "light"}
@@ -126,7 +124,6 @@ export default function Dashboard() {
 
               {!isAdmin && (
                 <>
-                 
                   <Button
                     size="sm"
                     variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
@@ -163,7 +160,6 @@ export default function Dashboard() {
               )}
 
               {(isAdmin || isTL) && (
-                
                 <Button
                   size="sm"
                   variant={activeSection === "requestStatus" ? "secondary" : "light"}
@@ -185,13 +181,22 @@ export default function Dashboard() {
                 </Button>
               )}
 
-              <Button
-                onClick={handleLogout}
-                className="logout-circle-button"
-                title="Logout"
-              >
-                <BoxArrowRight size={20} color="white" />
-              </Button>
+              {/* Gear dropdown */}
+              <Dropdown align="end" className="me-2 mb-1">
+                <Dropdown.Toggle as={Button} className="profile-circle-button" id="gear-dropdown">
+                  <GearFill size={16} />
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  <Dropdown.Item onClick={() => setActiveSection("profileUpdate")}>
+                    Profile
+                  </Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Item onClick={handleLogout}>
+                    Logout
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+
             </Nav>
           </Navbar.Collapse>
         </Container>
@@ -199,11 +204,11 @@ export default function Dashboard() {
 
       <div className="w-100">
         {/* Admin-only */}
-        {activeSection === "attendanceForm"       && <AttendanceForm />}
-        {activeSection === "adminemployeeView"    && <AdminEmployeeView />}
-        {activeSection === "employeeTabs" && isAdmin && <EmployeeTabs />}
-        {activeSection === "requestStatus" && isAdmin && <RequestStatus />}
-        {activeSection === "mailRequest"   && isAdmin && <MailRequest />}
+        {activeSection === "attendanceForm"    && <AttendanceForm />}
+        {activeSection === "adminemployeeView" && <AdminEmployeeView />}
+        {activeSection === "employeeTabs"      && isAdmin && <EmployeeTabs />}
+        {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
+        {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
 
         {/* Employee and TL views */}
         {!isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
@@ -213,7 +218,8 @@ export default function Dashboard() {
         {isTL    && activeSection === "requestStatus"       && <RequestStatusEmp />}
 
         {/* Shared */}
-        {activeSection === "cico" && <CiCo />}
+        {activeSection === "cico"           && <CiCo />}
+        {activeSection === "profileUpdate"  && <ProfileUpdate user={user} />}
       </div>
 
       <Footer />

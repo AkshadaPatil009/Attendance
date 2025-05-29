@@ -85,3 +85,30 @@ tr.completedHoliday td {
 .logout-circle-button:focus {
   transform: scale(1.1);
 }
+.profile-circle-button {
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #6c757d;
+  border: none;
+  margin-right: 10px;
+  color: white;
+}
+.profile-circle-button:hover {
+  background-color: #5a6268;
+}
+.profile-update-form input {
+  border-radius: 8px;
+}
+
+.profile-update-form label {
+  font-weight: 500;
+}
+/* hide the little caret on the gear toggle */
+.profile-circle-button.dropdown-toggle::after {
+  display: none !important;
+}
