@@ -302,7 +302,8 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                disabled={isEmployee && !canEditAll}
+                // Only Admin (role === 4) can edit this field
+                disabled={user.role !== 4}
               >
                 {Object.entries(ROLE_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>
