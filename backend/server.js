@@ -4,6 +4,8 @@ const mysql = require("mysql2");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const moment = require("moment");
+const multer  = require('multer');
+const path    = require('path');
 require("dotenv").config();
 const { sendLeaveEmail } = require("./mailer");
 const { sendDecisionEmail } = require("./mailer");
@@ -16,6 +18,28 @@ const { Server } = require("socket.io");
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Serve uploaded images
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
+// Multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => 
+    cb(null, path.join(__dirname, "uploads")),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = `profile_${req.params.id}_${Date.now()}${ext}`;
+    cb(null, name);
+  },
+});
+const upload = multer({
+  storage,
+  fileFilter: (req,file,cb) =>
+    file.mimetype.startsWith("image/")
+      ? cb(null,true)
+      : cb(new Error("Only image files allowed")),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 // Create HTTP server and integrate Socket.IO
 const server = http.createServer(app);
@@ -1872,6 +1896,90 @@ AND NickName IN (
     res.json(results);
   });
 });
+
+// GET profile
+app.get("/api/profile/:id", (req, res) => {
+  const sql = `
+    SELECT
+      id,
+      Name               AS Name,
+      fname,
+      lname,
+      Nickname           AS nickname,
+      Email              AS email,
+      Location           AS location,
+      attendance_role    AS role,
+      image_filename
+    FROM logincrd
+    WHERE id = ?
+  `;
+  db.query(sql, [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: "DB error" });
+    if (!results.length) return res.status(404).json({ error: "Not found" });
+    res.json(results[0]);
+  });
+});
+
+// POST update profile text fields
+app.post("/api/profile/:id", (req, res) => {
+  const {
+    Name,
+    fname,
+    lname,
+    nickname,
+    email,
+    location,
+    role,
+  } = req.body;
+
+  const sql = `
+    UPDATE logincrd
+      SET
+        Name            = ?,
+        fname           = ?,
+        lname           = ?,
+        Nickname        = ?,
+        Email           = ?,
+        Location        = ?,
+        attendance_role = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      Name,
+      fname,
+      lname,
+      nickname,
+      email,
+      location,
+      role,
+      req.params.id,
+    ],
+    err => {
+      if (err) return res.status(500).json({ error: "DB error" });
+      res.json({ message: "Profile updated" });
+    }
+  );
+});
+
+// POST image upload (unchanged)
+app.post(
+  "/api/profile/:id/image",
+  upload.single("image"),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file" });
+    db.query(
+      "UPDATE logincrd SET image_filename = ? WHERE id = ?",
+      [req.file.filename, req.params.id],
+      err => {
+        if (err) return res.status(500).json({ error: "DB error" });
+        res.json({ filename: req.file.filename });
+      }
+    );
+  }
+);
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
