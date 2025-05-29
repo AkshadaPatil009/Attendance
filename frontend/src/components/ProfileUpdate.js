@@ -1,240 +1,298 @@
+// src/components/ProfileUpdate.js
+
 import React, { useState, useEffect } from "react";
+import {
+  Form,
+  Button,
+  Card,
+  Image,
+  Spinner,
+  Alert,
+  Modal
+} from "react-bootstrap";
+import { FaCamera, FaUserCircle } from "react-icons/fa";
 import axios from "axios";
-import { Form, Button, Card, Image } from "react-bootstrap";
-import { FaCamera } from "react-icons/fa";
 
-export default function ProfileUpdate({ userId, onClose }) {
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const ROLE_LABELS = {
+  1: "Employee",
+  2: "Team Leader",
+  3: "HR",
+  4: "Admin",
+};
+
+export default function ProfileUpdate({
+  user,
+  onClose = () => {},
+}) {
   const [formData, setFormData] = useState({
-    Name: "",
-    fname: "",
-    lname: "",
-    Nickname: "",
-    Email: "",
-    Password: "",
-    Type: "",
-    Location: "",
-    loginUsingGmail: 0,
+    Name:     "",
+    fname:    "",
+    lname:    "",
+    nickname: "",
+    email:    "",
+    location: "",
+    role:     1,
+    _file:    null,
   });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [originalData, setOriginalData]   = useState(null);
+  const [imagePreview, setImagePreview]   = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [saving, setSaving]               = useState(false);
+  const [error, setError]                 = useState("");
+  const [showConfirm, setShowConfirm]     = useState(false);
 
-  // 1️⃣ Fetch existing user data
+  // Load profile
   useEffect(() => {
+    if (!user?.employeeId) {
+      setError("No employeeId provided");
+      setLoadingProfile(false);
+      return;
+    }
     axios
-      .get(`/api/users/${userId}`)
+      .get(`${API_URL}/api/profile/${user.employeeId}`)
       .then((res) => {
-        const data = res.data;
-        setFormData({
-          Name: data.Name || "",
-          fname: data.fname || "",
-          lname: data.lname || "",
-          Nickname: data.Nickname || "",
-          Email: data.Email || "",
-          Password: "",                // leave blank; user can enter new one
-          Type: data.Type || "",
-          Location: data.Location || "",
-          loginUsingGmail: data.loginUsingGmail,
-        });
-        if (data.profileImageUrl) {
-          setImagePreview(data.profileImageUrl);
-        }
+        const d = res.data;
+        const init = {
+          Name:     d.Name      || "",
+          fname:    d.fname     || "",
+          lname:    d.lname     || "",
+          nickname: d.nickname  || "",
+          email:    d.email     || "",
+          location: d.location  || "",
+          role:     d.role      || 1,
+        };
+        setFormData({ ...init, _file: null });
+        setOriginalData(init);
+        setImagePreview(
+          d.image_filename
+            ? `${API_URL}/uploads/${d.image_filename}`
+            : null
+        );
       })
-      .catch((err) => console.error("Failed to load profile", err));
-  }, [userId]);
+      .catch(() => setError("Failed to load profile"))
+      .finally(() => setLoadingProfile(false));
+  }, [user]);
 
-  // 2️⃣ Handle text / checkbox changes
+  // Determine if any field changed
+  const isDirty = React.useMemo(() => {
+    if (!originalData) return false;
+    // check each field
+    for (let key of ["Name","fname","lname","nickname","email","location","role"]) {
+      if (formData[key] !== originalData[key]) return true;
+    }
+    // check if a new file selected
+    if (formData._file) return true;
+    return false;
+  }, [formData, originalData]);
+
+  // Handle input changes
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-            ? 1
-            : 0
-          : value,
-    }));
-  };
-
-  // 3️⃣ Handle image selection + preview
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-  };
-
-  // 4️⃣ Submit updates
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      // build multipart form
-      const payload = new FormData();
-      Object.entries(formData).forEach(([k, v]) => payload.append(k, v));
-      if (imageFile) payload.append("profileImage", imageFile);
-
-      await axios.put(`/api/users/${userId}`, payload, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      alert("Profile updated successfully!");
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert("There was an error updating your profile.");
+    const { name, value, type, checked, files } = e.target;
+    if (type === "file" && files.length) {
+      const file = files[0];
+      setFormData((p) => ({ ...p, _file: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    } else {
+      setFormData((p) => ({
+        ...p,
+        [name]:
+          type === "checkbox"
+            ? (checked ? 1 : 0)
+            : (name === "role" ? parseInt(value, 10) : value),
+      }));
     }
   };
 
-  return (
-    <Card className="m-3 p-4 shadow-sm" style={{ maxWidth: 500, margin: "auto" }}>
-      <div className="text-center mb-3">
-        <div style={{ position: "relative", display: "inline-block" }}>
-          <Image
-            src={imagePreview || "https://via.placeholder.com/100"}
-            roundedCircle
-            style={{ width: 100, height: 100, objectFit: "cover" }}
-          />
-          <label
-            htmlFor="profileImage"
-            style={{
-              position: "absolute",
-              bottom: 0,
-              right: 0,
-              backgroundColor: "#007bff",
-              borderRadius: "50%",
-              width: 30,
-              height: 30,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              cursor: "pointer",
-              color: "#fff",
-            }}
-          >
-            <FaCamera size={16} />
-          </label>
-          <input
-            id="profileImage"
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={handleImageChange}
-          />
-        </div>
-      </div>
-      <h5 className="text-center mb-3">Update Profile</h5>
-      <Form onSubmit={handleSubmit} encType="multipart/form-data">
-        {/* Name */}
-        <Form.Group className="mb-3">
-          <Form.Label>Full Name</Form.Label>
-          <Form.Control
-            type="text"
-            name="Name"
-            value={formData.Name}
-            onChange={handleChange}
-            placeholder="Enter full name"
-          />
-        </Form.Group>
+  // Actual submit
+  const handleSubmit = async () => {
+    setShowConfirm(false);
+    setSaving(true);
+    setError("");
 
-        {/* First + Last */}
-        <Form.Group className="mb-3" controlId="formRowNames">
-          <div className="d-flex">
-            <Form.Control
-              className="me-2"
-              type="text"
-              name="fname"
-              value={formData.fname}
+    try {
+      await axios.post(
+        `${API_URL}/api/profile/${user.employeeId}`,
+        {
+          Name:     formData.Name,
+          fname:    formData.fname,
+          lname:    formData.lname,
+          nickname: formData.nickname,
+          email:    formData.email,
+          location: formData.location,
+          role:     formData.role,
+        }
+      );
+      if (formData._file) {
+        const data = new FormData();
+        data.append("image", formData._file);
+        await axios.post(
+          `${API_URL}/api/profile/${user.employeeId}/image`,
+          data,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+      }
+      alert("Profile updated successfully");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Intercept form submit to show confirm
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (isDirty) {
+      setShowConfirm(true);
+    }
+  };
+
+  if (loadingProfile) {
+    return <div className="text-center my-5"><Spinner animation="border" /></div>;
+  }
+  if (error) {
+    return <Alert variant="danger" className="m-3">{error}</Alert>;
+  }
+
+  const isEmployee = user.role === 1;
+  const canEditAll = user.role >= 2;
+
+  return (
+    <>
+      <Card className="m-3 p-4 shadow-sm" style={{ maxWidth: 600, margin: "auto" }}>
+        {/* ... image/avatar code unchanged ... */}
+        <div className="text-center mb-3">
+          <div style={{ position: "relative", display: "inline-block" }}>
+            {imagePreview ? (
+              <Image
+                src={imagePreview}
+                roundedCircle
+                style={{ width: 120, height: 120, objectFit: "cover" }}
+              />
+            ) : (
+              <FaUserCircle size={120} color="#bbb" />
+            )}
+            <label
+              htmlFor="profileImage"
+              style={{
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                backgroundColor: "#007bff",
+                borderRadius: "50%",
+                width: 32,
+                height: 32,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                cursor: "pointer",
+                color: "#fff",
+              }}
+            >
+              <FaCamera size={18} />
+            </label>
+            <input
+              id="profileImage"
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
               onChange={handleChange}
-              placeholder="First name"
-            />
-            <Form.Control
-              type="text"
-              name="lname"
-              value={formData.lname}
-              onChange={handleChange}
-              placeholder="Last name"
             />
           </div>
-        </Form.Group>
-
-        {/* Nickname */}
-        <Form.Group className="mb-3">
-          <Form.Label>Nickname</Form.Label>
-          <Form.Control
-            type="text"
-            name="Nickname"
-            value={formData.Nickname}
-            onChange={handleChange}
-            placeholder="Enter nickname"
-          />
-        </Form.Group>
-
-        {/* Email */}
-        <Form.Group className="mb-3">
-          <Form.Label>Email</Form.Label>
-          <Form.Control
-            type="email"
-            name="Email"
-            value={formData.Email}
-            onChange={handleChange}
-            placeholder="Enter email"
-          />
-        </Form.Group>
-
-        {/* Password */}
-        <Form.Group className="mb-3">
-          <Form.Label>New Password</Form.Label>
-          <Form.Control
-            type="password"
-            name="Password"
-            value={formData.Password}
-            onChange={handleChange}
-            placeholder="Enter new password (leave blank to keep old)"
-          />
-        </Form.Group>
-
-        {/* Type */}
-        <Form.Group className="mb-3">
-          <Form.Label>Type</Form.Label>
-          <Form.Select name="Type" value={formData.Type} onChange={handleChange}>
-            <option value="">Select type…</option>
-            <option>Employee</option>
-            <option>Team Leader</option>
-            <option>HR</option>
-            <option>Admin</option>
-          </Form.Select>
-        </Form.Group>
-
-        {/* Location */}
-        <Form.Group className="mb-3">
-          <Form.Label>Location</Form.Label>
-          <Form.Control
-            type="text"
-            name="Location"
-            value={formData.Location}
-            onChange={handleChange}
-            placeholder="Enter location"
-          />
-        </Form.Group>
-
-        {/* Gmail */}
-        <Form.Group className="mb-3">
-          <Form.Check
-            type="checkbox"
-            label="Login via Gmail?"
-            name="loginUsingGmail"
-            checked={!!formData.loginUsingGmail}
-            onChange={handleChange}
-          />
-        </Form.Group>
-
-        <div className="d-grid">
-          <Button variant="primary" type="submit">
-            Save Changes
-          </Button>
         </div>
-      </Form>
-    </Card>
+
+        <h5 className="text-center mb-3">Update Profile</h5>
+        <Form onSubmit={handleFormSubmit}>
+          {[
+            { name: "Name",     label: "Name"       },
+            { name: "fname",    label: "First Name" },
+            { name: "lname",    label: "Last Name"  },
+            { name: "nickname", label: "Nickname"   },
+          ].map(({ name, label }) => (
+            <Form.Group className="mb-3" key={name}>
+              <Form.Label>{label}</Form.Label>
+              <Form.Control
+                type="text"
+                name={name}
+                value={formData[name]}
+                onChange={handleChange}
+                disabled={false}
+              />
+            </Form.Group>
+          ))}
+
+          <Form.Group className="mb-3">
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={isEmployee && !canEditAll}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Location</Form.Label>
+            <Form.Control
+              type="text"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              disabled={isEmployee && !canEditAll}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Role</Form.Label>
+            <Form.Select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              disabled={isEmployee && !canEditAll}
+            >
+              {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+
+          <div className="d-grid">
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={saving || !isDirty}
+            >
+              {saving 
+                ? <><Spinner size="sm" animation="border" /> Saving…</>
+                : "Save Changes"}
+            </Button>
+          </div>
+        </Form>
+      </Card>
+
+      {/* Confirmation Modal */}
+      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Changes</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to save these changes?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirm(false)}>
+            Discard
+          </Button>
+          <Button variant="primary" onClick={handleSubmit}>
+            Save
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   );
 }
