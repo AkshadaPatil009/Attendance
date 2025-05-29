@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Navbar, Nav, Container, Button, Dropdown } from "react-bootstrap";
-import { BoxArrowRight, GearFill } from 'react-bootstrap-icons';
+import { GearFill } from 'react-bootstrap-icons';
 import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
 
