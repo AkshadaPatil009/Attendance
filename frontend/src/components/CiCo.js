@@ -11,6 +11,7 @@ export default function CiCoEntry() {
   const [entryText, setEntryText] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
 
   const handleGo = async () => {
     const [typeRaw, ...locationParts] = entryText.trim().split(" ");
@@ -18,7 +19,7 @@ export default function CiCoEntry() {
     const location = locationParts.join(" ");
 
     if (!["CI", "CO"].includes(type) || !location) {
-      setMessage("Please enter in format: CI or CO ");
+      setMessage("Please enter in format: CI <siteName> or CO <siteName>");
       return;
     }
 
@@ -28,8 +29,8 @@ export default function CiCoEntry() {
       const { data } = await axios.post(`${API_URL}/api/attendance/manual`, {
         empName: userName,
         timestamp,
-        entryText: entryText.trim()
-      });      
+        entryText: entryText.trim(),
+      });
       setMessage(data.message);
     } catch (err) {
       setMessage(err.response?.data?.error || "Error processing entry");
@@ -38,27 +39,50 @@ export default function CiCoEntry() {
     }
   };
 
+  // Combined style object for the button
+  const buttonStyle = {
+    padding: "10px 24px",
+    backgroundColor: isHovering ? "#0056b3" : "#007bff", // darker on hover
+    color: "#fff",
+    border: "none",
+    borderRadius: "4px",
+    boxShadow: isHovering
+      ? "0 4px 8px rgba(0, 0, 0, 0.2)"
+      : "0 2px 4px rgba(0, 0, 0, 0.1)",
+    cursor: loading ? "not-allowed" : "pointer",
+    transition: "background-color 0.2s ease, box-shadow 0.2s ease",
+    fontSize: "16px",
+    fontWeight: "500",
+  };
+
   return (
     <div style={{ padding: "20px", textAlign: "center" }}>
-      
-
       <input
         type="text"
-        placeholder='Type "CI " or "CO "'
+        placeholder='Type "CI <siteName>" or "CO <siteName>"'
         value={entryText}
         onChange={(e) => setEntryText(e.target.value)}
-        style={{ padding: "8px", width: "250px", marginBottom: "10px" }}
+        style={{
+          padding: "10px",
+          width: "280px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          marginBottom: "12px",
+          fontSize: "14px",
+        }}
       />
       <br />
       <button
         onClick={handleGo}
         disabled={loading}
-        style={{ padding: "10px 20px" }}
+        style={buttonStyle}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
         {loading ? "Processing..." : "Go"}
       </button>
 
-      {message && <p style={{ marginTop: "15px" }}>{message}</p>}
+      {message && <p style={{ marginTop: "15px", color: "#333" }}>{message}</p>}
     </div>
   );
 }
