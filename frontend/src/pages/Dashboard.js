@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Navbar, Nav, Container, Button, Dropdown } from "react-bootstrap";
-import { GearFill } from 'react-bootstrap-icons';
+import { GearFill } from "react-bootstrap-icons";
 import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
 
@@ -18,6 +18,7 @@ import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
 import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
 import MailRequest        from "../components/EmployeeView/MailRequest";
 import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
+import StatusView         from "../components/EmployeeView/StatusView"; // <-- New import
 
 // New CI/CO component
 import CiCo from "../components/CiCo";
@@ -84,6 +85,8 @@ export default function Dashboard() {
                   onSelect={goToRequest}
                 />
               )}
+
+              {/* CI/CO is always shown */}
               <Button
                 size="sm"
                 variant={activeSection === "cico" ? "secondary" : "light"}
@@ -93,6 +96,7 @@ export default function Dashboard() {
                 CI/CO
               </Button>
 
+              {/* Admin-only buttons */}
               {isAdmin && (
                 <>
                   <Button
@@ -122,7 +126,8 @@ export default function Dashboard() {
                 </>
               )}
 
-              {!isAdmin && (
+              {/* Employee-only buttons */}
+              {!isTL && !isAdmin && (
                 <>
                   <Button
                     size="sm"
@@ -159,6 +164,41 @@ export default function Dashboard() {
                 </>
               )}
 
+              {/* TL-only buttons */}
+              {isTL && !isAdmin && (
+                <>
+                  <Button
+                    size="sm"
+                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    className="me-2 mb-1 uniform-button"
+                    onClick={() => setActiveSection("employeeAttendance")}
+                  >
+                    Attendance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                    className="me-2 mb-1 uniform-button"
+                    onClick={() => setActiveSection("mailRequest")}
+                  >
+                    Mail Request
+                  </Button>
+                </>
+              )}
+
+              {/* Status button for both Employee and TL */}
+              {(isTL || (!isTL && !isAdmin)) && (
+                <Button
+                  size="sm"
+                  variant={activeSection === "status" ? "secondary" : "light"}
+                  className="me-2 mb-1 uniform-button"
+                  onClick={() => setActiveSection("status")}
+                >
+                  Status
+                </Button>
+              )}
+
+              {/* Request Status button for Admin and TL */}
               {(isAdmin || isTL) && (
                 <Button
                   size="sm"
@@ -170,6 +210,7 @@ export default function Dashboard() {
                 </Button>
               )}
 
+              {/* Admin-only Mail Request */}
               {isAdmin && (
                 <Button
                   size="sm"
@@ -210,12 +251,19 @@ export default function Dashboard() {
         {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
         {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
 
-        {/* Employee and TL views */}
-        {!isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
-        {!isAdmin && activeSection === "leavesEmployee"     && <LeavesEmployee />}
-        {!isAdmin && activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
-        {!isAdmin && activeSection === "mailRequest"        && <MailRequest />}
-        {isTL    && activeSection === "requestStatus"       && <RequestStatusEmp />}
+        {/* Employee-only views */}
+        {!isTL && !isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
+        {!isTL && !isAdmin && activeSection === "leavesEmployee"     && <LeavesEmployee />}
+        {!isTL && !isAdmin && activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
+        {!isTL && !isAdmin && activeSection === "mailRequest"        && <MailRequest />}
+
+        {/* TL-only views */}
+        {isTL && !isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
+        {isTL && !isAdmin && activeSection === "mailRequest"        && <MailRequest />}
+        {isTL && !isAdmin && activeSection === "requestStatus"      && <RequestStatusEmp />}
+
+        {/* Status view (both Employee and TL) */}
+        {(isTL || (!isTL && !isAdmin)) && activeSection === "status" && <StatusView />}
 
         {/* Shared */}
         {activeSection === "cico"           && <CiCo />}
@@ -224,5 +272,5 @@ export default function Dashboard() {
 
       <Footer />
     </div>
-);
+  );
 }
