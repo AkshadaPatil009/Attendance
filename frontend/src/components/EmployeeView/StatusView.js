@@ -1,153 +1,196 @@
+// src/components/EmployeeView/StatusView.js
+
 import React, { useEffect, useState } from "react";
-import { Tabs, Tab, Container, Spinner } from "react-bootstrap";
+import {
+  Container,
+  Tabs,
+  Tab,
+  Spinner,
+  Row,
+  Col,
+  Card,
+  Pagination,
+} from "react-bootstrap";
 import axios from "axios";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const DEFAULT_PROFILE_IMAGE =
+  "https://cdn.jsdelivr.net/gh/twbs/icons@1.10.0/icons/person-circle.svg";
+const ITEMS_PER_PAGE = 6;
 
-export default function DynamicTabsLayout() {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Office Tabs (left column)
-  // ─────────────────────────────────────────────────────────────────────────────
-  const [officeTabs, setOfficeTabs]         = useState([]);
+export default function StatusView() {
+  const [officeTabs, setOfficeTabs] = useState([]);
   const [activeOfficeTab, setActiveOfficeTab] = useState(null);
   const [officeEmployees, setOfficeEmployees] = useState([]);
-  const [officeLoading, setOfficeLoading]   = useState(false);
+  const [officeLoading, setOfficeLoading] = useState(false);
+  const [officePage, setOfficePage] = useState(1);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Attendance Type Tabs (right column)
-  // ─────────────────────────────────────────────────────────────────────────────
-  const [attendanceTab, setAttendanceTab]   = useState("site");
-  const [siteEmployees, setSiteEmployees]   = useState([]);
-  const [siteLoading, setSiteLoading]       = useState(false);
-  const [wfhEmployees, setWfhEmployees]     = useState([]);
-  const [wfhLoading, setWfhLoading]         = useState(false);
+  const [attendanceTab, setAttendanceTab] = useState("site");
+  const [siteEmployees, setSiteEmployees] = useState([]);
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [sitePage, setSitePage] = useState(1);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 1) On mount: fetch list of distinct offices
-  // ─────────────────────────────────────────────────────────────────────────────
+  const [wfhEmployees, setWfhEmployees] = useState([]);
+  const [wfhLoading, setWfhLoading] = useState(false);
+  const [wfhPage, setWfhPage] = useState(1);
+
   useEffect(() => {
     axios
       .get(`${API_URL}/api/nickoffices`)
       .then((res) => {
-        setOfficeTabs(res.data);
-        if (res.data.length > 0) {
-          setActiveOfficeTab(res.data[0]);
-        }
+        setOfficeTabs(res.data || []);
+        if (res.data && res.data.length) setActiveOfficeTab(res.data[0]);
       })
       .catch((err) => {
         console.error("Error fetching offices:", err);
+        setOfficeTabs([]);
       });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 2) Whenever activeOfficeTab or attendanceTab changes:
-  //    • Fetch /api/office-status?office=…   (always, if activeOfficeTab set)
-  //    • If attendanceTab = "site", fetch /api/site-status
-  //    • If attendanceTab = "wfh", fetch /api/wfh-status
-  // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    // (a) Fetch office-specific "home/absent" data
-    if (activeOfficeTab) {
-      setOfficeLoading(true);
-      axios
-        .get(`${API_URL}/api/office-status`, {
-          params: { office: activeOfficeTab },
-        })
-        .then((res) => {
-          setOfficeEmployees(res.data);
-        })
-        .catch((err) => {
-          console.error("Error fetching office status:", err);
-          setOfficeEmployees([]);
-        })
-        .finally(() => {
-          setOfficeLoading(false);
-        });
-    }
+    if (!activeOfficeTab) return;
+    setOfficeLoading(true);
+    setOfficePage(1); // Reset pagination on tab change
+    axios
+      .get(`${API_URL}/api/office-status`, { params: { office: activeOfficeTab } })
+      .then((res) => setOfficeEmployees(res.data || []))
+      .catch((err) => {
+        console.error("Error fetching office status:", err);
+        setOfficeEmployees([]);
+      })
+      .finally(() => setOfficeLoading(false));
+  }, [activeOfficeTab]);
 
-    // (b) AttendanceTab = "site" → fetch all site‐visit employees
-    if (attendanceTab === "site") {
-      setSiteLoading(true);
-      axios
-        .get(`${API_URL}/api/site-status`)
-        .then((res) => {
-          setSiteEmployees(res.data);
-        })
-        .catch((err) => {
-          console.error("Error fetching site status:", err);
-          setSiteEmployees([]);
-        })
-        .finally(() => {
-          setSiteLoading(false);
-        });
-    }
+  useEffect(() => {
+    if (attendanceTab !== "site") return;
+    setSiteLoading(true);
+    setSitePage(1);
+    axios
+      .get(`${API_URL}/api/site-status`)
+      .then((res) => setSiteEmployees(res.data || []))
+      .catch((err) => {
+        console.error("Error fetching site status:", err);
+        setSiteEmployees([]);
+      })
+      .finally(() => setSiteLoading(false));
+  }, [attendanceTab]);
 
-    // (c) AttendanceTab = "wfh" → fetch WFH employees
-    if (attendanceTab === "wfh") {
-      setWfhLoading(true);
-      axios
-        .get(`${API_URL}/api/wfh-status`)
-        .then((res) => {
-          setWfhEmployees(res.data);
-        })
-        .catch((err) => {
-          console.error("Error fetching WFH status:", err);
-          setWfhEmployees([]);
-        })
-        .finally(() => {
-          setWfhLoading(false);
-        });
-    }
-  }, [activeOfficeTab, attendanceTab]);
+  useEffect(() => {
+    if (attendanceTab !== "wfh") return;
+    setWfhLoading(true);
+    setWfhPage(1);
+    axios
+      .get(`${API_URL}/api/wfh-status`)
+      .then((res) => setWfhEmployees(res.data || []))
+      .catch((err) => {
+        console.error("Error fetching WFH status:", err);
+        setWfhEmployees([]);
+      })
+      .finally(() => setWfhLoading(false));
+  }, [attendanceTab]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 3) Render
-  // ─────────────────────────────────────────────────────────────────────────────
+  const renderEmployeeGrid = (employees, loading, emptyMsg, currentPage, setPage) => {
+    if (loading) return <Spinner animation="border" />;
+    if (!employees.length) return <div>{emptyMsg}</div>;
+
+    const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
+    const paginated = employees.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+
+    return (
+      <>
+        <Row xs={1} sm={2} md={3} className="g-4">
+          {paginated.map((emp) => (
+            <Col key={emp.name}>
+              <div style={{ width: "100%", aspectRatio: "1 / 1", display: "flex", flexDirection: "column" }}>
+                <Card className="h-150 d-flex flex-column">
+                  <div
+                    style={{
+                      flex: 7,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "rgb(255, 255, 255)",
+                    }}
+                  >
+                    <img
+                      src={emp.photo_url || DEFAULT_PROFILE_IMAGE}
+                      alt={emp.name}
+                      style={{
+                        width: "60%",
+                        height: "auto",
+                        aspectRatio: "1 / 1",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                      }}
+                      onError={(e) => (e.target.src = DEFAULT_PROFILE_IMAGE)}
+                    />
+                  </div>
+                  <Card.Body
+                    style={{
+                      flex: 3,
+                      padding: "0.5rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Card.Text className="mb-1">
+                      <strong>Name:</strong> {emp.name}
+                    </Card.Text>
+                    <Card.Text className="mb-1">
+                      <strong>Status:</strong> {emp.status}
+                    </Card.Text>
+                    <Card.Text className="mb-0">
+                      <strong>Location:</strong> {emp.location}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </div>
+            </Col>
+          ))}
+        </Row>
+
+        {totalPages > 1 && (
+          <Pagination className="mt-3 justify-content-center">
+            {[...Array(totalPages)].map((_, idx) => (
+              <Pagination.Item
+                key={idx + 1}
+                active={idx + 1 === currentPage}
+                onClick={() => setPage(idx + 1)}
+              >
+                {idx + 1}
+              </Pagination.Item>
+            ))}
+          </Pagination>
+        )}
+      </>
+    );
+  };
+
   return (
-    <Container className="mt-4">
-      <div className="d-flex gap-4 flex-wrap">
-        {/* ─────────────────────────────────────────────────────────────── */}
-        {/* Left Column: Dynamic Office Tabs                             */}
-        {/* ─────────────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: "300px" }}>
-          <h5 className="mb-3">Offices</h5>
+    <Container fluid className="p-0" style={{ height: "100vh" }}>
+      <div className="d-flex gap-4 flex-wrap h-100">
+        {/* Left: Offices */}
+        <div style={{ flex: 1, minWidth: "300px", overflowY: "auto" }}>
+          <h5 className="mb-3 text-center">Offices</h5>
           <Tabs
             activeKey={activeOfficeTab}
             onSelect={(k) => setActiveOfficeTab(k)}
-            className="mb-3"
+            className="px-2"
             justify
           >
             {officeTabs.map((office) => (
               <Tab eventKey={office} title={office} key={office}>
                 <div className="p-3">
-                  {officeLoading ? (
-                    <Spinner animation="border" size="sm" />
-                  ) : officeEmployees.length > 0 ? (
-                    officeEmployees.map((emp) => (
-                      <div
-                        key={emp.name}
-                        className="d-flex align-items-center mb-3"
-                      >
-                        <img
-                          src={emp.photo_url}
-                          alt={emp.name}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                          }}
-                        />
-                        <div className="ms-2">
-                          <div>
-                            <strong>{emp.name}</strong> ({emp.location})
-                          </div>
-                          <div>Status: {emp.status}</div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div>No employees found for "{office}".</div>
+                  {renderEmployeeGrid(
+                    officeEmployees,
+                    officeLoading,
+                    `No employees in "${office}".`,
+                    officePage,
+                    setOfficePage
                   )}
                 </div>
               </Tab>
@@ -155,83 +198,34 @@ export default function DynamicTabsLayout() {
           </Tabs>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────── */}
-        {/* Right Column: Attendance Type Tabs                            */}
-        {/*   - "Site Visit": all site‐visit employees                     */}
-        {/*   - "WFH": all WFH employees                                   */}
-        {/* ─────────────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: "300px" }}>
-          <h5 className="mb-3">Attendance Type</h5>
+        {/* Right: Attendance Type */}
+        <div style={{ flex: 1, minWidth: "300px", overflowY: "auto" }}>
+          <h5 className="mb-3 text-center">Attendance Type</h5>
           <Tabs
             activeKey={attendanceTab}
             onSelect={(k) => setAttendanceTab(k)}
-            className="mb-3"
+            className="px-2"
             justify
           >
             <Tab eventKey="site" title="Site Visit">
               <div className="p-3">
-                {siteLoading ? (
-                  <Spinner animation="border" size="sm" />
-                ) : siteEmployees.length > 0 ? (
-                  siteEmployees.map((emp) => (
-                    <div
-                      key={emp.name}
-                      className="d-flex align-items-center mb-3"
-                    >
-                      <img
-                        src={emp.photo_url}
-                        alt={emp.name}
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <div className="ms-2">
-                        <div>
-                          <strong>{emp.name}</strong> ({emp.location})
-                        </div>
-                        <div>Status: {emp.status}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div>No site-visit employees found.</div>
+                {renderEmployeeGrid(
+                  siteEmployees,
+                  siteLoading,
+                  "No site-visit employees.",
+                  sitePage,
+                  setSitePage
                 )}
               </div>
             </Tab>
-
             <Tab eventKey="wfh" title="WFH">
               <div className="p-3">
-                {wfhLoading ? (
-                  <Spinner animation="border" size="sm" />
-                ) : wfhEmployees.length > 0 ? (
-                  wfhEmployees.map((emp) => (
-                    <div
-                      key={emp.name}
-                      className="d-flex align-items-center mb-3"
-                    >
-                      <img
-                        src={emp.photo_url}
-                        alt={emp.name}
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <div className="ms-2">
-                        <div>
-                          <strong>{emp.name}</strong> ({emp.location})
-                        </div>
-                        <div>Status: {emp.status}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div>No WFH employees found.</div>
+                {renderEmployeeGrid(
+                  wfhEmployees,
+                  wfhLoading,
+                  "No WFH employees.",
+                  wfhPage,
+                  setWfhPage
                 )}
               </div>
             </Tab>
