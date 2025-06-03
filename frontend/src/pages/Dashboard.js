@@ -95,6 +95,14 @@ export default function Dashboard() {
               >
                 CI/CO
               </Button>
+                 <Button
+                  size="sm"
+                  variant={activeSection === "status" ? "secondary" : "light"}
+                  className="me-2 mb-1 uniform-button"
+                  onClick={() => setActiveSection("status")}
+                >
+                  Status
+                </Button>
 
               {/* Admin-only buttons */}
               {isAdmin && (
@@ -186,17 +194,7 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Status button for both Employee and TL */}
-              {(isTL || (!isTL && !isAdmin)) && (
-                <Button
-                  size="sm"
-                  variant={activeSection === "status" ? "secondary" : "light"}
-                  className="me-2 mb-1 uniform-button"
-                  onClick={() => setActiveSection("status")}
-                >
-                  Status
-                </Button>
-              )}
+             
 
               {/* Request Status button for Admin and TL */}
               {(isAdmin || isTL) && (
@@ -262,12 +260,13 @@ export default function Dashboard() {
         {isTL && !isAdmin && activeSection === "mailRequest"        && <MailRequest />}
         {isTL && !isAdmin && activeSection === "requestStatus"      && <RequestStatusEmp />}
 
-        {/* Status view (both Employee and TL) */}
-        {(isTL || (!isTL && !isAdmin)) && activeSection === "status" && <StatusView />}
+    
+        
 
         {/* Shared */}
         {activeSection === "cico"           && <CiCo />}
         {activeSection === "profileUpdate"  && <ProfileUpdate user={user} />}
+        { activeSection === "status" && <StatusView />}
       </div>
 
       <Footer />
