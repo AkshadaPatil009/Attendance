@@ -141,79 +141,98 @@ export default function StatusView() {
     return (
       <>
         <Row xs={1} sm={2} md={3} className="g-4">
-          {paginated.map((emp) => (
-            <Col key={emp.name} className="d-flex justify-content-center">
-              {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
-              <div
-                style={{
-                  width: "250px",
-                  height: "250px",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                }}
-              >
-                <Card style={{ height: "100%" }} className="d-flex flex-column">
-                  <div
-                    style={{
-                      flex: 6,             // reduced from 7 to 6
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "rgb(255, 255, 255)",
-                    }}
-                  >
-                    <img
-                      src={getProfileSrc(emp)}
-                      alt={emp.name}
+          {paginated.map((emp) => {
+            const statusLower = emp.status.toLowerCase();
+            let bgColor = "white";
+
+            if (statusLower === "offline") {
+              bgColor = "#fa6349";
+            } else if (statusLower === "absent") {
+              bgColor = "pink";
+            } else if (statusLower === "online") {
+              // If status is "online" but location is not "Office" or "WFH", show yellow
+              if (emp.location !== "Office" && emp.location !== "WFH") {
+                bgColor = "yellow";
+              } else {
+                bgColor = "lightgreen";
+              }
+            }
+
+            return (
+              <Col key={emp.name} className="d-flex justify-content-center">
+                {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
+                <div
+                  style={{
+                    width: "270px",
+                    height: "270px",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Card style={{ height: "100%" }} className="d-flex flex-column">
+                    <div
                       style={{
-                        width: "60%",
-                        height: "auto",
-                        aspectRatio: "1 / 1",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                      }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = DEFAULT_PROFILE_IMAGE;
-                      }}
-                    />
-                  </div>
-                  <Card.Body
-                    style={{
-                      flex: 4,             // increased from 3 to 4
-                      padding: "0.5rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      overflow: "hidden",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    <Card.Text
-                      style={{
-                        marginBottom: "0.25rem",
-                        overflow: "hidden",
+                        flex: 6,             // reduced from 7 to 6
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "rgb(255, 255, 255)",
                       }}
                     >
-                      <strong>Name:</strong> {emp.name}
-                    </Card.Text>
-                    <Card.Text
+                      <img
+                        src={getProfileSrc(emp)}
+                        alt={emp.name}
+                        style={{
+                          width: "60%",
+                          height: "auto",
+                          aspectRatio: "1 / 1",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DEFAULT_PROFILE_IMAGE;
+                        }}
+                      />
+                    </div>
+                    <Card.Body
                       style={{
-                        marginBottom: "0.25rem",
+                        flex: 4,             // increased from 3 to 4
+                        padding: "0.5rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
                         overflow: "hidden",
+                        wordBreak: "break-word",
+                        backgroundColor: bgColor,
                       }}
                     >
-                      <strong>Status:</strong> {emp.status}
-                    </Card.Text>
-                    <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
-                      <strong>Location:</strong> {emp.location}
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </div>
-            </Col>
-          ))}
+                      <Card.Text
+                        style={{
+                          marginBottom: "0.25rem",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <strong>Name:</strong> {emp.name}
+                      </Card.Text>
+                      <Card.Text
+                        style={{
+                          marginBottom: "0.25rem",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <strong>Status:</strong> {emp.status}
+                      </Card.Text>
+                      <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
+                        <strong>Location:</strong> {emp.location}
+                      </Card.Text>
+                    </Card.Body>
+                  </Card>
+                </div>
+              </Col>
+            );
+          })}
         </Row>
 
         {totalPages > 1 && (

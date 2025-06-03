@@ -1,3 +1,4 @@
+// EmployeeLeaveApplication.js
 import React, { useEffect, useState, useRef } from "react";
 import { Card, Row, Col, Form, Table, Spinner } from "react-bootstrap";
 import io from "socket.io-client";
@@ -10,7 +11,6 @@ const EmployeeLeaveApplication = () => {
   const employeeId = storedUser.employeeId;
   const socketRef = useRef(null);
 
-  // ─── STATE ──────────────────────────────────────────────────────────────
   const [escalatedEmployees, setEscalatedEmployees] = useState([]);
   const [selectedEscalationId, setSelectedEscalationId] = useState(employeeId);
   const [employeeLeaves, setEmployeeLeaves] = useState({
@@ -18,56 +18,77 @@ const EmployeeLeaveApplication = () => {
     plannedLeave: 0,
     remainingUnplannedLeave: 0,
     remainingPlannedLeave: 0,
+    pendingComoff: 0,
+    completedComoff: 0,
   });
   const [leaveRecords, setLeaveRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // ─── SOCKET.IO JOIN ─────────────────────────────────────────────────────
   useEffect(() => {
     socketRef.current = io(API_URL, { transports: ["polling"] });
     socketRef.current.emit("join", { userId: storedUser.id });
     return () => socketRef.current.disconnect();
   }, [storedUser.id]);
 
-  // ─── FETCH ESCALATABLE LIST ─────────────────────────────────────────────
   useEffect(() => {
     if (!employeeId) return;
     fetch(`${API_URL}/api/escalated-employees?empId=${employeeId}`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setEscalatedEmployees(data);
         setSelectedEscalationId(employeeId);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Error loading escalations:", err);
         setEscalatedEmployees([{ id: employeeId, name: storedUser.name }]);
       });
   }, [employeeId]);
 
-  // ─── FETCH LEAVE BALANCES ───────────────────────────────────────────────
   useEffect(() => {
     if (!selectedEscalationId) return;
     fetch(`${API_URL}/api/employees-leaves/${selectedEscalationId}`)
-      .then(res => res.json())
-      .then(data =>
-        setEmployeeLeaves({
+      .then((res) => res.json())
+      .then((data) =>
+        setEmployeeLeaves((prev) => ({
+          ...prev,
           unplannedLeave: data.usedUnplannedLeave || 0,
           plannedLeave: data.usedPlannedLeave || 0,
           remainingUnplannedLeave: data.remainingUnplannedLeave || 0,
           remainingPlannedLeave: data.remainingPlannedLeave || 0,
-        })
+        }))
       )
-      .catch(err => console.error("Error fetching leaves:", err));
+      .catch((err) => console.error("Error fetching leaves:", err));
   }, [selectedEscalationId]);
 
-  // ─── FETCH DETAILED LEAVE RECORDS ──────────────────────────────────────
+  // NEW: Fetch compoff counts from dedicated API
+  useEffect(() => {
+    if (!selectedEscalationId) return;
+    fetch(`${API_URL}/api/employees-comoff/${selectedEscalationId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setEmployeeLeaves((prev) => ({
+          ...prev,
+          pendingComoff: data.pendingComoff || 0,
+          completedComoff: data.completedComoff || 0,
+        }));
+      })
+      .catch((err) => {
+        console.error("Error fetching compoff counts:", err);
+        setEmployeeLeaves((prev) => ({
+          ...prev,
+          pendingComoff: 0,
+          completedComoff: 0,
+        }));
+      });
+  }, [selectedEscalationId]);
+
   useEffect(() => {
     if (!selectedEscalationId) return;
     setLoadingRecords(true);
-    fetch(`${API_URL}/api/employeeleavesdate?employeeId=${selectedEscalationId}`)
-      .then(res => res.json())
-      .then(data => setLeaveRecords(Array.isArray(data) ? data : []))
-      .catch(err => {
+    fetch(`${API_URL}/api/employees-comoff/${selectedEscalationId}`)
+      .then((res) => res.json())
+      .then((data) => setLeaveRecords(Array.isArray(data) ? data : []))
+      .catch((err) => {
         console.error("Error fetching leave records:", err);
         setLeaveRecords([]);
       })
@@ -76,16 +97,15 @@ const EmployeeLeaveApplication = () => {
 
   return (
     <div className="leave-application-container">
-      {/* ── TOP ROW: Dropdown ─────────────────────────────────────────────── */}
       <Row className="mt-3 gx-4">
         <Col lg={6} className="mb-3">
           <Form.Group controlId="escalate-to">
             <Form.Label>View Records For:</Form.Label>
             <Form.Select
               value={selectedEscalationId}
-              onChange={e => setSelectedEscalationId(Number(e.target.value))}
+              onChange={(e) => setSelectedEscalationId(Number(e.target.value))}
             >
-              {escalatedEmployees.map(emp => (
+              {escalatedEmployees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
                   {emp.name} {emp.id === employeeId ? "(You)" : ""}
                 </option>
@@ -95,59 +115,87 @@ const EmployeeLeaveApplication = () => {
         </Col>
       </Row>
 
-      {/* ── SECOND ROW: Balances & Records ───────────────────────────────── */}
       <Row className="gx-4">
-        {/* Leave Balances */}
         <Col lg={6} className="mb-4">
           <Card className="shadow-sm leave-card">
             <Card.Header className="leave-card-header">
               <h5>Leave Balances</h5>
             </Card.Header>
             <Card.Body>
-              <div className="balances-section">
-                <h6>Used</h6>
-                <Form.Group controlId="used-unplanned" className="mb-2">
-                  <Form.Label>Unplanned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.unplannedLeave}
-                  />
-                </Form.Group>
-                <Form.Group controlId="used-planned" className="mb-3">
-                  <Form.Label>Planned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.plannedLeave}
-                  />
-                </Form.Group>
+              <Row>
+                <Col md={6}>
+                  <div className="balances-section">
+                    <h6>Used</h6>
+                    <Form.Group controlId="used-unplanned" className="mb-2">
+                      <Form.Label>Unplanned</Form.Label>
+                      <Form.Control
+                        readOnly
+                        value={employeeLeaves.unplannedLeave}
+                      />
+                    </Form.Group>
+                    <Form.Group controlId="used-planned" className="mb-3">
+                      <Form.Label>Planned</Form.Label>
+                      <Form.Control
+                        readOnly
+                        value={employeeLeaves.plannedLeave}
+                      />
+                    </Form.Group>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="balances-section">
+                    <h6>Remaining</h6>
+                    <Form.Group controlId="remaining-unplanned" className="mb-2">
+                      <Form.Label>Unplanned</Form.Label>
+                      <Form.Control
+                        readOnly
+                        value={employeeLeaves.remainingUnplannedLeave}
+                      />
+                    </Form.Group>
+                    <Form.Group controlId="remaining-planned">
+                      <Form.Label>Planned</Form.Label>
+                      <Form.Control
+                        readOnly
+                        value={employeeLeaves.remainingPlannedLeave}
+                      />
+                    </Form.Group>
+                  </div>
+                </Col>
+              </Row>
 
-                <h6 className="mt-4">Remaining</h6>
-                <Form.Group controlId="remaining-unplanned" className="mb-2">
-                  <Form.Label>Unplanned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.remainingUnplannedLeave}
-                  />
-                </Form.Group>
-                <Form.Group controlId="remaining-planned">
-                  <Form.Label>Planned</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={employeeLeaves.remainingPlannedLeave}
-                  />
-                </Form.Group>
-              </div>
+              <hr className="my-3" />
+              <Row>
+                <Col md={6}>
+                  <Form.Group controlId="pending-comoff">
+                    <Form.Label>Pending Comoff</Form.Label>
+                    <Form.Control
+                      readOnly
+                      value={employeeLeaves.pendingComoff}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group controlId="completed-comoff">
+                    <Form.Label>Completed Comoff</Form.Label>
+                    <Form.Control
+                      readOnly
+                      value={employeeLeaves.completedComoff}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
             </Card.Body>
           </Card>
         </Col>
 
-        {/* Leave Records (horizontal) */}
         <Col lg={6}>
           <Card className="shadow-sm leave-card">
             <Card.Header className="leave-card-header">
               <h5>
                 Leave Records —{" "}
-                {escalatedEmployees.find(e => e.id === selectedEscalationId)?.name}
+                {escalatedEmployees.find(
+                  (e) => e.id === selectedEscalationId
+                )?.name}
               </h5>
             </Card.Header>
             <Card.Body className="record-table-container">
@@ -171,7 +219,7 @@ const EmployeeLeaveApplication = () => {
                         </td>
                       </tr>
                     ) : (
-                      leaveRecords.map(rec => (
+                      leaveRecords.map((rec) => (
                         <tr key={rec.id}>
                           <td>{rec.leave_date}</td>
                           <td>{rec.leave_type}</td>
