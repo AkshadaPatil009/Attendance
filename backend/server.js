@@ -2455,6 +2455,28 @@ app.get("/api/employees-comoff/:employeeId", async (req, res) => {
   }
 });
 
+// Assuming Express app setup and MySQL connection exists
+app.post("/api/register", async (req, res) => {
+  const { name, email, department, nickname, esc, location } = req.body;
+
+  if (!name || !email || !location) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const sql = `
+    INSERT INTO employee_master (Name, Email, Department, NickName, Esc, location)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [name, email, department, nickname, esc, location], (err, result) => {
+    if (err) {
+      console.error("Registration failed:", err);
+      return res.status(500).json({ error: "Registration failed" });
+    }
+    return res.status(200).json({ message: "Account created successfully", id: result.insertId });
+  });
+});
+
 
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {

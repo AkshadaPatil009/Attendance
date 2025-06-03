@@ -9,101 +9,119 @@ const Login = ({ setUser }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError]       = useState("");
-  const navigate                = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
 
-  // Your backend URL
+  // Registration form fields
+  const [regData, setRegData] = useState({
+    name: "",
+    email: "",
+    department: "",
+    nickname: "",
+    esc: "",
+    location: "",
+  });
+
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-
-    // Base64-encode the plain-text password
     const encodedPassword = btoa(password);
 
     try {
-      const res = await axios.post(
-        `${API_URL}/login`,
-        { email, password: encodedPassword },
-        { validateStatus: () => true } // allow manual status handling
-      );
+      const res = await axios.post(`${API_URL}/login`, { email, password: encodedPassword }, { validateStatus: () => true });
+      if (res.status === 403 && res.data.error) return setError(res.data.error);
+      if (res.status !== 200) return setError(res.data.error || "Login failed.");
 
-      // 403 = disabled account
-      if (res.status === 403 && res.data.error) {
-        setError(res.data.error);
-        return;
-      }
-
-      // Any other non-200 error
-      if (res.status !== 200) {
-        setError(res.data.error || "Login failed. Please try again.");
-        return;
-      }
-
-      // Successful login: extract payload
       const userData = {
-        role:       res.data.role,
-        roleName:   res.data.roleName,
-        name:       res.data.name,
-        token:      res.data.token,
+        role: res.data.role,
+        roleName: res.data.roleName,
+        name: res.data.name,
+        token: res.data.token,
         employeeId: res.data.employeeId,
-        email:      res.data.email,
-        location:   res.data.location,
+        email: res.data.email,
+        location: res.data.location,
       };
 
-      // Persist user session
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
       navigate("/dashboard");
     } catch (err) {
       console.error("Login error:", err);
-      setError("Login failed. Please try again.");
+      setError("Login failed.");
     }
   };
 
-  const toggleShowPassword = () => setShowPassword(prev => !prev);
+  const handleRegistration = async () => {
+    try {
+      const res = await axios.post(`${API_URL}/api/register`, regData);
+      alert("Account created successfully!");
+      setModalOpen(false);
+    } catch (err) {
+      alert("Error creating account");
+      console.error(err);
+    }
+  };
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100">
-      <div className="card p-4 shadow-lg" style={{ width: "350px" }}>
-        <h3 className="text-center mb-3">Login</h3>
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+      <div className="card p-4 shadow-lg" style={{ width: "360px" }}>
+        <h3 className="text-center mb-3">Employee Login</h3>
         {error && <div className="alert alert-danger">{error}</div>}
         <form onSubmit={handleLogin}>
           <div className="mb-3">
             <label className="form-label">Email</label>
-            <input
-              type="email"
-              className="form-control"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
+            <input type="email" className="form-control" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           <div className="mb-3">
             <label className="form-label">Password</label>
             <div className="input-group">
-              <input
-                type={showPassword ? "text" : "password"}
-                className="form-control"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={toggleShowPassword}
-                tabIndex={-1}
-              >
+              <input type={showPassword ? "text" : "password"} className="form-control" value={password} onChange={e => setPassword(e.target.value)} required />
+              <button type="button" className="btn btn-outline-secondary" onClick={() => setShowPassword(prev => !prev)} tabIndex={-1}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
           </div>
-          <button type="submit" className="btn btn-primary w-100">
-            Login
-          </button>
+          <button type="submit" className="btn btn-primary w-100">Login</button>
         </form>
+        <div className="text-center mt-3">
+          <a href="https://your-other-app.com/register" target="_blank" rel="noreferrer">Go to Registration Page</a>
+          <br />
+          <button className="btn btn-link mt-2" onClick={() => setModalOpen(true)}>Create an Account</button>
+        </div>
       </div>
+
+      {/* Modal for Registration */}
+      {modalOpen && (
+        <div className="modal show fade d-block" tabIndex="-1">
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Create New Account</h5>
+                <button type="button" className="btn-close" onClick={() => setModalOpen(false)}></button>
+              </div>
+              <div className="modal-body">
+                {["name", "email", "department", "nickname", "esc", "location"].map(field => (
+                  <div className="mb-2" key={field}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                      value={regData[field]}
+                      onChange={e => setRegData({ ...regData, [field]: e.target.value })}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
+                <button className="btn btn-success" onClick={handleRegistration}>Create Account</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
