@@ -163,8 +163,8 @@ export default function StatusView() {
                 {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
                 <div
                   style={{
-                    width: "250px",
-                    height: "250px",
+                    width: "270px",
+                    height: "270px",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
