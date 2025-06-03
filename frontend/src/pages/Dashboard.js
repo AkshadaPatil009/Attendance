@@ -8,17 +8,17 @@ import NotificationBell from "../components/NotificationBell";
 import EmployeeTabs from "../components/AdminView/EmployeeTabs";
 
 // Admin views
-import AttendanceForm    from "../components/AdminView/AttendanceForm";
+import AttendanceForm from "../components/AdminView/AttendanceForm";
 import AdminEmployeeView from "../components/AdminView/AdminEmployeeView";
-import RequestStatus     from "../components/AdminView/RequestStatus";
+import RequestStatus from "../components/AdminView/RequestStatus";
 
 // Employee (and TL) views
 import EmployeeAttendance from "../components/EmployeeView/EmployeeAttendance";
-import LeavesEmployee     from "../components/EmployeeView/LeavesEmployee";
-import HolidaysEmployee   from "../components/EmployeeView/HolidaysEmployee";
-import MailRequest        from "../components/EmployeeView/MailRequest";
-import RequestStatusEmp   from "../components/TLview/RequestStatusEmp";
-import StatusView         from "../components/EmployeeView/StatusView"; // <-- New import
+import LeavesEmployee from "../components/EmployeeView/LeavesEmployee";
+import HolidaysEmployee from "../components/EmployeeView/HolidaysEmployee";
+import MailRequest from "../components/EmployeeView/MailRequest";
+import RequestStatusEmp from "../components/TLview/RequestStatusEmp";
+import StatusView from "../components/EmployeeView/StatusView";
 
 // New CI/CO component
 import CiCo from "../components/CiCo";
@@ -50,13 +50,13 @@ export default function Dashboard() {
   if (!user) return null;
 
   const isAdmin = user.role === 4;
-  const isTL    = user.role === 2;
+  const isTL = user.role === 2;
 
   const navbarTitle = isAdmin
     ? `Admin Panel: Welcome, ${user.name}`
     : isTL
-      ? `TL Dashboard: Welcome, ${user.name}`
-      : `Employee Dashboard: Welcome, ${user.name}`;
+    ? `TL Dashboard: Welcome, ${user.name}`
+    : `Employee Dashboard: Welcome, ${user.name}`;
 
   const goToRequest = (id) => {
     setActiveSection("requestStatus");
@@ -78,15 +78,11 @@ export default function Dashboard() {
           <Navbar.Toggle aria-controls="navbar-nav" />
           <Navbar.Collapse id="navbar-nav">
             <Nav className="ms-auto d-flex align-items-center">
-
               {(isAdmin || isTL) && (
-                <NotificationBell
-                  user={user}
-                  onSelect={goToRequest}
-                />
+                <NotificationBell user={user} onSelect={goToRequest} />
               )}
 
-              {/* CI/CO is always shown */}
+              {/* Common Buttons: CI/CO and Status (All Roles) */}
               <Button
                 size="sm"
                 variant={activeSection === "cico" ? "secondary" : "light"}
@@ -95,14 +91,14 @@ export default function Dashboard() {
               >
                 CI/CO
               </Button>
-                 <Button
-                  size="sm"
-                  variant={activeSection === "status" ? "secondary" : "light"}
-                  className="me-2 mb-1 uniform-button"
-                  onClick={() => setActiveSection("status")}
-                >
-                  Status
-                </Button>
+              <Button
+                size="sm"
+                variant={activeSection === "status" ? "secondary" : "light"}
+                className="me-2 mb-1 uniform-button"
+                onClick={() => setActiveSection("status")}
+              >
+                Status
+              </Button>
 
               {/* Admin-only buttons */}
               {isAdmin && (
@@ -121,7 +117,7 @@ export default function Dashboard() {
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
-                    Holiday/Leaves
+                    Holidays/Leaves
                   </Button>
                   <Button
                     size="sm"
@@ -134,8 +130,8 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Employee-only buttons */}
-              {!isTL && !isAdmin && (
+              {/* Common for TL & Employee */}
+              {(isTL || (!isAdmin && !isTL)) && (
                 <>
                   <Button
                     size="sm"
@@ -172,55 +168,31 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* TL-only buttons */}
-              {isTL && !isAdmin && (
+              {/* Common for TL & Admin: Request Status and Mail Request */}
+              {(isAdmin || isTL) && (
                 <>
                   <Button
                     size="sm"
-                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    variant={activeSection === "requestStatus" ? "secondary" : "light"}
                     className="me-2 mb-1 uniform-button"
-                    onClick={() => setActiveSection("employeeAttendance")}
+                    onClick={() => setActiveSection("requestStatus")}
                   >
-                    Attendance
+                    Request Status
                   </Button>
-                  <Button
-                    size="sm"
-                    variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                    className="me-2 mb-1 uniform-button"
-                    onClick={() => setActiveSection("mailRequest")}
-                  >
-                    Mail Request
-                  </Button>
+                  {!isTL && (
+                    <Button
+                      size="sm"
+                      variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                      className="me-2 mb-1 uniform-button"
+                      onClick={() => setActiveSection("mailRequest")}
+                    >
+                      Mail Request
+                    </Button>
+                  )}
                 </>
               )}
 
-             
-
-              {/* Request Status button for Admin and TL */}
-              {(isAdmin || isTL) && (
-                <Button
-                  size="sm"
-                  variant={activeSection === "requestStatus" ? "secondary" : "light"}
-                  className="me-2 mb-1 uniform-button"
-                  onClick={() => setActiveSection("requestStatus")}
-                >
-                  Request Status
-                </Button>
-              )}
-
-              {/* Admin-only Mail Request */}
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant={activeSection === "mailRequest" ? "secondary" : "light"}
-                  className="me-2 mb-1 uniform-button"
-                  onClick={() => setActiveSection("mailRequest")}
-                >
-                  Mail Request
-                </Button>
-              )}
-
-              {/* Gear dropdown */}
+              {/* Profile & Logout */}
               <Dropdown align="end" className="me-2 mb-1">
                 <Dropdown.Toggle as={Button} className="profile-circle-button" id="gear-dropdown">
                   <GearFill size={16} />
@@ -230,43 +202,39 @@ export default function Dashboard() {
                     Profile
                   </Dropdown.Item>
                   <Dropdown.Divider />
-                  <Dropdown.Item onClick={handleLogout}>
-                    Logout
-                  </Dropdown.Item>
+                  <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
-
             </Nav>
           </Navbar.Collapse>
         </Container>
       </Navbar>
 
       <div className="w-100">
-        {/* Admin-only */}
-        {activeSection === "attendanceForm"    && <AttendanceForm />}
+        {/* Admin-only views */}
+        {activeSection === "attendanceForm" && <AttendanceForm />}
         {activeSection === "adminemployeeView" && <AdminEmployeeView />}
-        {activeSection === "employeeTabs"      && isAdmin && <EmployeeTabs />}
-        {activeSection === "requestStatus"     && isAdmin && <RequestStatus />}
-        {activeSection === "mailRequest"       && isAdmin && <MailRequest />}
+        {activeSection === "employeeTabs" && isAdmin && <EmployeeTabs />}
+        {activeSection === "requestStatus" && isAdmin && <RequestStatus />}
+        {activeSection === "mailRequest" && isAdmin && <MailRequest />}
 
         {/* Employee-only views */}
         {!isTL && !isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
-        {!isTL && !isAdmin && activeSection === "leavesEmployee"     && <LeavesEmployee />}
-        {!isTL && !isAdmin && activeSection === "holidaysEmployee"   && <HolidaysEmployee />}
-        {!isTL && !isAdmin && activeSection === "mailRequest"        && <MailRequest />}
+        {!isTL && !isAdmin && activeSection === "leavesEmployee" && <LeavesEmployee />}
+        {!isTL && !isAdmin && activeSection === "holidaysEmployee" && <HolidaysEmployee />}
+        {!isTL && !isAdmin && activeSection === "mailRequest" && <MailRequest />}
 
         {/* TL-only views */}
         {isTL && !isAdmin && activeSection === "employeeAttendance" && <EmployeeAttendance />}
-        {isTL && !isAdmin && activeSection === "mailRequest"        && <MailRequest />}
-        {isTL && !isAdmin && activeSection === "requestStatus"      && <RequestStatusEmp />}
+        {isTL && !isAdmin && activeSection === "leavesEmployee" && <LeavesEmployee />}
+        {isTL && !isAdmin && activeSection === "holidaysEmployee" && <HolidaysEmployee />}
+        {isTL && !isAdmin && activeSection === "mailRequest" && <MailRequest />}
+        {isTL && !isAdmin && activeSection === "requestStatus" && <RequestStatusEmp />}
 
-    
-        
-
-        {/* Shared */}
-        {activeSection === "cico"           && <CiCo />}
-        {activeSection === "profileUpdate"  && <ProfileUpdate user={user} />}
-        { activeSection === "status" && <StatusView />}
+        {/* Shared views */}
+        {activeSection === "cico" && <CiCo />}
+        {activeSection === "status" && <StatusView />}
+        {activeSection === "profileUpdate" && <ProfileUpdate user={user} />}
       </div>
 
       <Footer />
