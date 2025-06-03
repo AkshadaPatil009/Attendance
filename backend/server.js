@@ -9,6 +9,7 @@ const path    = require('path');
 require("dotenv").config();
 const { sendLeaveEmail } = require("./mailer");
 const { sendDecisionEmail } = require("./mailer");
+const fs = require("fs");
 
 
 // NEW: Import http and socket.io
@@ -21,22 +22,25 @@ app.use(express.json());
 // Serve uploaded uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Multer for image uploads
+// === Multer for image uploads ===
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => 
-    cb(null, path.join(__dirname, "uploads")),
+  destination: (req, file, cb) => cb(null, path.join(__dirname, "uploads")),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     const name = `profile_${req.params.id}_${Date.now()}${ext}`;
     cb(null, name);
   },
 });
 const upload = multer({
   storage,
-  fileFilter: (req,file,cb) =>
-    file.mimetype.startsWith("image/")
-      ? cb(null,true)
-      : cb(new Error("Only image files allowed")),
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === ".jpg") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .jpg files are allowed"));
+    }
+  },
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
@@ -1999,7 +2003,7 @@ AND NickName IN (
   });
 });
 
-// GET profile
+// === GET profile (including office + designation) ===
 app.get("/api/profile/:id", (req, res) => {
   const sql = `
     SELECT
@@ -2011,6 +2015,8 @@ app.get("/api/profile/:id", (req, res) => {
       Email              AS email,
       Location           AS location,
       attendance_role    AS role,
+      Offices            AS office,
+      designation        AS designation,
       image_filename
     FROM logincrd
     WHERE id = ?
@@ -2022,7 +2028,7 @@ app.get("/api/profile/:id", (req, res) => {
   });
 });
 
-// POST update profile text fields
+// === POST update profile text fields (now including office + designation) ===
 app.post("/api/profile/:id", (req, res) => {
   const {
     Name,
@@ -2032,6 +2038,8 @@ app.post("/api/profile/:id", (req, res) => {
     email,
     location,
     role,
+    office,
+    designation,
   } = req.body;
 
   const sql = `
@@ -2043,7 +2051,9 @@ app.post("/api/profile/:id", (req, res) => {
         Nickname        = ?,
         Email           = ?,
         Location        = ?,
-        attendance_role = ?
+        attendance_role = ?,
+        Offices         = ?,
+        designation     = ?
     WHERE id = ?
   `;
 
@@ -2057,29 +2067,54 @@ app.post("/api/profile/:id", (req, res) => {
       email,
       location,
       role,
+      office,
+      designation,
       req.params.id,
     ],
-    err => {
+    (err) => {
       if (err) return res.status(500).json({ error: "DB error" });
       res.json({ message: "Profile updated" });
     }
   );
 });
 
-// POST image upload (unchanged)
+// === POST image upload (only .jpg allowed) ===
 app.post(
   "/api/profile/:id/image",
-  upload.single("image"),
+  (req, res, next) => {
+    const contentType = req.headers["content-type"] || "";
+    if (contentType.includes("multipart/form-data")) {
+      upload.single("image")(req, res, next);
+    } else {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+  },
   (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "No file" });
-    db.query(
-      "UPDATE logincrd SET image_filename = ? WHERE id = ?",
-      [req.file.filename, req.params.id],
-      err => {
-        if (err) return res.status(500).json({ error: "DB error" });
-        res.json({ filename: req.file.filename });
+    if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+
+    // OPTIONAL: Delete old image from disk
+    const getOldImageSQL = "SELECT image_filename FROM logincrd WHERE id = ?";
+    db.query(getOldImageSQL, [req.params.id], (err, results) => {
+      if (err) return res.status(500).json({ error: "DB error" });
+
+      const oldFile = results[0]?.image_filename;
+      if (oldFile) {
+        const oldPath = path.join(__dirname, "uploads", oldFile);
+        fs.unlink(oldPath, (unlinkErr) => {
+          // Ignore unlink errors silently
+        });
       }
-    );
+
+      // Save new image filename in DB
+      db.query(
+        "UPDATE logincrd SET image_filename = ? WHERE id = ?",
+        [req.file.filename, req.params.id],
+        (err) => {
+          if (err) return res.status(500).json({ error: "DB error" });
+          res.json({ filename: req.file.filename });
+        }
+      );
+    });
   }
 );
 // Fetch employees who works in offices as well as site visit employees shows under site visit tab 

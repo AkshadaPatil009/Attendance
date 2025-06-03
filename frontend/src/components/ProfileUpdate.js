@@ -1,8 +1,24 @@
-// src/components/ProfileUpdate.js
-
 import React, { useState, useEffect } from "react";
-import {Form,Button,Card,Image,Spinner,Alert,Modal,InputGroup,Row,Col,} from "react-bootstrap";
-import {FaCamera,FaUserCircle,FaUser,FaEnvelope,FaMapMarkerAlt,FaUserTag,} from "react-icons/fa";
+import {
+  Form,
+  Button,
+  Card,
+  Image,
+  Spinner,
+  Alert,
+  Modal,
+  InputGroup,
+  Row,
+  Col,
+} from "react-bootstrap";
+import {
+  FaCamera,
+  FaUserCircle,
+  FaUser,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaUserTag,
+} from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
@@ -90,7 +106,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
     const { name, value, type, files } = e.target;
     if (type === "file" && files[0]) {
       const file = files[0];
-      // Client-side validation: only .jpg under 5MB
+      // Client‐side validation: only .jpg under 5MB
       if (file.type !== "image/jpeg") {
         toast.error("Only .jpg files are allowed");
         return;
