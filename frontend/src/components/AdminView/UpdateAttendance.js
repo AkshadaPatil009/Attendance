@@ -32,6 +32,11 @@ const UpdateAttendance = () => {
   // State to control update confirmation modal
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
+  // NEW: States for fetching and displaying logs
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [filterMonth, setFilterMonth] = useState(""); // for calendar month filter
+
   // States for filter bar
   const [filterType, setFilterType] = useState("date"); // "date", "week", "month"
   const [filterDate, setFilterDate] = useState("");
@@ -116,6 +121,8 @@ const UpdateAttendance = () => {
             setUpdateApprovedBy(false);
             setUpdateReason(false);
             setUpdateLocation(false);
+            // Clear any existing log filter
+            setFilterMonth("");
           } else {
             // No records
             setSelectedRecord(null);
@@ -129,6 +136,8 @@ const UpdateAttendance = () => {
             setUpdateApprovedBy(false);
             setUpdateReason(false);
             setUpdateLocation(false);
+            setAttendanceLogs([]);
+            setFilterMonth("");
           }
         })
         .catch((error) => {
@@ -153,6 +162,20 @@ const UpdateAttendance = () => {
     setUpdateApprovedBy(false);
     setUpdateReason(false);
     setUpdateLocation(false);
+    setFilterMonth(""); // clear filter if row-click
+    setAttendanceLogs([]); // clear logs display
+  };
+
+  // Fetch all logs for all attendance records
+  const fetchAllLogs = async () => {
+    try {
+      const resp = await axios.get(`${API_URL}/api/attendance/logs`);
+      setAttendanceLogs(resp.data);
+    } catch (err) {
+      console.error("Error fetching all attendance logs:", err);
+      setAttendanceLogs([]);
+      toast.error("Failed to load logs.");
+    }
   };
 
   // Helper to clear form after success
@@ -170,6 +193,8 @@ const UpdateAttendance = () => {
     setUpdateReason(false);
     setUpdateLocation(false);
     setManualSelection(false);
+    setAttendanceLogs([]);
+    setFilterMonth("");
   };
 
   // Perform update
@@ -178,6 +203,10 @@ const UpdateAttendance = () => {
       toast.warn("No record selected for update.");
       return;
     }
+    // Retrieve user name from localStorage
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    const currentUserName = storedUser ? storedUser.name : "";
+
     const recordDate = moment(selectedRecord.date).format("YYYY-MM-DD");
     const formattedClockIn =
       updateClockIn && clockIn
@@ -195,6 +224,7 @@ const UpdateAttendance = () => {
       date: recordDate,
       approved_by: updateApprovedBy ? approvedBy : selectedRecord.approved_by,
       reason: updateReason ? reason : selectedRecord.reason,
+      changedBy: currentUserName,
     };
 
     try {
@@ -225,7 +255,13 @@ const UpdateAttendance = () => {
     await doUpdate();
   };
 
-  // Filtering logic
+  // Show logs modal with all logs
+  const handleViewLogs = async () => {
+    await fetchAllLogs();
+    setShowLogsModal(true);
+  };
+
+  // Filtering logic for attendance records table
   const filteredRecords = attendanceRecords.filter((record) => {
     let approvedMatch = true;
     if (filterApprovedBy) {
@@ -278,7 +314,7 @@ const UpdateAttendance = () => {
     );
   }
 
-  // Prepare old/new values for modal
+  // Prepare old/new values for update confirmation modal
   const oldApprovedBy = selectedRecord?.approved_by || "";
   const newApprovedBy = approvedBy;
   const oldReason = selectedRecord?.reason || "";
@@ -301,6 +337,13 @@ const UpdateAttendance = () => {
   const newClockOut = updateClockOut && clockOut
     ? moment(clockOut).format("YYYY-MM-DD h:mm A")
     : oldClockOut;
+
+  // Filtered logs by selected month
+  const displayedLogs = filterMonth
+    ? attendanceLogs.filter((log) =>
+        moment(log.changed_at).format("YYYY-MM") === filterMonth
+      )
+    : attendanceLogs;
 
   return (
     <>
@@ -622,9 +665,18 @@ const UpdateAttendance = () => {
                 variant="warning"
                 size="sm"
                 onClick={handleUpdateClick}
-                style={{ fontSize: "0.75rem" }}
+                style={{ fontSize: "0.75rem", marginRight: "4px" }}
               >
                 Update
+              </Button>
+              {/* NEW: Button to open Logs modal */}
+              <Button
+                variant="info"
+                size="sm"
+                onClick={handleViewLogs}
+                style={{ fontSize: "0.75rem" }}
+              >
+                View Logs
               </Button>
             </Form>
           </Col>
@@ -686,6 +738,70 @@ const UpdateAttendance = () => {
           </Button>
           <Button variant="warning" onClick={confirmUpdate}>
             Confirm Update
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* NEW: Logs Modal */}
+      <Modal
+        show={showLogsModal}
+        onHide={() => {
+          setShowLogsModal(false);
+          setFilterMonth("");
+          setAttendanceLogs([]);
+        }}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>All Attendance Change Logs</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ fontSize: "0.8rem" }}>
+          <Form.Group controlId="filterMonth" className="mb-3">
+            <Form.Label style={{ fontSize: "0.85rem" }}>
+              Select Month:
+            </Form.Label>
+            <Form.Control
+              size="sm"
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              style={{ fontSize: "0.75rem", maxWidth: "200px" }}
+            />
+          </Form.Group>
+
+          {displayedLogs.length === 0 ? (
+            <p>No logs available for the selected month.</p>
+          ) : (
+            <Table bordered hover responsive size="sm">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Changed By</th>
+                  <th>Timestamp</th>
+                  <th>Field Name</th>
+                  <th>Old Value</th>
+                  <th>Updated Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedLogs.map((log) => (
+                  <tr key={log.log_id}>
+                    <td>{log.emp_name}</td>
+                    <td>{log.changed_by}</td>
+                    <td>{moment(log.changed_at).format("YYYY-MM-DD HH:mm:ss")}</td>
+                    <td>{log.field_name}</td>
+                    <td>{log.old_value ?? "-"}</td>
+                    <td>{log.new_value ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowLogsModal(false)}>
+            Close
           </Button>
         </Modal.Footer>
       </Modal>

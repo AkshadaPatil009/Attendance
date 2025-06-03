@@ -1,26 +1,8 @@
 // src/components/ProfileUpdate.js
 
 import React, { useState, useEffect } from "react";
-import {
-  Form,
-  Button,
-  Card,
-  Image,
-  Spinner,
-  Alert,
-  Modal,
-  InputGroup,
-  Row,
-  Col,
-} from "react-bootstrap";
-import {
-  FaCamera,
-  FaUserCircle,
-  FaUser,
-  FaEnvelope,
-  FaMapMarkerAlt,
-  FaUserTag,
-} from "react-icons/fa";
+import {Form,Button,Card,Image,Spinner,Alert,Modal,InputGroup,Row,Col,} from "react-bootstrap";
+import {FaCamera,FaUserCircle,FaUser,FaEnvelope,FaMapMarkerAlt,FaUserTag,} from "react-icons/fa";
 import axios from "axios";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -82,7 +64,15 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
 
   const isDirty = React.useMemo(() => {
     if (!originalData) return false;
-    for (let key of ["Name", "fname", "lname", "nickname", "email", "location", "role"]) {
+    for (let key of [
+      "Name",
+      "fname",
+      "lname",
+      "nickname",
+      "email",
+      "location",
+      "role",
+    ]) {
       if (formData[key] !== originalData[key]) return true;
     }
     return formData._file != null;
@@ -143,15 +133,23 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
 
   if (loadingProfile) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "100vh" }}>
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ minHeight: "100vh" }}
+      >
         <Spinner animation="grow" variant="primary" />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "100vh" }}>
-        <Alert variant="danger" className="w-75 text-center">{error}</Alert>
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ minHeight: "100vh" }}
+      >
+        <Alert variant="danger" className="w-75 text-center">
+          {error}
+        </Alert>
       </div>
     );
   }
@@ -160,13 +158,16 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
   const canEditAll = user.role >= 2;
 
   return (
-    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "100vh" }}>
+    <div
+      className="d-flex justify-content-center align-items-center"
+      style={{ minHeight: "10vh" }}
+    >
       <Card
         className="shadow-lg rounded-lg"
-        style={{ width: '100%', maxWidth: 600, border: "none" }}
+        style={{ width: "100%", maxWidth: 600, border: "none" }}
       >
         <div
-          className="text-white text-center py-4"
+          className="text-white text-center py-2"
           style={{
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             borderTopLeftRadius: "0.5rem",
@@ -183,15 +184,15 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                   src={imagePreview}
                   roundedCircle
                   style={{
-                    width: 150,
-                    height: 150,
+                    width: 100,
+                    height: 100,
                     objectFit: "cover",
                     border: "4px solid #fff",
                     boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
                   }}
                 />
               ) : (
-                <FaUserCircle size={150} color="#ccc" />
+                <FaUserCircle size={100} color="#ccc" />
               )}
               <label
                 htmlFor="profileImage"
@@ -210,8 +211,12 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                   boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
                   transition: "transform 0.2s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = "scale(1.1)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
               >
                 <FaCamera size={18} color="#764ba2" />
               </label>
@@ -226,92 +231,134 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
           </div>
 
           <Form onSubmit={handleFormSubmit}>
-            <Row className="g-3">
+            <Form.Group className="mb-1">
+              <Form.Label>Full Name</Form.Label>
+              <InputGroup>
+                <InputGroup.Text>
+                  <FaUser />
+                </InputGroup.Text>
+                <Form.Control
+                  placeholder="Full Name"
+                  name="Name"
+                  value={formData.Name}
+                  onChange={handleChange}
+                />
+              </InputGroup>
+            </Form.Group>
+
+            <Row className="mb-1">
               <Col md={6}>
-                <InputGroup>
-                  <InputGroup.Text>
-                    <FaUser />
-                  </InputGroup.Text>
-                  <Form.Control
-                    placeholder="First Name"
-                    name="fname"
-                    value={formData.fname}
-                    onChange={handleChange}
-                  />
-                </InputGroup>
+                <Form.Group>
+                  <Form.Label>First Name</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaUser />
+                    </InputGroup.Text>
+                    <Form.Control
+                      placeholder="First Name"
+                      name="fname"
+                      value={formData.fname}
+                      onChange={handleChange}
+                    />
+                  </InputGroup>
+                </Form.Group>
               </Col>
               <Col md={6}>
-                <InputGroup>
-                  <InputGroup.Text>
-                    <FaUser />
-                  </InputGroup.Text>
-                  <Form.Control
-                    placeholder="Last Name"
-                    name="lname"
-                    value={formData.lname}
-                    onChange={handleChange}
-                  />
-                </InputGroup>
+                <Form.Group>
+                  <Form.Label>Last Name</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaUser />
+                    </InputGroup.Text>
+                    <Form.Control
+                      placeholder="Last Name"
+                      name="lname"
+                      value={formData.lname}
+                      onChange={handleChange}
+                    />
+                  </InputGroup>
+                </Form.Group>
               </Col>
             </Row>
 
-            <InputGroup className="mt-3">
-              <InputGroup.Text>
-                <FaUserTag />
-              </InputGroup.Text>
-              <Form.Control
-                placeholder="Preferred Name"
-                name="nickname"
-                value={formData.nickname}
-                onChange={handleChange}
-              />
-            </InputGroup>
+            <Row className="mb-1">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Preferred Name</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaUserTag />
+                    </InputGroup.Text>
+                    <Form.Control
+                      placeholder="Preferred Name"
+                      name="nickname"
+                      value={formData.nickname}
+                      onChange={handleChange}
+                    />
+                  </InputGroup>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Email</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaEnvelope />
+                    </InputGroup.Text>
+                    <Form.Control
+                      type="email"
+                      placeholder="Email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      disabled={isEmployee && !canEditAll}
+                    />
+                  </InputGroup>
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <InputGroup className="mt-3">
-              <InputGroup.Text>
-                <FaEnvelope />
-              </InputGroup.Text>
-              <Form.Control
-                type="email"
-                placeholder="Email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={isEmployee && !canEditAll}
-              />
-            </InputGroup>
-
-            <InputGroup className="mt-3">
-              <InputGroup.Text>
-                <FaMapMarkerAlt />
-              </InputGroup.Text>
-              <Form.Control
-                placeholder="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                disabled={isEmployee && !canEditAll}
-              />
-            </InputGroup>
-
-            <InputGroup className="mt-3">
-              <InputGroup.Text>
-                <FaUserTag />
-              </InputGroup.Text>
-              <Form.Select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                // Only Admin (role === 4) can edit this field
-                disabled={user.role !== 4}
-              >
-                {Object.entries(ROLE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Form.Select>
-            </InputGroup>
+            <Row className="g-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Location</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaMapMarkerAlt />
+                    </InputGroup.Text>
+                    <Form.Control
+                      placeholder="Location"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      disabled={isEmployee && !canEditAll}
+                    />
+                  </InputGroup>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Role</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      <FaUserTag />
+                    </InputGroup.Text>
+                    <Form.Select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleChange}
+                      disabled={user.role !== 4}
+                    >
+                      {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </InputGroup>
+                </Form.Group>
+              </Col>
+            </Row>
 
             <div className="d-grid mt-4">
               <Button
