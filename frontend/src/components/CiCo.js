@@ -39,10 +39,9 @@ export default function CiCoEntry() {
     }
   };
 
-  // Combined style object for the button
   const buttonStyle = {
     padding: "10px 24px",
-    backgroundColor: isHovering ? "#0056b3" : "#007bff", // darker on hover
+    backgroundColor: isHovering ? "#0056b3" : "#007bff",
     color: "#fff",
     border: "none",
     borderRadius: "4px",
@@ -56,33 +55,42 @@ export default function CiCoEntry() {
   };
 
   return (
-    <div style={{ padding: "20px", textAlign: "center" }}>
-      <input
-        type="text"
-        placeholder='Type "CI <siteName>" or "CO <siteName>"'
-        value={entryText}
-        onChange={(e) => setEntryText(e.target.value)}
-        style={{
-          padding: "10px",
-          width: "280px",
-          border: "1px solid #ccc",
-          borderRadius: "4px",
-          marginBottom: "12px",
-          fontSize: "14px",
-        }}
-      />
-      <br />
-      <button
-        onClick={handleGo}
-        disabled={loading}
-        style={buttonStyle}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        {loading ? "Processing..." : "Go"}
-      </button>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        paddingTop: "40px", // top padding to move content down a little
+        alignItems: "center",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <input
+          type="text"
+          placeholder='Type "CI <siteName>" or "CO <siteName>"'
+          value={entryText}
+          onChange={(e) => setEntryText(e.target.value)}
+          style={{
+            padding: "10px",
+            width: "280px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            marginBottom: "12px",
+            fontSize: "14px",
+          }}
+        />
+        <button
+          onClick={handleGo}
+          disabled={loading}
+          style={buttonStyle}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+        >
+          {loading ? "Processing..." : "Go"}
+        </button>
 
-      {message && <p style={{ marginTop: "15px", color: "#333" }}>{message}</p>}
+        {message && <p style={{ marginTop: "15px", color: "#333" }}>{message}</p>}
+      </div>
     </div>
   );
 }
