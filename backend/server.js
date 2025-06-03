@@ -2367,6 +2367,59 @@ app.get("/api/wfh-status", (req, res) => {
     res.json(withPhoto);
   });
 });
+// ─── GET EMPLOYEE’S COMPOFF COUNTS ────────────────────────────────────────
+// Endpoint: GET /api/employees-comoff/:employeeId
+app.get("/api/employees-comoff/:employeeId", async (req, res) => {
+  const employeeId = Number(req.params.employeeId);
+  if (!employeeId) {
+    return res
+      .status(400)
+      .json({ error: "Invalid or missing employeeId parameter." });
+  }
+
+  try {
+    // 1) Count pending compoff: status = 'approved' AND settled = 0
+    const [pendingRows] = await db
+      .promise()
+      .query(
+        `
+        SELECT
+          COUNT(*) AS pendingComoff
+        FROM leave_mails
+        WHERE employee_id = ?
+          AND status = 'approved'
+          AND settled = 0
+        `,
+        [employeeId]
+      );
+
+    // 2) Count completed compoff: status = 'approved' AND settled = 1
+    const [completedRows] = await db
+      .promise()
+      .query(
+        `
+        SELECT
+          COUNT(*) AS completedComoff
+        FROM leave_mails
+        WHERE employee_id = ?
+          AND status = 'approved'
+          AND settled = 1
+        `,
+        [employeeId]
+      );
+
+    const pendingComoff = pendingRows[0]?.pendingComoff || 0;
+    const completedComoff = completedRows[0]?.completedComoff || 0;
+
+    return res.json({ pendingComoff, completedComoff });
+  } catch (err) {
+    console.error("Error fetching compoff counts:", err.message);
+    return res.status(500).json({
+      error: "An unexpected error occurred while fetching compoff counts."
+    });
+  }
+});
+
 
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
