@@ -20,13 +20,6 @@ app.use(cors());
 app.use(express.json());
 // Serve uploaded uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "public", "uploads"))
-);
-const IMAGE_BASE_URL =
-  process.env.IMAGE_BASE_URL || "http://192.168.169.120:5000/uploads/";
-
 
 // Multer for image uploads
 const storage = multer.diskStorage({
@@ -2001,15 +1994,21 @@ app.get("/api/nickoffices", (req, res) => {
       console.error("Error fetching offices:", err);
       return res.status(500).json({ error: err.message });
     }
+    // Map each row to its “Offices” field
     const offices = results.map((row) => row.Offices);
     res.json(offices);
   });
 });
 
-// ───────────────────────────────────────────────────────────────────────────────
-// 4) GET /api/office-status?office=<OfficeName>
-//    → Returns all “home/absent” statuses for that Office (online/offline/absent + photo_url).
-// ───────────────────────────────────────────────────────────────────────────────
+/**
+ * 2) GET /api/office-status?office=<OfficeName>
+ *    → For a given office, returns:
+ *         • name, location, status (“online”/“offline”/“Absent”), and image_filename
+ *       in three parts:
+ *         • PART 1: Those who have at least one attendance row today → online/offline
+ *         • PART 2: Active logincrd employees (disableemp=0) who did NOT clock in → Absent
+ *         • PART 3: employee_master.NickName (present in logincrd) who didn’t clock in → Absent
+ */
 app.get("/api/office-status", (req, res) => {
   const office = req.query.office;
   if (!office) {
@@ -2024,7 +2023,7 @@ app.get("/api/office-status", (req, res) => {
       ranked.emp_name        AS name,
       ranked.location        AS location,
       ranked.status          AS status,
-      CONCAT( ?, lc.image_filename ) AS photo_url
+      lc.image_filename      AS image_filename
     FROM (
       SELECT
         a.emp_name,
@@ -2060,7 +2059,7 @@ app.get("/api/office-status", (req, res) => {
       lc.Name              AS name,
       lc.Location          AS location,
       'Absent'             AS status,
-      CONCAT( ?, lc.image_filename ) AS photo_url
+      lc.image_filename    AS image_filename
     FROM logincrd AS lc
     WHERE
       lc.disableemp = 0
@@ -2082,7 +2081,7 @@ app.get("/api/office-status", (req, res) => {
       em.NickName          AS name,
       lc2.Location         AS location,
       'Absent'             AS status,
-      CONCAT( ?, lc2.image_filename ) AS photo_url
+      lc2.image_filename   AS image_filename
     FROM employee_master AS em
     JOIN logincrd AS lc2
       ON lc2.Name = em.NickName
@@ -2101,37 +2100,44 @@ app.get("/api/office-status", (req, res) => {
       );
   `;
 
-  // Bind parameters in exactly this order:
-  // [ IMAGE_BASE_URL, office, IMAGE_BASE_URL, office, IMAGE_BASE_URL, office, office ]
-  const params = [
-    IMAGE_BASE_URL, office,
-    IMAGE_BASE_URL, office,
-    IMAGE_BASE_URL, office, office,
-  ];
-
+  const params = [office, office, office, office];
   db.query(sql.trim(), params, (err, rows) => {
     if (err) {
       console.error("SQL error on /api/office-status:", err);
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows);
+
+    // Build the final “photo_url” dynamically from request host + /uploads/
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      // If image_filename is null/empty, return null
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
   });
 });
 
-// ───────────────────────────────────────────────────────────────────────────────
-// 5) GET /api/site-status
-//    → Returns only those employees whose latest attendance row (today):
-//       • location ≠ 'WFH'
-//       • location NOT IN (any Office name from logincrd)
-//       • status = 'online' if in_time present & out_time empty, else 'offline'
-// ───────────────────────────────────────────────────────────────────────────────
+/**
+ * 3) GET /api/site-status
+ *    → Employees whose latest attendance row (today):
+ *         • location ≠ 'WFH'
+ *         • location NOT IN (any Office name from logincrd)
+ *         • If in_time is present & out_time empty → 'online', else 'offline'
+ */
 app.get("/api/site-status", (req, res) => {
   const sql = `
     SELECT
       ranked.name        AS name,
       ranked.location    AS location,
       ranked.status      AS status,
-      CONCAT( ?, lc.image_filename ) AS photo_url
+      lc.image_filename  AS image_filename
     FROM (
       -- Rank all attendance rows for today, per employee
       SELECT
@@ -2159,9 +2165,9 @@ app.get("/api/site-status", (req, res) => {
       -- Must have a non-empty location
       AND ranked.location IS NOT NULL
       AND TRIM(ranked.location) <> ''
-      -- Exclude WFH
+      -- Exclude 'WFH'
       AND ranked.location <> 'WFH'
-      -- Exclude any location that matches one of the office names
+      -- Exclude any location matching an Office name
       AND ranked.location NOT IN (
         SELECT DISTINCT Offices
         FROM logincrd
@@ -2174,26 +2180,40 @@ app.get("/api/site-status", (req, res) => {
       );
   `;
 
-  // Only one binding: IMAGE_BASE_URL
-  db.query(sql.trim(), [IMAGE_BASE_URL], (err, rows) => {
+  db.query(sql.trim(), (err, rows) => {
     if (err) {
       console.error("SQL error on /api/site-status:", err);
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows);
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
   });
 });
 
-//WFH TAb 
+/**
+ * 4) GET /api/wfh-status
+ *    → Employees whose latest attendance row today has location = 'WFH'
+ */
 app.get("/api/wfh-status", (req, res) => {
   const sql = `
     SELECT
       ranked.name        AS name,
       ranked.location    AS location,
       ranked.status      AS status,
-      CONCAT( ?, lc.image_filename ) AS photo_url
+      lc.image_filename  AS image_filename
     FROM (
-      -- 1) Rank every attendance row for today per employee
+      /* Rank every attendance row for today per employee */
       SELECT
         a.emp_name      AS name,
         a.location      AS location,
@@ -2217,22 +2237,31 @@ app.get("/api/wfh-status", (req, res) => {
     WHERE
       ranked.rn = 1
       AND ranked.location = 'WFH'
-      -- Exclude null/empty just in case
       AND ranked.location IS NOT NULL
       AND TRIM(ranked.location) <> ''
-      -- Exclude these hard‐coded admin names
       AND ranked.name NOT IN (
         'Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar', 'Makarand Mhaiskar'
       );
   `;
 
-  // Only binding: IMAGE_BASE_URL
-  db.query(sql.trim(), [IMAGE_BASE_URL], (err, rows) => {
+  db.query(sql.trim(), (err, rows) => {
     if (err) {
       console.error("SQL error on /api/wfh-status:", err);
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows);
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
   });
 });
 

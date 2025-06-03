@@ -13,9 +13,14 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 
+// Make sure REACT_APP_API_URL points to your back-end origin (e.g. "http://localhost:5000")
+// In production it could be "https://your-domain.com"
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Fallback avatar if nothing else is available
 const DEFAULT_PROFILE_IMAGE =
   "https://cdn.jsdelivr.net/gh/twbs/icons@1.10.0/icons/person-circle.svg";
+
 const ITEMS_PER_PAGE = 6;
 
 export default function StatusView() {
@@ -39,7 +44,9 @@ export default function StatusView() {
       .get(`${API_URL}/api/nickoffices`)
       .then((res) => {
         setOfficeTabs(res.data || []);
-        if (res.data && res.data.length) setActiveOfficeTab(res.data[0]);
+        if (res.data && res.data.length) {
+          setActiveOfficeTab(res.data[0]);
+        }
       })
       .catch((err) => {
         console.error("Error fetching offices:", err);
@@ -51,9 +58,14 @@ export default function StatusView() {
     if (!activeOfficeTab) return;
     setOfficeLoading(true);
     setOfficePage(1); // Reset pagination on tab change
+
     axios
-      .get(`${API_URL}/api/office-status`, { params: { office: activeOfficeTab } })
-      .then((res) => setOfficeEmployees(res.data || []))
+      .get(`${API_URL}/api/office-status`, {
+        params: { office: activeOfficeTab },
+      })
+      .then((res) => {
+        setOfficeEmployees(res.data || []);
+      })
       .catch((err) => {
         console.error("Error fetching office status:", err);
         setOfficeEmployees([]);
@@ -65,9 +77,12 @@ export default function StatusView() {
     if (attendanceTab !== "site") return;
     setSiteLoading(true);
     setSitePage(1);
+
     axios
       .get(`${API_URL}/api/site-status`)
-      .then((res) => setSiteEmployees(res.data || []))
+      .then((res) => {
+        setSiteEmployees(res.data || []);
+      })
       .catch((err) => {
         console.error("Error fetching site status:", err);
         setSiteEmployees([]);
@@ -79,9 +94,12 @@ export default function StatusView() {
     if (attendanceTab !== "wfh") return;
     setWfhLoading(true);
     setWfhPage(1);
+
     axios
       .get(`${API_URL}/api/wfh-status`)
-      .then((res) => setWfhEmployees(res.data || []))
+      .then((res) => {
+        setWfhEmployees(res.data || []);
+      })
       .catch((err) => {
         console.error("Error fetching WFH status:", err);
         setWfhEmployees([]);
@@ -89,8 +107,29 @@ export default function StatusView() {
       .finally(() => setWfhLoading(false));
   }, [attendanceTab]);
 
-  const renderEmployeeGrid = (employees, loading, emptyMsg, currentPage, setPage) => {
+  // Utility: derive a final <img> src for each employee
+  const getProfileSrc = (emp) => {
+    // 1) If the backend already returned a full URL in `photo_url`, use it:
+    if (emp.photo_url && emp.photo_url.startsWith("http")) {
+      return emp.photo_url;
+    }
+    // 2) Otherwise, if the backend gave only `image_filename`, build the URL yourself:
+    if (emp.image_filename) {
+      return `${API_URL}/uploads/${emp.image_filename}`;
+    }
+    // 3) Fallback to the default icon
+    return DEFAULT_PROFILE_IMAGE;
+  };
+
+  const renderEmployeeGrid = (
+    employees,
+    loading,
+    emptyMsg,
+    currentPage,
+    setPage
+  ) => {
     if (loading) return <Spinner animation="border" />;
+
     if (!employees.length) return <div>{emptyMsg}</div>;
 
     const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
@@ -104,7 +143,14 @@ export default function StatusView() {
         <Row xs={1} sm={2} md={3} className="g-4">
           {paginated.map((emp) => (
             <Col key={emp.name}>
-              <div style={{ width: "100%", aspectRatio: "1 / 1", display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  width: "100%",
+                  aspectRatio: "1 / 1",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
                 <Card className="h-150 d-flex flex-column">
                   <div
                     style={{
@@ -116,7 +162,7 @@ export default function StatusView() {
                     }}
                   >
                     <img
-                      src={emp.photo_url || DEFAULT_PROFILE_IMAGE}
+                      src={getProfileSrc(emp)}
                       alt={emp.name}
                       style={{
                         width: "60%",
@@ -125,7 +171,10 @@ export default function StatusView() {
                         borderRadius: "50%",
                         objectFit: "cover",
                       }}
-                      onError={(e) => (e.target.src = DEFAULT_PROFILE_IMAGE)}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = DEFAULT_PROFILE_IMAGE;
+                      }}
                     />
                   </div>
                   <Card.Body
