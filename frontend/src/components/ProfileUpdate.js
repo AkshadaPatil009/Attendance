@@ -318,7 +318,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
               </Col>
             </Row>
 
-            <Row className="g-3">
+            <Row className="mb-1">
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Location</Form.Label>

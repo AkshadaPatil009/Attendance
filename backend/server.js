@@ -488,45 +488,100 @@ app.post('/api/attendance/manual', (req, res) => {
   }
 });
 
-// PUT Attendance API – Updated to only change is_absent status based on updated clock fields.
+// ----------------------------------------------------------------------------
+// PUT /api/attendance/:id 
+// – Updates the attendance row, then logs only those fields that truly changed.
+// ----------------------------------------------------------------------------
 app.put("/api/attendance/:id", (req, res) => {
   const { id } = req.params;
-  const { inTime, outTime, location, date, approved_by, reason } = req.body;
+  // The frontend must send a `changedBy` field in the request body:
+  //   e.g. { inTime, outTime, location, date, approved_by, reason, changedBy }
+  const { inTime, outTime, location, date, approved_by, reason, changedBy } = req.body;
 
+  // 1) Fetch the existing attendance record first
   db.query("SELECT * FROM attendance WHERE id = ?", [id], (err, results) => {
     if (err) {
-      console.error(err);
+      console.error("DB Error fetching attendance:", err);
       return res.status(500).json({ error: "Database error while fetching record" });
     }
     if (results.length === 0) {
       return res.status(404).json({ error: "Attendance record not found" });
     }
-    const existingRecord = results[0];
 
+    const existingRecord = results[0];
+    const oldEmpName = existingRecord.emp_name; // needed for logging
+
+    // 2) Determine “new” values (fall back to existing if not provided / empty)
     const newInTime =
       inTime && inTime.trim() !== "" ? inTime : existingRecord.in_time;
     const newOutTime =
       outTime && outTime.trim() !== "" ? outTime : existingRecord.out_time;
 
+    // Compute work_hour & day status
     const { work_hour, dayStatus: computedDayStatus } = calculateWorkHoursAndDay(
       newInTime,
       newOutTime
     );
     const newIsAbsent = newInTime && newOutTime ? 0 : 1;
     const newDayStatus = newIsAbsent ? "Absent" : computedDayStatus;
+
     const newLocation = location !== undefined ? location : existingRecord.location;
     const newDate = date !== undefined ? date : existingRecord.date;
     const newApprovedBy =
       approved_by !== undefined ? approved_by : existingRecord.approved_by;
     const newReason = reason !== undefined ? reason : existingRecord.reason;
 
-    const query = `
+    // Determine if clock fields actually changed
+    const timeChanged =
+      (inTime && inTime.trim() !== "" && inTime !== existingRecord.in_time) ||
+      (outTime && outTime.trim() !== "" && outTime !== existingRecord.out_time);
+
+    // 3) Build a list of changed fields (fieldName, oldValue, newValue)
+    const logEntries = [];
+    function addLogEntry(field, oldVal, newVal) {
+      if ((oldVal === null || oldVal === undefined) && (newVal === null || newVal === undefined)) {
+        return;
+      }
+      if (String(oldVal) !== String(newVal)) {
+        logEntries.push([
+          id,                              // attendance_id
+          oldEmpName,                      // emp_name
+          changedBy || "unknown",          // changed_by
+          field,                           // field_name
+          oldVal !== null && oldVal !== undefined ? String(oldVal) : null,
+          newVal !== null && newVal !== undefined ? String(newVal) : null,
+        ]);
+      }
+    }
+
+    // Only log in_time / out_time if they actually differ
+    addLogEntry("in_time", existingRecord.in_time, newInTime);
+    addLogEntry("out_time", existingRecord.out_time, newOutTime);
+
+    // Only log work_hour, day, is_absent if clock fields changed
+    if (timeChanged) {
+      addLogEntry("work_hour", existingRecord.work_hour, work_hour);
+      addLogEntry("day", existingRecord.day, newDayStatus);
+      addLogEntry("is_absent", existingRecord.is_absent, newIsAbsent);
+    }
+
+    // Only log location if it truly changed
+    addLogEntry("location", existingRecord.location, newLocation);
+
+    // Only log approved_by if it truly changed
+    addLogEntry("approved_by", existingRecord.approved_by, newApprovedBy);
+
+    // Only log reason if it truly changed
+    addLogEntry("reason", existingRecord.reason, newReason);
+
+    // 4) Perform the UPDATE on attendance table
+    const updateQuery = `
       UPDATE attendance
       SET in_time = ?, out_time = ?, location = ?, date = ?, approved_by = ?, reason = ?, work_hour = ?, day = ?, is_absent = ?
       WHERE id = ?
     `;
     db.query(
-      query,
+      updateQuery,
       [
         newInTime,
         newOutTime,
@@ -539,20 +594,68 @@ app.put("/api/attendance/:id", (req, res) => {
         newIsAbsent,
         id,
       ],
-      (err, result) => {
-        if (err) {
-          console.error(err);
+      (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error("DB Error updating attendance:", updateErr);
           return res
             .status(500)
             .json({ error: "Database error while updating attendance record" });
         }
-        if (result.affectedRows === 0)
+        if (updateResult.affectedRows === 0) {
           return res.status(404).json({ error: "Attendance record not found" });
-        // NEW: Emit socket event when record is updated.
-        emitAttendanceChange();
-        res.json({ message: "Attendance updated successfully", id });
+        }
+
+        // 5) Insert each log entry into attendance_logs
+        if (logEntries.length > 0) {
+          const logInsertQuery = `
+            INSERT INTO attendance_logs
+              (attendance_id, emp_name, changed_by, field_name, old_value, new_value)
+            VALUES ?
+          `;
+          db.query(logInsertQuery, [logEntries], (logErr) => {
+            if (logErr) {
+              console.error("DB Error inserting into attendance_logs:", logErr);
+              // We continue even if logging fails
+            }
+          });
+        }
+
+        // 6) Emit real-time event, if you already have socket.io set up:
+        if (typeof emitAttendanceChange === "function") {
+          emitAttendanceChange();
+        }
+
+        // 7) Finally, respond to the client
+        return res.json({ message: "Attendance updated successfully", id });
       }
     );
+  });
+});
+
+// ----------------------------------------------------------------------------
+// GET /api/attendance/logs 
+// – Retrieve all logs for all attendance records.
+// ----------------------------------------------------------------------------
+app.get("/api/attendance/logs", (req, res) => {
+  const fetchAllLogsSql = `
+    SELECT
+      log_id,
+      attendance_id,
+      emp_name,
+      changed_by,
+      changed_at,
+      field_name,
+      old_value,
+      new_value
+    FROM attendance_logs
+    ORDER BY changed_at DESC
+  `;
+  db.query(fetchAllLogsSql, (err, results) => {
+    if (err) {
+      console.error("DB Error fetching all attendance_logs:", err);
+      return res.status(500).json({ error: "Database error while fetching all logs" });
+    }
+    res.json(results);
   });
 });
 
