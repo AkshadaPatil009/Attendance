@@ -140,14 +140,14 @@ export default function StatusView() {
 
     return (
       <>
-        <Row xs={1} sm={2} md={3} className="g-4">
+        <Row xs={1} sm={2} md={3} className="g-1">
           {paginated.map((emp) => (
             <Col key={emp.name} className="d-flex justify-content-center">
               {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
               <div
                 style={{
-                  width: "250px",
-                  height: "250px",
+                  width: "280px",
+                  height: "280px",
                   display: "flex",
                   flexDirection: "column",
                   overflow: "hidden",
