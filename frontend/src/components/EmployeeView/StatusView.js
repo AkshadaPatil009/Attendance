@@ -142,19 +142,21 @@ export default function StatusView() {
       <>
         <Row xs={1} sm={2} md={3} className="g-4">
           {paginated.map((emp) => (
-            <Col key={emp.name}>
+            <Col key={emp.name} className="d-flex justify-content-center">
+              {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
               <div
                 style={{
-                  width: "100%",
-                  aspectRatio: "1 / 1",
+                  width: "250px",
+                  height: "250px",
                   display: "flex",
                   flexDirection: "column",
+                  overflow: "hidden",
                 }}
               >
-                <Card className="h-150 d-flex flex-column">
+                <Card style={{ height: "100%" }} className="d-flex flex-column">
                   <div
                     style={{
-                      flex: 7,
+                      flex: 6,             // reduced from 7 to 6
                       display: "flex",
                       justifyContent: "center",
                       alignItems: "center",
@@ -179,20 +181,32 @@ export default function StatusView() {
                   </div>
                   <Card.Body
                     style={{
-                      flex: 3,
+                      flex: 4,             // increased from 3 to 4
                       padding: "0.5rem",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "center",
+                      overflow: "hidden",
+                      wordBreak: "break-word",
                     }}
                   >
-                    <Card.Text className="mb-1">
+                    <Card.Text
+                      style={{
+                        marginBottom: "0.25rem",
+                        overflow: "hidden",
+                      }}
+                    >
                       <strong>Name:</strong> {emp.name}
                     </Card.Text>
-                    <Card.Text className="mb-1">
+                    <Card.Text
+                      style={{
+                        marginBottom: "0.25rem",
+                        overflow: "hidden",
+                      }}
+                    >
                       <strong>Status:</strong> {emp.status}
                     </Card.Text>
-                    <Card.Text className="mb-0">
+                    <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
                       <strong>Location:</strong> {emp.location}
                     </Card.Text>
                   </Card.Body>
@@ -220,7 +234,7 @@ export default function StatusView() {
   };
 
   return (
-    <Container fluid className="p-0" style={{ height: "100vh" }}>
+    <Container fluid className="p-0" style={{ height: "120vh" }}>
       <div className="d-flex gap-4 flex-wrap h-100">
         {/* Left: Offices */}
         <div style={{ flex: 1, minWidth: "300px", overflowY: "auto" }}>
