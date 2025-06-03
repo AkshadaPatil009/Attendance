@@ -19,56 +19,65 @@ const DEFAULT_PROFILE_IMAGE =
 const ITEMS_PER_PAGE = 6;
 
 export default function StatusView() {
-  const [officeTabs, setOfficeTabs] = useState([]);
-  const [activeOfficeTab, setActiveOfficeTab] = useState(null);
+  const [officeTabs, setOfficeTabs] = useState([]);               // e.g. ["RO", "MO", "RSO", …]
+  const [activeOfficeTab, setActiveOfficeTab] = useState(null);  // which office is currently selected
 
-  // officeEmployees is the list of ALL employees (present+absent+etc.) 
-  // for the currently selected office
+  // When you select an office tab, this holds ALL employees for that office
   const [officeEmployees, setOfficeEmployees] = useState([]);
   const [officeLoading, setOfficeLoading] = useState(false);
   const [officePage, setOfficePage] = useState(1);
 
-  // We’ll store counts for each office here:
-  // e.g. { "New York": { present:  8, total: 20 }, ... }
+  // We'll store { present, total } for each office in state:
+  //    { "RO": { present: 10, total: 25 }, "MO": { present:  8, total: 20 }, … }
   const [officeCounts, setOfficeCounts] = useState({});
 
-  // Attendance‐type tabs (same as before)
+  // ----------------------------------------------------------------
+  // These next pieces are unchanged: “site” vs. “wfh” attendance tabs
+  // ----------------------------------------------------------------
   const [attendanceTab, setAttendanceTab] = useState("site");
   const [siteEmployees, setSiteEmployees] = useState([]);
   const [siteLoading, setSiteLoading] = useState(false);
   const [sitePage, setSitePage] = useState(1);
+
   const [wfhEmployees, setWfhEmployees] = useState([]);
   const [wfhLoading, setWfhLoading] = useState(false);
   const [wfhPage, setWfhPage] = useState(1);
 
-  // 1) Fetch list of offices → then immediately fetch counts for each office
+  // -----------------------------------------------------------------------------
+  // 1) On initial mount, fetch list of office names (“nickoffices”), then immediately
+  //    fetch `/api/office-status?office=<officeName>` for each office to compute counts.
+  // -----------------------------------------------------------------------------
   useEffect(() => {
     axios
       .get(`${API_URL}/api/nickoffices`)
       .then((res) => {
         const offices = res.data || [];
         setOfficeTabs(offices);
+
         if (offices.length) {
           setActiveOfficeTab(offices[0]);
         }
 
-        // For each office, get { present, total } from /api/office-counts
+        // For each office name, call `/api/office-status?office=<office>`
+        // to grab ALL employees in that office, then compute present/total.
         offices.forEach((office) => {
           axios
-            .get(`${API_URL}/api/office-counts`, {
-              params: { office },
-            })
+            .get(`${API_URL}/api/office-status`, { params: { office } })
             .then((countRes) => {
+              const allEmps = countRes.data || [];
+              const presentCount = allEmps.filter(
+                (e) => e.status.toLowerCase() === "online"
+              ).length;
+              const totalCount = allEmps.length;
+
               setOfficeCounts((prev) => ({
                 ...prev,
-                [office]: {
-                  present: countRes.data.present,
-                  total: countRes.data.total,
-                },
+                [office]: { present: presentCount, total: totalCount },
               }));
             })
             .catch((err) => {
-              console.error(`Error fetching counts for ${office}:`, err);
+              console.error(`Error fetching /office-status for "${office}":`, err);
+              // If there’s an error, default to 0/0
               setOfficeCounts((prev) => ({
                 ...prev,
                 [office]: { present: 0, total: 0 },
@@ -77,13 +86,16 @@ export default function StatusView() {
         });
       })
       .catch((err) => {
-        console.error("Error fetching offices:", err);
+        console.error("Error fetching nickoffices:", err);
         setOfficeTabs([]);
       });
   }, []);
 
-  // 2) Whenever activeOfficeTab changes, fetch all employees (so we can render cards)
-  //    and re‐compute present/total from that data (if you prefer front‐end counting).
+  // -----------------------------------------------------------------------------
+  // 2) Whenever `activeOfficeTab` changes, re‐fetch `/api/office-status` to render cards
+  //    and also update that office’s “present/total” in state (in case someone clocked
+  //    in or out since initial load).
+  // -----------------------------------------------------------------------------
   useEffect(() => {
     if (!activeOfficeTab) return;
 
@@ -98,9 +110,7 @@ export default function StatusView() {
         const allEmps = res.data || [];
         setOfficeEmployees(allEmps);
 
-        // Re‐calc present/total on the front end (optional—if your API endpoint
-        // already returned “present” and “total,” you can skip this and just rely
-        // on the /api/office-counts you fetched earlier).
+        // Re‐compute present/total based on this fresh payload:
         const presentCount = allEmps.filter(
           (e) => e.status.toLowerCase() === "online"
         ).length;
@@ -112,13 +122,20 @@ export default function StatusView() {
         }));
       })
       .catch((err) => {
-        console.error("Error fetching office status:", err);
+        console.error(
+          `Error fetching office-status for "${activeOfficeTab}":`,
+          err
+        );
         setOfficeEmployees([]);
       })
-      .finally(() => setOfficeLoading(false));
+      .finally(() => {
+        setOfficeLoading(false);
+      });
   }, [activeOfficeTab]);
 
-  // 3) Fetch “site” attendance whenever that tab is selected
+  // -----------------------------------------------------------------------------
+  // 3) Fetch “site” attendance when that tab is selected (unchanged)
+  // -----------------------------------------------------------------------------
   useEffect(() => {
     if (attendanceTab !== "site") return;
     setSiteLoading(true);
@@ -130,13 +147,17 @@ export default function StatusView() {
         setSiteEmployees(res.data || []);
       })
       .catch((err) => {
-        console.error("Error fetching site status:", err);
+        console.error("Error fetching site-status:", err);
         setSiteEmployees([]);
       })
-      .finally(() => setSiteLoading(false));
+      .finally(() => {
+        setSiteLoading(false);
+      });
   }, [attendanceTab]);
 
-  // 4) Fetch “wfh” attendance whenever that tab is selected
+  // -----------------------------------------------------------------------------
+  // 4) Fetch “wfh” attendance when that tab is selected (unchanged)
+  // -----------------------------------------------------------------------------
   useEffect(() => {
     if (attendanceTab !== "wfh") return;
     setWfhLoading(true);
@@ -148,13 +169,17 @@ export default function StatusView() {
         setWfhEmployees(res.data || []);
       })
       .catch((err) => {
-        console.error("Error fetching WFH status:", err);
+        console.error("Error fetching wfh-status:", err);
         setWfhEmployees([]);
       })
-      .finally(() => setWfhLoading(false));
+      .finally(() => {
+        setWfhLoading(false);
+      });
   }, [attendanceTab]);
 
-  // Utility to build the <img> src for each employee (unchanged)
+  // --------------------------------------------------------------------
+  // Utility: decide which <img> src to use for each employee
+  // --------------------------------------------------------------------
   const getProfileSrc = (emp) => {
     if (emp.photo_url && emp.photo_url.startsWith("http")) {
       return emp.photo_url;
@@ -165,7 +190,9 @@ export default function StatusView() {
     return DEFAULT_PROFILE_IMAGE;
   };
 
-  // Unchanged: render grid of employee cards + pagination
+  // --------------------------------------------------------------------
+  // Unchanged: render a paginated grid of employee cards
+  // --------------------------------------------------------------------
   const renderEmployeeGrid = (
     employees,
     loading,
@@ -174,7 +201,10 @@ export default function StatusView() {
     setPage
   ) => {
     if (loading) return <Spinner animation="border" />;
-    if (!employees.length) return <div>{emptyMsg}</div>;
+
+    if (!employees.length) {
+      return <div>{emptyMsg}</div>;
+    }
 
     const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
     const paginated = employees.slice(
@@ -199,6 +229,7 @@ export default function StatusView() {
                 bgColor = "lightgreen";
               }
             }
+
             return (
               <Col key={emp.name} className="d-flex justify-content-center">
                 <div
@@ -248,10 +279,20 @@ export default function StatusView() {
                         backgroundColor: bgColor,
                       }}
                     >
-                      <Card.Text style={{ marginBottom: "0.25rem", overflow: "hidden" }}>
+                      <Card.Text
+                        style={{
+                          marginBottom: "0.25rem",
+                          overflow: "hidden",
+                        }}
+                      >
                         <strong>Name:</strong> {emp.name}
                       </Card.Text>
-                      <Card.Text style={{ marginBottom: "0.25rem", overflow: "hidden" }}>
+                      <Card.Text
+                        style={{
+                          marginBottom: "0.25rem",
+                          overflow: "hidden",
+                        }}
+                      >
                         <strong>Status:</strong> {emp.status}
                       </Card.Text>
                       <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
@@ -282,6 +323,9 @@ export default function StatusView() {
     );
   };
 
+  // --------------------------------------------------------------------
+  // Render everything: “Offices” tabs on the left, “Attendance Type” on right
+  // --------------------------------------------------------------------
   return (
     <Container fluid className="p-0" style={{ height: "120vh" }}>
       <div className="d-flex gap-4 flex-wrap h-100">
@@ -295,7 +339,7 @@ export default function StatusView() {
             justify
           >
             {officeTabs.map((office) => {
-              // If officeCounts hasn’t arrived yet, default to 0/0
+              // If we don’t yet have counts for this office, show “(0/0)”
               const counts = officeCounts[office] || { present: 0, total: 0 };
               const titleText = `${office} (${counts.present}/${counts.total})`;
 
