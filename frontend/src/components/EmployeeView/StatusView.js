@@ -13,40 +13,68 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 
-// Make sure REACT_APP_API_URL points to your back-end origin (e.g. "http://localhost:5000")
-// In production it could be "https://your-domain.com"
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-
-// Fallback avatar if nothing else is available
 const DEFAULT_PROFILE_IMAGE =
   "https://cdn.jsdelivr.net/gh/twbs/icons@1.10.0/icons/person-circle.svg";
-
 const ITEMS_PER_PAGE = 6;
 
 export default function StatusView() {
   const [officeTabs, setOfficeTabs] = useState([]);
   const [activeOfficeTab, setActiveOfficeTab] = useState(null);
+
+  // officeEmployees is the list of ALL employees (present+absent+etc.) 
+  // for the currently selected office
   const [officeEmployees, setOfficeEmployees] = useState([]);
   const [officeLoading, setOfficeLoading] = useState(false);
   const [officePage, setOfficePage] = useState(1);
 
+  // We’ll store counts for each office here:
+  // e.g. { "New York": { present:  8, total: 20 }, ... }
+  const [officeCounts, setOfficeCounts] = useState({});
+
+  // Attendance‐type tabs (same as before)
   const [attendanceTab, setAttendanceTab] = useState("site");
   const [siteEmployees, setSiteEmployees] = useState([]);
   const [siteLoading, setSiteLoading] = useState(false);
   const [sitePage, setSitePage] = useState(1);
-
   const [wfhEmployees, setWfhEmployees] = useState([]);
   const [wfhLoading, setWfhLoading] = useState(false);
   const [wfhPage, setWfhPage] = useState(1);
 
+  // 1) Fetch list of offices → then immediately fetch counts for each office
   useEffect(() => {
     axios
       .get(`${API_URL}/api/nickoffices`)
       .then((res) => {
-        setOfficeTabs(res.data || []);
-        if (res.data && res.data.length) {
-          setActiveOfficeTab(res.data[0]);
+        const offices = res.data || [];
+        setOfficeTabs(offices);
+        if (offices.length) {
+          setActiveOfficeTab(offices[0]);
         }
+
+        // For each office, get { present, total } from /api/office-counts
+        offices.forEach((office) => {
+          axios
+            .get(`${API_URL}/api/office-counts`, {
+              params: { office },
+            })
+            .then((countRes) => {
+              setOfficeCounts((prev) => ({
+                ...prev,
+                [office]: {
+                  present: countRes.data.present,
+                  total: countRes.data.total,
+                },
+              }));
+            })
+            .catch((err) => {
+              console.error(`Error fetching counts for ${office}:`, err);
+              setOfficeCounts((prev) => ({
+                ...prev,
+                [office]: { present: 0, total: 0 },
+              }));
+            });
+        });
       })
       .catch((err) => {
         console.error("Error fetching offices:", err);
@@ -54,17 +82,34 @@ export default function StatusView() {
       });
   }, []);
 
+  // 2) Whenever activeOfficeTab changes, fetch all employees (so we can render cards)
+  //    and re‐compute present/total from that data (if you prefer front‐end counting).
   useEffect(() => {
     if (!activeOfficeTab) return;
+
     setOfficeLoading(true);
-    setOfficePage(1); // Reset pagination on tab change
+    setOfficePage(1);
 
     axios
       .get(`${API_URL}/api/office-status`, {
         params: { office: activeOfficeTab },
       })
       .then((res) => {
-        setOfficeEmployees(res.data || []);
+        const allEmps = res.data || [];
+        setOfficeEmployees(allEmps);
+
+        // Re‐calc present/total on the front end (optional—if your API endpoint
+        // already returned “present” and “total,” you can skip this and just rely
+        // on the /api/office-counts you fetched earlier).
+        const presentCount = allEmps.filter(
+          (e) => e.status.toLowerCase() === "online"
+        ).length;
+        const totalCount = allEmps.length;
+
+        setOfficeCounts((prev) => ({
+          ...prev,
+          [activeOfficeTab]: { present: presentCount, total: totalCount },
+        }));
       })
       .catch((err) => {
         console.error("Error fetching office status:", err);
@@ -73,6 +118,7 @@ export default function StatusView() {
       .finally(() => setOfficeLoading(false));
   }, [activeOfficeTab]);
 
+  // 3) Fetch “site” attendance whenever that tab is selected
   useEffect(() => {
     if (attendanceTab !== "site") return;
     setSiteLoading(true);
@@ -90,6 +136,7 @@ export default function StatusView() {
       .finally(() => setSiteLoading(false));
   }, [attendanceTab]);
 
+  // 4) Fetch “wfh” attendance whenever that tab is selected
   useEffect(() => {
     if (attendanceTab !== "wfh") return;
     setWfhLoading(true);
@@ -107,20 +154,18 @@ export default function StatusView() {
       .finally(() => setWfhLoading(false));
   }, [attendanceTab]);
 
-  // Utility: derive a final <img> src for each employee
+  // Utility to build the <img> src for each employee (unchanged)
   const getProfileSrc = (emp) => {
-    // 1) If the backend already returned a full URL in `photo_url`, use it:
     if (emp.photo_url && emp.photo_url.startsWith("http")) {
       return emp.photo_url;
     }
-    // 2) Otherwise, if the backend gave only `image_filename`, build the URL yourself:
     if (emp.image_filename) {
       return `${API_URL}/uploads/${emp.image_filename}`;
     }
-    // 3) Fallback to the default icon
     return DEFAULT_PROFILE_IMAGE;
   };
 
+  // Unchanged: render grid of employee cards + pagination
   const renderEmployeeGrid = (
     employees,
     loading,
@@ -129,7 +174,6 @@ export default function StatusView() {
     setPage
   ) => {
     if (loading) return <Spinner animation="border" />;
-
     if (!employees.length) return <div>{emptyMsg}</div>;
 
     const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
@@ -144,23 +188,19 @@ export default function StatusView() {
           {paginated.map((emp) => {
             const statusLower = emp.status.toLowerCase();
             let bgColor = "white";
-
             if (statusLower === "offline") {
               bgColor = "#fa6349";
             } else if (statusLower === "absent") {
               bgColor = "pink";
             } else if (statusLower === "online") {
-              // If status is "online" but location is not "Office" or "WFH", show yellow
               if (emp.location !== "Office" && emp.location !== "WFH") {
                 bgColor = "yellow";
               } else {
                 bgColor = "lightgreen";
               }
             }
-
             return (
               <Col key={emp.name} className="d-flex justify-content-center">
-                {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
                 <div
                   style={{
                     width: "270px",
@@ -173,7 +213,7 @@ export default function StatusView() {
                   <Card style={{ height: "100%" }} className="d-flex flex-column">
                     <div
                       style={{
-                        flex: 6,             // reduced from 7 to 6
+                        flex: 6,
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
@@ -198,7 +238,7 @@ export default function StatusView() {
                     </div>
                     <Card.Body
                       style={{
-                        flex: 4,             // increased from 3 to 4
+                        flex: 4,
                         padding: "0.5rem",
                         display: "flex",
                         flexDirection: "column",
@@ -208,20 +248,10 @@ export default function StatusView() {
                         backgroundColor: bgColor,
                       }}
                     >
-                      <Card.Text
-                        style={{
-                          marginBottom: "0.25rem",
-                          overflow: "hidden",
-                        }}
-                      >
+                      <Card.Text style={{ marginBottom: "0.25rem", overflow: "hidden" }}>
                         <strong>Name:</strong> {emp.name}
                       </Card.Text>
-                      <Card.Text
-                        style={{
-                          marginBottom: "0.25rem",
-                          overflow: "hidden",
-                        }}
-                      >
+                      <Card.Text style={{ marginBottom: "0.25rem", overflow: "hidden" }}>
                         <strong>Status:</strong> {emp.status}
                       </Card.Text>
                       <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
@@ -255,7 +285,7 @@ export default function StatusView() {
   return (
     <Container fluid className="p-0" style={{ height: "120vh" }}>
       <div className="d-flex gap-4 flex-wrap h-100">
-        {/* Left: Offices */}
+        {/* ============== Left: Offices ============== */}
         <div style={{ flex: 1, minWidth: "300px", overflowY: "auto" }}>
           <h5 className="mb-3 text-center">Offices</h5>
           <Tabs
@@ -264,23 +294,29 @@ export default function StatusView() {
             className="px-2"
             justify
           >
-            {officeTabs.map((office) => (
-              <Tab eventKey={office} title={office} key={office}>
-                <div className="p-3">
-                  {renderEmployeeGrid(
-                    officeEmployees,
-                    officeLoading,
-                    `No employees in "${office}".`,
-                    officePage,
-                    setOfficePage
-                  )}
-                </div>
-              </Tab>
-            ))}
+            {officeTabs.map((office) => {
+              // If officeCounts hasn’t arrived yet, default to 0/0
+              const counts = officeCounts[office] || { present: 0, total: 0 };
+              const titleText = `${office} (${counts.present}/${counts.total})`;
+
+              return (
+                <Tab eventKey={office} title={titleText} key={office}>
+                  <div className="p-3">
+                    {renderEmployeeGrid(
+                      officeEmployees,
+                      officeLoading,
+                      `No employees in "${office}".`,
+                      officePage,
+                      setOfficePage
+                    )}
+                  </div>
+                </Tab>
+              );
+            })}
           </Tabs>
         </div>
 
-        {/* Right: Attendance Type */}
+        {/* ============== Right: Attendance Type ============== */}
         <div style={{ flex: 1, minWidth: "300px", overflowY: "auto" }}>
           <h5 className="mb-3 text-center">Attendance Type</h5>
           <Tabs
