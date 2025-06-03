@@ -167,7 +167,7 @@ const EmployeeLeaveApplication = () => {
               <Row>
                 <Col md={6}>
                   <Form.Group controlId="pending-comoff">
-                    <Form.Label>Pending Comoff</Form.Label>
+                    <Form.Label>Approved Comoff</Form.Label>
                     <Form.Control
                       readOnly
                       value={employeeLeaves.pendingComoff}
