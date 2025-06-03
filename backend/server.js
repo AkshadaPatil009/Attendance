@@ -18,9 +18,8 @@ const { Server } = require("socket.io");
 const app = express();
 app.use(cors());
 app.use(express.json());
-// Serve uploaded images
+// Serve uploaded uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 
 // Multer for image uploads
 const storage = multer.diskStorage({
@@ -1980,6 +1979,292 @@ app.post(
     );
   }
 );
+// Fetch employees who works in offices as well as site visit employees shows under site visit tab 
+app.get("/api/nickoffices", (req, res) => {
+  const sql = `
+    SELECT DISTINCT Offices
+    FROM logincrd
+    WHERE Offices IS NOT NULL
+      AND TRIM(Offices) <> ''
+    ORDER BY Offices
+  `;
+
+  db.query(sql.trim(), (err, results) => {
+    if (err) {
+      console.error("Error fetching offices:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    // Map each row to its “Offices” field
+    const offices = results.map((row) => row.Offices);
+    res.json(offices);
+  });
+});
+
+/**
+ * 2) GET /api/office-status?office=<OfficeName>
+ *    → For a given office, returns:
+ *         • name, location, status (“online”/“offline”/“Absent”), and image_filename
+ *       in three parts:
+ *         • PART 1: Those who have at least one attendance row today → online/offline
+ *         • PART 2: Active logincrd employees (disableemp=0) who did NOT clock in → Absent
+ *         • PART 3: employee_master.NickName (present in logincrd) who didn’t clock in → Absent
+ */
+app.get("/api/office-status", (req, res) => {
+  const office = req.query.office;
+  if (!office) {
+    return res
+      .status(400)
+      .json({ error: "Missing required query parameter: office" });
+  }
+
+  const sql = `
+    -- PART 1: Employees with at least one attendance row today → online/offline
+    SELECT
+      ranked.emp_name        AS name,
+      ranked.location        AS location,
+      ranked.status          AS status,
+      lc.image_filename      AS image_filename
+    FROM (
+      SELECT
+        a.emp_name,
+        a.location,
+        a.in_time,
+        a.out_time,
+        CASE
+          WHEN (a.in_time IS NOT NULL AND a.in_time <> '')
+               AND (a.out_time IS NULL    OR a.out_time = '')
+            THEN 'online'
+          ELSE 'offline'
+        END AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY a.emp_name
+          ORDER BY a.in_time DESC
+        ) AS rn
+      FROM attendance AS a
+      WHERE a.date = CURDATE()
+    ) AS ranked
+    JOIN logincrd AS lc
+      ON lc.Name = ranked.emp_name
+    WHERE
+      ranked.rn = 1
+      AND lc.Offices = ?
+      AND ranked.emp_name NOT IN (
+        'Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar', 'Makarand Mhaiskar'
+      )
+
+    UNION
+
+    -- PART 2: Active logincrd employees (disableemp=0) in this office who did NOT clock in → Absent
+    SELECT
+      lc.Name              AS name,
+      lc.Location          AS location,
+      'Absent'             AS status,
+      lc.image_filename    AS image_filename
+    FROM logincrd AS lc
+    WHERE
+      lc.disableemp = 0
+      AND lc.Offices = ?
+      AND lc.Name NOT IN (
+        SELECT a.emp_name
+        FROM attendance AS a
+        WHERE a.date = CURDATE()
+      )
+      AND lc.Name NOT IN (
+        'Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar', 'Makarand Mhaiskar'
+      )
+
+    UNION
+
+    -- PART 3: Any employee_master.NickName who isn’t in attendance today,
+    -- but does exist in logincrd (disableemp=0) for this office → Absent
+    SELECT
+      em.NickName          AS name,
+      lc2.Location         AS location,
+      'Absent'             AS status,
+      lc2.image_filename   AS image_filename
+    FROM employee_master AS em
+    JOIN logincrd AS lc2
+      ON lc2.Name = em.NickName
+    WHERE
+      lc2.Offices = ?
+      AND em.NickName NOT IN (
+        SELECT a.emp_name
+        FROM attendance AS a
+        WHERE a.date = CURDATE()
+      )
+      AND em.NickName IN (
+        SELECT Name
+        FROM logincrd
+        WHERE disableemp = 0
+          AND Offices = ?
+      );
+  `;
+
+  const params = [office, office, office, office];
+  db.query(sql.trim(), params, (err, rows) => {
+    if (err) {
+      console.error("SQL error on /api/office-status:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    // Build the final “photo_url” dynamically from request host + /uploads/
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      // If image_filename is null/empty, return null
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
+  });
+});
+
+/**
+ * 3) GET /api/site-status
+ *    → Employees whose latest attendance row (today):
+ *         • location ≠ 'WFH'
+ *         • location NOT IN (any Office name from logincrd)
+ *         • If in_time is present & out_time empty → 'online', else 'offline'
+ */
+app.get("/api/site-status", (req, res) => {
+  const sql = `
+    SELECT
+      ranked.name        AS name,
+      ranked.location    AS location,
+      ranked.status      AS status,
+      lc.image_filename  AS image_filename
+    FROM (
+      -- Rank all attendance rows for today, per employee
+      SELECT
+        a.emp_name      AS name,
+        a.location      AS location,
+        a.in_time       AS in_time,
+        a.out_time      AS out_time,
+        CASE
+          WHEN (a.in_time IS NOT NULL AND a.in_time <> '')
+               AND (a.out_time IS NULL OR a.out_time = '')
+            THEN 'online'
+          ELSE 'offline'
+        END AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY a.emp_name
+          ORDER BY a.in_time DESC
+        ) AS rn
+      FROM attendance AS a
+      WHERE a.date = CURDATE()
+    ) AS ranked
+    JOIN logincrd AS lc
+      ON lc.Name = ranked.name
+    WHERE
+      ranked.rn = 1
+      -- Must have a non-empty location
+      AND ranked.location IS NOT NULL
+      AND TRIM(ranked.location) <> ''
+      -- Exclude 'WFH'
+      AND ranked.location <> 'WFH'
+      -- Exclude any location matching an Office name
+      AND ranked.location NOT IN (
+        SELECT DISTINCT Offices
+        FROM logincrd
+        WHERE Offices IS NOT NULL
+          AND TRIM(Offices) <> ''
+      )
+      -- Exclude the hard-coded admin names
+      AND ranked.name NOT IN (
+        'Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar', 'Makarand Mhaiskar'
+      );
+  `;
+
+  db.query(sql.trim(), (err, rows) => {
+    if (err) {
+      console.error("SQL error on /api/site-status:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
+  });
+});
+
+/**
+ * 4) GET /api/wfh-status
+ *    → Employees whose latest attendance row today has location = 'WFH'
+ */
+app.get("/api/wfh-status", (req, res) => {
+  const sql = `
+    SELECT
+      ranked.name        AS name,
+      ranked.location    AS location,
+      ranked.status      AS status,
+      lc.image_filename  AS image_filename
+    FROM (
+      /* Rank every attendance row for today per employee */
+      SELECT
+        a.emp_name      AS name,
+        a.location      AS location,
+        a.in_time       AS in_time,
+        a.out_time      AS out_time,
+        CASE
+          WHEN (a.in_time IS NOT NULL AND a.in_time <> '')
+               AND (a.out_time IS NULL OR a.out_time = '')
+            THEN 'online'
+          ELSE 'offline'
+        END AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY a.emp_name
+          ORDER BY a.in_time DESC
+        ) AS rn
+      FROM attendance AS a
+      WHERE a.date = CURDATE()
+    ) AS ranked
+    JOIN logincrd AS lc
+      ON lc.Name = ranked.name
+    WHERE
+      ranked.rn = 1
+      AND ranked.location = 'WFH'
+      AND ranked.location IS NOT NULL
+      AND TRIM(ranked.location) <> ''
+      AND ranked.name NOT IN (
+        'Admin', 'Mrunaal Mhaiskar', 'Chetan Paralikar', 'Makarand Mhaiskar'
+      );
+  `;
+
+  db.query(sql.trim(), (err, rows) => {
+    if (err) {
+      console.error("SQL error on /api/wfh-status:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const withPhoto = rows.map((row) => ({
+      name: row.name,
+      location: row.location,
+      status: row.status,
+      photo_url: row.image_filename
+        ? `${host}/uploads/${row.image_filename}`
+        : null,
+      image_filename: row.image_filename,
+    }));
+
+    res.json(withPhoto);
+  });
+});
+
 // NEW: Listen for socket connections.
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
