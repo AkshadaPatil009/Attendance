@@ -1,5 +1,3 @@
-// src/components/EmployeeView/StatusView.js
-
 import React, { useEffect, useState } from "react";
 import {
   Container,
@@ -13,11 +11,8 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 
-// Make sure REACT_APP_API_URL points to your back-end origin (e.g. "http://localhost:5000")
-// In production it could be "https://your-domain.com"
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// Fallback avatar if nothing else is available
 const DEFAULT_PROFILE_IMAGE =
   "https://cdn.jsdelivr.net/gh/twbs/icons@1.10.0/icons/person-circle.svg";
 
@@ -57,7 +52,7 @@ export default function StatusView() {
   useEffect(() => {
     if (!activeOfficeTab) return;
     setOfficeLoading(true);
-    setOfficePage(1); // Reset pagination on tab change
+    setOfficePage(1);
 
     axios
       .get(`${API_URL}/api/office-status`, {
@@ -107,17 +102,13 @@ export default function StatusView() {
       .finally(() => setWfhLoading(false));
   }, [attendanceTab]);
 
-  // Utility: derive a final <img> src for each employee
   const getProfileSrc = (emp) => {
-    // 1) If the backend already returned a full URL in `photo_url`, use it:
     if (emp.photo_url && emp.photo_url.startsWith("http")) {
       return emp.photo_url;
     }
-    // 2) Otherwise, if the backend gave only `image_filename`, build the URL yourself:
     if (emp.image_filename) {
       return `${API_URL}/uploads/${emp.image_filename}`;
     }
-    // 3) Fallback to the default icon
     return DEFAULT_PROFILE_IMAGE;
   };
 
@@ -126,10 +117,10 @@ export default function StatusView() {
     loading,
     emptyMsg,
     currentPage,
-    setPage
+    setPage,
+    context = null
   ) => {
     if (loading) return <Spinner animation="border" />;
-
     if (!employees.length) return <div>{emptyMsg}</div>;
 
     const totalPages = Math.ceil(employees.length / ITEMS_PER_PAGE);
@@ -141,79 +132,82 @@ export default function StatusView() {
     return (
       <>
         <Row xs={1} sm={2} md={3} className="g-1">
-          {paginated.map((emp) => (
-            <Col key={emp.name} className="d-flex justify-content-center">
-              {/* Fixed-size 250×250px wrapper for each Card, with overflow hidden */}
-              <div
-                style={{
-                  width: "280px",
-                  height: "280px",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                }}
-              >
-                <Card style={{ height: "100%" }} className="d-flex flex-column">
-                  <div
-                    style={{
-                      flex: 6,             // reduced from 7 to 6
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "rgb(255, 255, 255)",
-                    }}
-                  >
-                    <img
-                      src={getProfileSrc(emp)}
-                      alt={emp.name}
+          {paginated.map((emp) => {
+            let bgColor = "#fff";
+
+            if (context === "site") {
+              bgColor = "#f8f412 "; // yellow for site visits
+            } else {
+              const status = emp.status?.toLowerCase();
+              if (status === "online") bgColor = "lightgreen";
+              else if (status === "offline") bgColor = "#f44514 ";
+              else if (status === "absent") bgColor = "pink";
+            }
+
+            return (
+              <Col key={emp.name} className="d-flex justify-content-center">
+                <div
+                  style={{
+                    width: "280px",
+                    height: "280px",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Card style={{ height: "100%" }} className="d-flex flex-column">
+                    <div
                       style={{
-                        width: "60%",
-                        height: "auto",
-                        aspectRatio: "1 / 1",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                      }}
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = DEFAULT_PROFILE_IMAGE;
-                      }}
-                    />
-                  </div>
-                  <Card.Body
-                    style={{
-                      flex: 4,             // increased from 3 to 4
-                      padding: "0.5rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      overflow: "hidden",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    <Card.Text
-                      style={{
-                        marginBottom: "0.25rem",
-                        overflow: "hidden",
+                        flex: 6,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "white",
                       }}
                     >
-                      <strong>Name:</strong> {emp.name}
-                    </Card.Text>
-                    <Card.Text
+                      <img
+                        src={getProfileSrc(emp)}
+                        alt={emp.name}
+                        style={{
+                          width: "60%",
+                          height: "auto",
+                          aspectRatio: "1 / 1",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = DEFAULT_PROFILE_IMAGE;
+                        }}
+                      />
+                    </div>
+                    <Card.Body
                       style={{
-                        marginBottom: "0.25rem",
+                        flex: 4,
+                        padding: "0.5rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
                         overflow: "hidden",
+                        wordBreak: "break-word",
+                        backgroundColor: bgColor,
                       }}
                     >
-                      <strong>Status:</strong> {emp.status}
-                    </Card.Text>
-                    <Card.Text style={{ marginBottom: 0, overflow: "hidden" }}>
-                      <strong>Location:</strong> {emp.location}
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </div>
-            </Col>
-          ))}
+                      <Card.Text style={{ marginBottom: "0.25rem" }}>
+                        <strong>Name:</strong> {emp.name}
+                      </Card.Text>
+                      <Card.Text style={{ marginBottom: "0.25rem" }}>
+                        <strong>Status:</strong> {emp.status}
+                      </Card.Text>
+                      <Card.Text style={{ marginBottom: 0 }}>
+                        <strong>Location:</strong> {emp.location}
+                      </Card.Text>
+                    </Card.Body>
+                  </Card>
+                </div>
+              </Col>
+            );
+          })}
         </Row>
 
         {totalPages > 1 && (
@@ -277,7 +271,8 @@ export default function StatusView() {
                   siteLoading,
                   "No site-visit employees.",
                   sitePage,
-                  setSitePage
+                  setSitePage,
+                  "site"
                 )}
               </div>
             </Tab>
