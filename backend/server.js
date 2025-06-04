@@ -1067,8 +1067,9 @@ app.put("/api/employee-leaves/:id", (req, res) => {
   });
 });
 
+// -----------------------------------------------------
 // GET /api/employees-leaves/:id
-// Fetch used & remaining leaves for the given employee ID
+//     (fetch used & remaining leaves for the given employee)
 app.get("/api/employees-leaves/:id", (req, res) => {
   const employeeId = req.params.id;
 
@@ -1093,6 +1094,74 @@ app.get("/api/employees-leaves/:id", (req, res) => {
         .json({ error: "No leave record found for this employee." });
     }
     res.json(results[0]);
+  });
+});
+
+// -----------------------------------------------------
+// 5) NEW: PATCH /api/employee-leaves/:employeeId/use-leave
+//    (record fractional usage, e.g. 0.5, 1.0, 1.5, etc.)
+
+app.patch("/api/employee-leaves/:employeeId/use-leave", (req, res) => {
+  const { employeeId } = req.params;
+  const { leaveType, amount } = req.body;
+
+  // Validate leaveType
+  if (!["unplanned", "planned"].includes(leaveType)) {
+    return res.status(400).json({ error: "leaveType must be 'unplanned' or 'planned'" });
+  }
+  // Validate amount
+  if (typeof amount !== "number" || amount <= 0) {
+    return res.status(400).json({ error: "amount must be a positive number (e.g. 0.5)" });
+  }
+
+  // Decide which columns to update:
+  const usedColumn   = leaveType === "unplanned" ? "usedUnplannedLeave"     : "usedPlannedLeave";
+  const remainColumn = leaveType === "unplanned" ? "remainingUnplannedLeave": "remainingPlannedLeave";
+
+  // 1) Check current remaining balance
+  const checkSql = `
+    SELECT ${remainColumn} AS currentRemaining
+    FROM employee_leaves
+    WHERE employee_id = ?
+    LIMIT 1
+  `;
+  db.query(checkSql, [employeeId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "DB error fetching remaining balance" });
+    }
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: "No leave record found for this employee_id" });
+    }
+
+    const currentRemaining = parseFloat(rows[0].currentRemaining);
+    if (currentRemaining < amount) {
+      return res.status(400).json({
+        error: `Insufficient remaining ${leaveType} leave (currently ${currentRemaining.toFixed(2)})`,
+      });
+    }
+
+    // 2) Update both usedX += amount, remainingX -= amount
+    const updateSql = `
+      UPDATE employee_leaves
+      SET
+        ${usedColumn}   = ${usedColumn} + ?,
+        ${remainColumn} = ${remainColumn} - ?
+      WHERE employee_id = ?
+    `;
+    db.query(updateSql, [amount, amount, employeeId], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "DB error updating leave usage" });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "No leave record found to update" });
+      }
+      return res.json({
+        message: `Recorded ${amount.toFixed(2)} day(s) of ${leaveType} leave for employee ${employeeId}`,
+        affectedRows: result.affectedRows
+      });
+    });
   });
 });
 
@@ -1127,135 +1196,22 @@ app.get("/api/employee_holidays", (req, res) => {
   });
 });
 
-// (NEW) POST /api/employee-leaves/add  <-- Separate route for a single record
-// Add a new leave record for ONE employee, or update if already exists.
-app.post("/api/employee-leaves/add", (req, res) => {
-  const {
-    employeeId,
-    allocatedUnplannedLeave,
-    allocatedPlannedLeave,
-    usedUnplannedLeave,
-    usedPlannedLeave,
-    remainingUnplannedLeave,
-    remainingPlannedLeave,
-    joiningDate,
-  } = req.body;
-
-  if (!employeeId) {
-    return res
-      .status(400)
-      .json({ error: "employeeId is required to add a leave record." });
-  }
-
-  let finalRemainingUnplanned = remainingUnplannedLeave;
-  let finalRemainingPlanned = remainingPlannedLeave;
-
-  // If joiningDate is provided, automatically compute remaining leaves for the year.
-  if (joiningDate && allocatedUnplannedLeave && allocatedPlannedLeave) {
-    const joinDate = new Date(joiningDate);
-    const year = joinDate.getFullYear();
-    const endOfYear = new Date(year, 11, 31);
-    const totalDaysInYear = ((new Date(year, 11, 31) - new Date(year, 0, 1)) / (1000 * 60 * 60 * 24)) + 1;
-    const remainingDays = Math.floor((endOfYear.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const fraction = remainingDays / totalDaysInYear;
-    finalRemainingUnplanned = Math.floor(allocatedUnplannedLeave * fraction);
-    finalRemainingPlanned = Math.floor(allocatedPlannedLeave * fraction);
-  }
-
-  // Check if there's already a record for this employee
-  db.query(
-    "SELECT * FROM employee_leaves WHERE employee_id = ?",
-    [employeeId],
-    (err, rows) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Database error checking leaves" });
-      }
-      if (rows.length > 0) {
-        // If a record already exists, let's update it instead (or you could return an error).
-        const updateSql = `
-          UPDATE employee_leaves
-          SET
-            allocatedUnplannedLeave = ?,
-            allocatedPlannedLeave = ?,
-            usedUnplannedLeave = ?,
-            usedPlannedLeave = ?,
-            remainingUnplannedLeave = ?,
-            remainingPlannedLeave = ?
-          WHERE employee_id = ?
-        `;
-        const updateParams = [
-          allocatedUnplannedLeave || 0,
-          allocatedPlannedLeave || 0,
-          usedUnplannedLeave || 0,
-          usedPlannedLeave || 0,
-          finalRemainingUnplanned || 0,
-          finalRemainingPlanned || 0,
-          employeeId,
-        ];
-        db.query(updateSql, updateParams, (err2) => {
-          if (err2) {
-            console.error(err2);
-            return res
-              .status(500)
-              .json({ error: "Error updating existing leave record" });
-          }
-          return res.json({
-            message: "Employee leave record updated (existing).",
-          });
-        });
-      } else {
-        // No existing record => insert new
-        const insertSql = `
-          INSERT INTO employee_leaves (
-            employee_id,
-            allocatedUnplannedLeave,
-            allocatedPlannedLeave,
-            usedUnplannedLeave,
-            usedPlannedLeave,
-            remainingUnplannedLeave,
-            remainingPlannedLeave
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-        const insertParams = [
-          employeeId,
-          allocatedUnplannedLeave || 0,
-          allocatedPlannedLeave || 0,
-          usedUnplannedLeave || 0,
-          usedPlannedLeave || 0,
-          finalRemainingUnplanned || 0,
-          finalRemainingPlanned || 0,
-        ];
-        db.query(insertSql, insertParams, (err3) => {
-          if (err3) {
-            console.error(err3);
-            return res
-              .status(500)
-              .json({ error: "Error inserting new leave record" });
-          }
-          return res.json({ message: "New employee leave record added." });
-        });
-      }
-    }
-  );
-});
 
 
-// POST /api/employee-leaves-date
-// Add a new leave date record for an employee
+// 2) POST /api/employee-leaves-date
+// Add a new leave date record for an employee, now including leave_day
 app.post("/api/employee-leaves-date", (req, res) => {
-  const { employeeId, leave_date, leave_type } = req.body;
-  if (!employeeId || !leave_date || !leave_type) {
+  const { employeeId, leave_date, leave_type, leave_day } = req.body;
+  if (!employeeId || !leave_date || !leave_type || !leave_day) {
     return res
       .status(400)
-      .json({ error: "employeeId, leave_date, and leave_type are required." });
+      .json({ error: "employeeId, leave_date, leave_type, and leave_day are required." });
   }
   const sql = `
-    INSERT INTO employeeleavesdate (employee_id, leave_date, leave_type)
-    VALUES (?, ?, ?)
+    INSERT INTO employeeleavesdate (employee_id, leave_date, leave_type, leave_day)
+    VALUES (?, ?, ?, ?)
   `;
-  db.query(sql, [employeeId, leave_date, leave_type], (err, result) => {
+  db.query(sql, [employeeId, leave_date, leave_type, leave_day], (err, result) => {
     if (err) {
       console.error("Error inserting leave date record:", err);
       return res
@@ -1269,22 +1225,22 @@ app.post("/api/employee-leaves-date", (req, res) => {
   });
 });
 
-// PUT /api/employee-leaves-date/:id
-// Update a leave date record by its ID
+// 3) PUT /api/employee-leaves-date/:id
+// Update a leave date record by its ID, now including leave_day
 app.put("/api/employee-leaves-date/:id", (req, res) => {
   const { id } = req.params;
-  const { leave_date, leave_type } = req.body;
-  if (!leave_date || !leave_type) {
+  const { leave_date, leave_type, leave_day } = req.body;
+  if (!leave_date || !leave_type || !leave_day) {
     return res
       .status(400)
-      .json({ error: "leave_date and leave_type are required." });
+      .json({ error: "leave_date, leave_type, and leave_day are required." });
   }
   const sql = `
-    UPDATE EmployeeLeavesDate 
-    SET leave_date = ?, leave_type = ?
+    UPDATE EmployeeLeavesDate
+    SET leave_date = ?, leave_type = ?, leave_day = ?
     WHERE id = ?
   `;
-  db.query(sql, [leave_date, leave_type, id], (err, result) => {
+  db.query(sql, [leave_date, leave_type, leave_day, id], (err, result) => {
     if (err) {
       console.error("Error updating leave date record:", err);
       return res

@@ -1,4 +1,5 @@
 // src/components/UpdateLeaves.js
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   Form,
@@ -20,14 +21,14 @@ const UpdateLeaves = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [message, setMessage] = useState(null);
 
-  // track both used and remaining
+  // track both used and remaining as plain numbers
   const [usedUnplannedLeave, setUsedUnplannedLeave] = useState(0);
   const [usedPlannedLeave, setUsedPlannedLeave] = useState(0);
   const [remainingUnplannedLeave, setRemainingUnplannedLeave] = useState(0);
   const [remainingPlannedLeave, setRemainingPlannedLeave] = useState(0);
 
   const [updateLeaveRecords, setUpdateLeaveRecords] = useState([
-    { leaveDate: "", leaveType: "Planned" }
+    { leaveDate: "", leaveType: "Planned", leaveDay: "Full" }
   ]);
   const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
 
@@ -68,10 +69,10 @@ const UpdateLeaves = () => {
         )
       );
       if (employeeId.toString() === selectedEmployeeIdRef.current) {
-        setRemainingPlannedLeave(remainingPlanned);
-        setRemainingUnplannedLeave(remainingUnplanned);
-        setUsedPlannedLeave(usedPlanned);
-        setUsedUnplannedLeave(usedUnplanned);
+        setRemainingPlannedLeave(parseFloat(remainingPlanned) || 0);
+        setRemainingUnplannedLeave(parseFloat(remainingUnplanned) || 0);
+        setUsedPlannedLeave(parseFloat(usedPlanned) || 0);
+        setUsedUnplannedLeave(parseFloat(usedUnplanned) || 0);
       }
     });
 
@@ -89,10 +90,11 @@ const UpdateLeaves = () => {
   }, [selectedEmployeeId, employees]);
 
   const populateLeaveFields = emp => {
-    setRemainingUnplannedLeave(emp.remainingUnplannedLeave || 0);
-    setRemainingPlannedLeave(emp.remainingPlannedLeave || 0);
-    setUsedUnplannedLeave(emp.usedUnplannedLeave || 0);
-    setUsedPlannedLeave(emp.usedPlannedLeave || 0);
+    // parse string decimals into JS numbers—avoids "10.50" and yields 10.5
+    setRemainingUnplannedLeave(parseFloat(emp.remainingUnplannedLeave) || 0);
+    setRemainingPlannedLeave(parseFloat(emp.remainingPlannedLeave) || 0);
+    setUsedUnplannedLeave(parseFloat(emp.usedUnplannedLeave) || 0);
+    setUsedPlannedLeave(parseFloat(emp.usedPlannedLeave) || 0);
   };
 
   const sortedEmployees = [...employees].sort((a, b) =>
@@ -111,7 +113,10 @@ const UpdateLeaves = () => {
   };
 
   const addUpdateLeaveRecord = () =>
-    setUpdateLeaveRecords(prev => [...prev, { leaveDate: "", leaveType: "Planned" }]);
+    setUpdateLeaveRecords(prev => [
+      ...prev,
+      { leaveDate: "", leaveType: "Planned", leaveDay: "Full" }
+    ]);
 
   const removeUpdateLeaveRecord = i => {
     if (updateLeaveRecords.length > 1)
@@ -126,8 +131,15 @@ const UpdateLeaves = () => {
       return;
     }
 
-    const addPlannedCount = updateLeaveRecords.filter(r => r.leaveType === "Planned" && r.leaveDate).length;
-    const addUnplannedCount = updateLeaveRecords.filter(r => r.leaveType === "Unplanned" && r.leaveDate).length;
+    // Calculate planned / unplanned usage in fractional days
+    let addPlannedCount = 0;
+    let addUnplannedCount = 0;
+    updateLeaveRecords.forEach(r => {
+      if (!r.leaveDate) return;
+      const factor = r.leaveDay === "Half" ? 0.5 : 1;
+      if (r.leaveType === "Planned") addPlannedCount += factor;
+      if (r.leaveType === "Unplanned") addUnplannedCount += factor;
+    });
 
     const newUsedPlanned = usedPlannedLeave + addPlannedCount;
     const newUsedUnplanned = usedUnplannedLeave + addUnplannedCount;
@@ -185,7 +197,8 @@ const UpdateLeaves = () => {
               body: JSON.stringify({
                 employeeId: selectedEmployeeId,
                 leave_date: r.leaveDate,
-                leave_type: r.leaveType
+                leave_type: r.leaveType,
+                leave_day: r.leaveDay
               })
             })
           )
@@ -194,7 +207,7 @@ const UpdateLeaves = () => {
       .then(responses => {
         if (responses.every(r => r.ok)) {
           setMessage("Employee leaves updated successfully.");
-          setUpdateLeaveRecords([{ leaveDate: "", leaveType: "Planned" }]);
+          setUpdateLeaveRecords([{ leaveDate: "", leaveType: "Planned", leaveDay: "Full" }]);
         } else {
           setMessage("Error adding one or more leave-date records.");
         }
@@ -211,6 +224,13 @@ const UpdateLeaves = () => {
     updateEmployeeLeaves();
   };
   const handleCancelUpdate = () => setShowUpdateConfirmation(false);
+
+  // Helper to render numbers without unnecessary trailing zeros
+  const formatNumber = num => {
+    // If integer, show no decimal; if fractional, strip trailing zero (e.g. 10.50 -> 10.5)
+    if (Number.isInteger(num)) return num.toString();
+    return num.toString().replace(/\.?0+$/, "");
+  };
 
   return (
     <div className="p-4">
@@ -240,13 +260,21 @@ const UpdateLeaves = () => {
             <Col>
               <Form.Group className="mb-3">
                 <Form.Label>Used Unplanned Leave</Form.Label>
-                <Form.Control type="number" value={usedUnplannedLeave} readOnly />
+                <Form.Control
+                  type="text"
+                  value={formatNumber(usedUnplannedLeave)}
+                  readOnly
+                />
               </Form.Group>
             </Col>
             <Col>
               <Form.Group className="mb-3">
                 <Form.Label>Used Planned Leave</Form.Label>
-                <Form.Control type="number" value={usedPlannedLeave} readOnly />
+                <Form.Control
+                  type="text"
+                  value={formatNumber(usedPlannedLeave)}
+                  readOnly
+                />
               </Form.Group>
             </Col>
           </Row>
@@ -255,13 +283,21 @@ const UpdateLeaves = () => {
             <Col>
               <Form.Group className="mb-3">
                 <Form.Label>Remaining Unplanned Leave</Form.Label>
-                <Form.Control type="number" value={remainingUnplannedLeave} readOnly />
+                <Form.Control
+                  type="text"
+                  value={formatNumber(remainingUnplannedLeave)}
+                  readOnly
+                />
               </Form.Group>
             </Col>
             <Col>
               <Form.Group className="mb-3">
                 <Form.Label>Remaining Planned Leave</Form.Label>
-                <Form.Control type="number" value={remainingPlannedLeave} readOnly />
+                <Form.Control
+                  type="text"
+                  value={formatNumber(remainingPlannedLeave)}
+                  readOnly
+                />
               </Form.Group>
             </Col>
           </Row>
@@ -271,7 +307,7 @@ const UpdateLeaves = () => {
               <Card.Title>Leave Date Records</Card.Title>
               {updateLeaveRecords.map((r, i) => (
                 <Row key={i} className="mb-2 align-items-center">
-                  <Col xs={5}>
+                  <Col xs={4}>
                     <Form.Group>
                       <Form.Label>Date</Form.Label>
                       <Form.Control
@@ -283,7 +319,7 @@ const UpdateLeaves = () => {
                       />
                     </Form.Group>
                   </Col>
-                  <Col xs={5}>
+                  <Col xs={4}>
                     <Form.Group>
                       <Form.Label>Type</Form.Label>
                       <Form.Control
@@ -295,6 +331,21 @@ const UpdateLeaves = () => {
                       >
                         <option value="Planned">Planned</option>
                         <option value="Unplanned">Unplanned</option>
+                      </Form.Control>
+                    </Form.Group>
+                  </Col>
+                  <Col xs={2}>
+                    <Form.Group>
+                      <Form.Label>Day</Form.Label>
+                      <Form.Control
+                        as="select"
+                        value={r.leaveDay}
+                        onChange={e =>
+                          handleUpdateLeaveRecordChange(i, "leaveDay", e.target.value)
+                        }
+                      >
+                        <option value="Full">Full</option>
+                        <option value="Half">Half</option>
                       </Form.Control>
                     </Form.Group>
                   </Col>
