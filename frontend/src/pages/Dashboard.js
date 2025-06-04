@@ -24,6 +24,9 @@ import StatusView from "../components/EmployeeView/StatusView";
 import CiCo from "../components/CiCo";
 import ProfileUpdate from "../components/ProfileUpdate";
 
+// **Our new import**
+import RuleBook from "../components/RuleBook";
+
 import "../pages/Dashboard.css";
 
 export default function Dashboard() {
@@ -105,7 +108,9 @@ export default function Dashboard() {
                 <>
                   <Button
                     size="sm"
-                    variant={activeSection === "attendanceForm" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "attendanceForm" ? "secondary" : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("attendanceForm")}
                   >
@@ -113,7 +118,11 @@ export default function Dashboard() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={activeSection === "adminemployeeView" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "adminemployeeView"
+                        ? "secondary"
+                        : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("adminemployeeView")}
                   >
@@ -121,7 +130,9 @@ export default function Dashboard() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={activeSection === "employeeTabs" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "employeeTabs" ? "secondary" : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("employeeTabs")}
                   >
@@ -130,12 +141,16 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Common for TL & Employee */}
+              {/* TL & Employee buttons */}
               {(isTL || (!isAdmin && !isTL)) && (
                 <>
                   <Button
                     size="sm"
-                    variant={activeSection === "employeeAttendance" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "employeeAttendance"
+                        ? "secondary"
+                        : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("employeeAttendance")}
                   >
@@ -143,7 +158,11 @@ export default function Dashboard() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={activeSection === "leavesEmployee" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "leavesEmployee"
+                        ? "secondary"
+                        : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("leavesEmployee")}
                   >
@@ -151,7 +170,11 @@ export default function Dashboard() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={activeSection === "holidaysEmployee" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "holidaysEmployee"
+                        ? "secondary"
+                        : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("holidaysEmployee")}
                   >
@@ -159,7 +182,9 @@ export default function Dashboard() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "mailRequest" ? "secondary" : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("mailRequest")}
                   >
@@ -168,12 +193,16 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Common for TL & Admin: Request Status and Mail Request */}
+              {/* Requests for Admin & TL */}
               {(isAdmin || isTL) && (
                 <>
                   <Button
                     size="sm"
-                    variant={activeSection === "requestStatus" ? "secondary" : "light"}
+                    variant={
+                      activeSection === "requestStatus"
+                        ? "secondary"
+                        : "light"
+                    }
                     className="me-2 mb-1 uniform-button"
                     onClick={() => setActiveSection("requestStatus")}
                   >
@@ -182,7 +211,9 @@ export default function Dashboard() {
                   {!isTL && (
                     <Button
                       size="sm"
-                      variant={activeSection === "mailRequest" ? "secondary" : "light"}
+                      variant={
+                        activeSection === "mailRequest" ? "secondary" : "light"
+                      }
                       className="me-2 mb-1 uniform-button"
                       onClick={() => setActiveSection("mailRequest")}
                     >
@@ -192,9 +223,13 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Profile & Logout */}
+              {/* Profile, Rule Book & Logout */}
               <Dropdown align="end" className="me-2 mb-1">
-                <Dropdown.Toggle as={Button} className="profile-circle-button" id="gear-dropdown">
+                <Dropdown.Toggle
+                  as={Button}
+                  className="profile-circle-button"
+                  id="gear-dropdown"
+                >
                   <GearFill size={16} />
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -202,7 +237,13 @@ export default function Dashboard() {
                     Profile
                   </Dropdown.Item>
                   <Dropdown.Divider />
-                  <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
+                  <Dropdown.Item onClick={() => setActiveSection("ruleBook")}>
+                    Rule Book
+                  </Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Item onClick={handleLogout}>
+                    Logout
+                  </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
             </Nav>
@@ -234,10 +275,11 @@ export default function Dashboard() {
         {/* Shared views */}
         {activeSection === "cico" && <CiCo />}
         {activeSection === "status" && <StatusView />}
+        {activeSection === "ruleBook" && <RuleBook user={user} />}
         {activeSection === "profileUpdate" && <ProfileUpdate user={user} />}
       </div>
 
       <Footer />
     </div>
-  );
+);
 }
