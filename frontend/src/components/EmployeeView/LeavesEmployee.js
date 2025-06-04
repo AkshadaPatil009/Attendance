@@ -1,4 +1,3 @@
-// EmployeeLeaveApplication.js
 import React, { useEffect, useState, useRef } from "react";
 import { Card, Row, Col, Form, Table, Spinner } from "react-bootstrap";
 import io from "socket.io-client";
@@ -23,6 +22,13 @@ const EmployeeLeaveApplication = () => {
   });
   const [leaveRecords, setLeaveRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
+
+  // Helper to format numbers without trailing zeros
+  const formatNumber = (num) => {
+    const str = num != null ? num.toString() : "0";
+    if (!str.includes(".")) return str;
+    return str.replace(/\.?0+$/, "");
+  };
 
   useEffect(() => {
     socketRef.current = io(API_URL, { transports: ["polling"] });
@@ -130,14 +136,16 @@ const EmployeeLeaveApplication = () => {
                       <Form.Label>Unplanned</Form.Label>
                       <Form.Control
                         readOnly
-                        value={employeeLeaves.unplannedLeave}
+                        type="text"
+                        value={formatNumber(employeeLeaves.unplannedLeave)}
                       />
                     </Form.Group>
                     <Form.Group controlId="used-planned" className="mb-3">
                       <Form.Label>Planned</Form.Label>
                       <Form.Control
                         readOnly
-                        value={employeeLeaves.plannedLeave}
+                        type="text"
+                        value={formatNumber(employeeLeaves.plannedLeave)}
                       />
                     </Form.Group>
                   </div>
@@ -149,14 +157,16 @@ const EmployeeLeaveApplication = () => {
                       <Form.Label>Unplanned</Form.Label>
                       <Form.Control
                         readOnly
-                        value={employeeLeaves.remainingUnplannedLeave}
+                        type="text"
+                        value={formatNumber(employeeLeaves.remainingUnplannedLeave)}
                       />
                     </Form.Group>
                     <Form.Group controlId="remaining-planned">
                       <Form.Label>Planned</Form.Label>
                       <Form.Control
                         readOnly
-                        value={employeeLeaves.remainingPlannedLeave}
+                        type="text"
+                        value={formatNumber(employeeLeaves.remainingPlannedLeave)}
                       />
                     </Form.Group>
                   </div>
@@ -170,7 +180,8 @@ const EmployeeLeaveApplication = () => {
                     <Form.Label>Approved Comoff</Form.Label>
                     <Form.Control
                       readOnly
-                      value={employeeLeaves.pendingComoff}
+                      type="text"
+                      value={formatNumber(employeeLeaves.pendingComoff)}
                     />
                   </Form.Group>
                 </Col>
@@ -179,7 +190,8 @@ const EmployeeLeaveApplication = () => {
                     <Form.Label>Used Comoff</Form.Label>
                     <Form.Control
                       readOnly
-                      value={employeeLeaves.completedComoff}
+                      type="text"
+                      value={formatNumber(employeeLeaves.completedComoff)}
                     />
                   </Form.Group>
                 </Col>
