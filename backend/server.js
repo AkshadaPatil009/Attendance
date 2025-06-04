@@ -2155,9 +2155,9 @@ app.get("/api/office-status", (req, res) => {
   const sql = `
     -- PART 1: Employees with at least one attendance row today → online/offline
     SELECT
-      ranked.emp_name        AS name,
-      ranked.location        AS location,
-      ranked.status          AS status,
+       ranked.emp_name COLLATE utf8mb4_general_ci        AS name,
+      ranked.location COLLATE utf8mb4_general_ci        AS location,
+      ranked.status COLLATE utf8mb4_general_ci          AS status,
       lc.image_filename      AS image_filename
     FROM (
       SELECT
@@ -2191,9 +2191,9 @@ app.get("/api/office-status", (req, res) => {
 
     -- PART 2: Active logincrd employees (disableemp=0) in this office who did NOT clock in → Absent
     SELECT
-      lc.Name              AS name,
-      lc.Location          AS location,
-      'Absent'             AS status,
+      lc.Name COLLATE utf8mb4_general_ci              AS name,
+      lc.Location COLLATE utf8mb4_general_ci          AS location,
+      'Absent' COLLATE utf8mb4_general_ci             AS status,
       lc.image_filename    AS image_filename
     FROM logincrd AS lc
     WHERE
@@ -2213,9 +2213,9 @@ app.get("/api/office-status", (req, res) => {
     -- PART 3: Any employee_master.NickName who isn’t in attendance today,
     -- but does exist in logincrd (disableemp=0) for this office → Absent
     SELECT
-      em.NickName          AS name,
-      lc2.Location         AS location,
-      'Absent'             AS status,
+      em.NickName COLLATE utf8mb4_general_ci        AS name,
+      lc2.Location COLLATE utf8mb4_general_ci         AS location,
+      'Absent' COLLATE utf8mb4_general_ci             AS status,
       lc2.image_filename   AS image_filename
     FROM employee_master AS em
     JOIN logincrd AS lc2
