@@ -176,7 +176,7 @@ const EmployeeLeaveApplication = () => {
                 </Col>
                 <Col md={6}>
                   <Form.Group controlId="completed-comoff">
-                    <Form.Label>Completed Comoff</Form.Label>
+                    <Form.Label>Used Comoff</Form.Label>
                     <Form.Control
                       readOnly
                       value={employeeLeaves.completedComoff}
