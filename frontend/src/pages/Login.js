@@ -86,7 +86,7 @@ const Login = ({ setUser }) => {
           <button type="submit" className="btn btn-primary w-100">Login</button>
         </form>
         <div className="text-center mt-3">
-          <a href="https://your-other-app.com/register" target="_blank" rel="noreferrer">Go to Registration Page</a>
+          <a href="https://prakalp2.mydashboard.site/register" target="_blank" rel="noreferrer">Go to Registration Page</a>
           <br />
           <button className="btn btn-link mt-2" onClick={() => setModalOpen(true)}>Create an Account</button>
         </div>
