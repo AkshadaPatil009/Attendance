@@ -128,6 +128,27 @@ app.post("/login", (req, res) => {
   });
 });
 
+//Testing API
+app.get('/', (req, res) => {
+  const options = {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true,
+      timeZone: 'Asia/Kolkata'
+  };
+
+  const timestamp = new Date().toLocaleString('en-GB', options);
+
+  res.json({
+      status: 'Active',
+      timestamp: timestamp
+  });
+});
+
 // GET Holidays API - Fetch all holidays sorted by date
 app.get("/api/holidays", (req, res) => {
   res.set("Cache-Control", "no-store");
