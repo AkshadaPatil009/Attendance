@@ -18,6 +18,7 @@ import {
   FaEnvelope,
   FaMapMarkerAlt,
   FaUserTag,
+  FaUsers,
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -32,6 +33,13 @@ const ROLE_LABELS = {
 };
 
 export default function ProfileUpdate({ user, onClose = () => {} }) {
+  // ─── DROPDOWN STATE (Admin only) ───────────────────────────────────────────
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
+    user.employeeId || ""
+  );
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const [formData, setFormData] = useState({
     Name: "",
     fname: "",
@@ -51,14 +59,41 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
   const [error, setError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // ─── FETCH ALL USERS FOR ADMIN DROPDOWN ─────────────────────────────────────
   useEffect(() => {
-    if (!user?.employeeId) {
+    if (user.role === 4) {
+      axios
+        .get(`${API_URL}/api/users`)
+        .then((res) => {
+          setAllUsers(res.data); // expect [{ id, Name, Nickname }, …]
+        })
+        .catch(() => {
+          toast.error("Failed to load user list");
+        });
+    }
+  }, [user.role]);
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ─── LOAD PROFILE BASED ON selectedEmployeeId (or own ID) ───────────────────
+  useEffect(() => {
+    // If Admin has not picked anyone yet, skip
+    if (user.role === 4 && !selectedEmployeeId) {
+      setLoadingProfile(false);
+      return;
+    }
+
+    const idToLoad = user.role === 4 ? selectedEmployeeId : user.employeeId;
+    if (!idToLoad) {
       setError("No employeeId provided");
       setLoadingProfile(false);
       return;
     }
+
+    setLoadingProfile(true);
+    setError("");
+
     axios
-      .get(`${API_URL}/api/profile/${user.employeeId}`)
+      .get(`${API_URL}/api/profile/${idToLoad}`)
       .then((res) => {
         const d = res.data;
         const init = {
@@ -75,14 +110,13 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
         setFormData({ ...init, _file: null });
         setOriginalData(init);
         setImagePreview(
-          d.image_filename
-            ? `${API_URL}/uploads/${d.image_filename}`
-            : null
+          d.image_filename ? `${API_URL}/uploads/${d.image_filename}` : null
         );
       })
       .catch(() => setError("Failed to load profile"))
       .finally(() => setLoadingProfile(false));
-  }, [user]);
+  }, [user, selectedEmployeeId]);
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const isDirty = React.useMemo(() => {
     if (!originalData) return false;
@@ -106,7 +140,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
     const { name, value, type, files } = e.target;
     if (type === "file" && files[0]) {
       const file = files[0];
-      // Client‐side validation: only .jpg under 5MB
+      // only .jpg under 5MB
       if (file.type !== "image/jpeg") {
         toast.error("Only .jpg files are allowed");
         return;
@@ -132,7 +166,9 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
     setSaving(true);
     setError("");
     try {
-      await axios.post(`${API_URL}/api/profile/${user.employeeId}`, {
+      const idToPost = user.role === 4 ? selectedEmployeeId : user.employeeId;
+
+      await axios.post(`${API_URL}/api/profile/${idToPost}`, {
         Name: formData.Name,
         fname: formData.fname,
         lname: formData.lname,
@@ -147,7 +183,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
         const data = new FormData();
         data.append("image", formData._file);
         await axios.post(
-          `${API_URL}/api/profile/${user.employeeId}/image`,
+          `${API_URL}/api/profile/${idToPost}/image`,
           data,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
@@ -199,6 +235,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
       style={{ minHeight: "10vh" }}
     >
       <ToastContainer />
+
       <Card
         className="shadow-lg rounded-lg"
         style={{ width: "100%", maxWidth: 600, border: "none" }}
@@ -213,7 +250,50 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
         >
           <h3 className="mb-0">Update Profile</h3>
         </div>
-        <Card.Body>
+
+        {/* ─── INSIDE CARD: STYLED DROPDOWN FOR ADMIN ───────────────────────────── */}
+        {user.role === 4 && (
+          <Card.Body className="pt-3 pb-0">
+            <Form.Group as={Row} className="align-items-center mb-3">
+              <Form.Label column sm={4} className="text-end">
+                <FaUsers style={{ marginRight: "0.5rem", color: "#764ba2" }} />
+                Select Employee:
+              </Form.Label>
+              <Col sm={6}>
+                <InputGroup>
+                  <InputGroup.Text
+                    style={{
+                      background: "#764ba2",
+                      color: "#fff",
+                      border: "none",
+                    }}
+                  >
+                    <FaUserTag />
+                  </InputGroup.Text>
+                  <Form.Select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    style={{
+                      borderColor: "#764ba2",
+                      borderLeft: "none",
+                      background: "#f9f9f9",
+                    }}
+                  >
+                    <option value="">— pick one —</option>
+                    {allUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.Name} ({u.Nickname})
+                      </option>
+                    ))}
+                  </Form.Select>
+                </InputGroup>
+              </Col>
+            </Form.Group>
+          </Card.Body>
+        )}
+        {/* ────────────────────────────────────────────────────────────────────────── */}
+
+        <Card.Body className={user.role === 4 ? "pt-0" : ""}>
           <div className="text-center mb-4">
             <div style={{ position: "relative", display: "inline-block" }}>
               {imagePreview ? (
@@ -265,14 +345,13 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                 onChange={handleChange}
               />
             </div>
-            {/* NOTE: Validation reminder for image upload */}
             <p className="mt-2 text-muted" style={{ fontSize: "0.9rem" }}>
               Please choose a .jpg image under 5 MB.
             </p>
           </div>
 
           <Form onSubmit={handleFormSubmit}>
-            {/* UPDATED ROW: Full Name full width instead of where Designation was */}
+            {/* UPDATED ROW: Full Name full width */}
             <Row className="mb-1">
               <Col>
                 <Form.Group>
@@ -291,8 +370,8 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                 </Form.Group>
               </Col>
             </Row>
-            
-            {/* UPDATED ROW: Designation + Office Nick Name side by side */}
+
+            {/* UPDATED ROW: Designation + Office Nick Name */}
             <Row className="mb-1">
               <Col md={6}>
                 <Form.Group>
@@ -306,7 +385,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
                       name="designation"
                       value={formData.designation}
                       onChange={handleChange}
-                      disabled={user.role !== 4} // only Admin (role=4) can edit
+                      disabled={user.role !== 4}
                     />
                   </InputGroup>
                 </Form.Group>
@@ -329,7 +408,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
               </Col>
             </Row>
 
-            {/* FIRST NAME + LAST NAME (unchanged) */}
+            {/* FIRST NAME + LAST NAME */}
             <Row className="mb-1">
               <Col md={6}>
                 <Form.Group>
@@ -365,7 +444,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
               </Col>
             </Row>
 
-            {/* PREFERRED NAME + EMAIL (unchanged) */}
+            {/* PREFERRED NAME + EMAIL */}
             <Row className="mb-1">
               <Col md={6}>
                 <Form.Group>
@@ -403,7 +482,7 @@ export default function ProfileUpdate({ user, onClose = () => {} }) {
               </Col>
             </Row>
 
-            {/* LOCATION + ROLE (unchanged) */}
+            {/* LOCATION + ROLE */}
             <Row className="mb-1">
               <Col md={6}>
                 <Form.Group>

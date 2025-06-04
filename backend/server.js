@@ -2003,6 +2003,26 @@ AND NickName IN (
   });
 });
 
+// === GET /api/users ===
+// Returns a list of all active employees (disableemp = 0) with their id, Name, and Nickname.
+// Frontend will call this to populate the Admin’s dropdown.
+app.get("/api/users", (req, res) => {
+  const sql = `
+    SELECT id, Name, Nickname
+      FROM logincrd
+    WHERE disableemp = 0
+    ORDER BY Name ASC
+  `;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ error: "DB error" });
+    }
+    // results = [ { id: 1, Name: "Alice", Nickname: "alice" }, { ... } ]
+    res.json(results);
+  });
+});
+
 // === GET profile (including office + designation) ===
 app.get("/api/profile/:id", (req, res) => {
   const sql = `
