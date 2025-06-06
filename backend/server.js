@@ -10,11 +10,15 @@ require("dotenv").config();
 const { sendLeaveEmail } = require("./mailer");
 const { sendDecisionEmail } = require("./mailer");
 const fs = require("fs");
-
-
-// NEW: Import http and socket.io
 const http = require("http");
+const https = require("https");
 const { Server } = require("socket.io");
+
+
+const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || "localhost";
+const isProduction = process.env.NODE_ENV === "production";
+
 
 const app = express();
 app.use(cors());
@@ -44,14 +48,62 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// Create HTTP server and integrate Socket.IO
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Adjust for your client domain in production
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  },
-});
+// Production: HTTPS Setup
+
+if (isProduction) {
+  try {
+    const privateKey = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/privkey.pem", "utf8");
+    const certificate = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/fullchain.pem", "utf8");
+    const credentials = { key: privateKey, cert: certificate };
+
+    const httpsServer = https.createServer(credentials, app);
+
+    const io = new Server(httpsServer, {
+      cors: {
+        origin: "*", // Replace with frontend domain in production
+        methods: ["GET", "POST", "PUT", "DELETE"],
+      },
+    });
+
+    io.on("connection", (socket) => {
+      console.log("HTTPS client connected:", socket.id);
+
+      socket.on("disconnect", () => {
+        console.log("HTTPS client disconnected:", socket.id);
+      });
+    });
+
+    httpsServer.listen(PORT, HOST, () => {
+      console.log(`HTTPS Server running at https://${HOST}:${PORT}`);
+    });
+  } catch (err) {
+    console.error("Error loading SSL certificates", err.message);
+    process.exit(1);
+  }
+
+// Development: HTTP Setup
+} else {
+  const httpServer = http.createServer(app);
+
+  const io = new Server(httpServer, {
+    cors: {
+      origin: "*", // OK in local
+      methods: ["GET", "POST", "PUT", "DELETE"],
+    },
+  });
+
+  io.on("connection", (socket) => {
+    console.log("🌐 HTTP client connected:", socket.id);
+
+    socket.on("disconnect", () => {
+      console.log("❌ HTTP client disconnected:", socket.id);
+    });
+  });
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`🚀 HTTP Server running at http://${HOST}:${PORT}`);
+  });
+}
 
 // Emit a socket event helper function
 const emitAttendanceChange = () => {
@@ -2463,17 +2515,3 @@ app.post("/api/register", async (req, res) => {
   });
 });
 
-
-// NEW: Listen for socket connections.
-io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-  });
-});
-const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || '127.0.0.1';
-// Start the server using the HTTP server with Socket.IO
-server.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-});
