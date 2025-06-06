@@ -2135,15 +2135,7 @@ app.get("/api/nickoffices", (req, res) => {
   });
 });
 
-/**
- * 2) GET /api/office-status?office=<OfficeName>
- *    → For a given office, returns:
- *         • name, location, status (“online”/“offline”/“Absent”), and image_filename
- *       in three parts:
- *         • PART 1: Those who have at least one attendance row today → online/offline
- *         • PART 2: Active logincrd employees (disableemp=0) who did NOT clock in → Absent
- *         • PART 3: employee_master.NickName (present in logincrd) who didn’t clock in → Absent
- */
+
 app.get("/api/office-status", (req, res) => {
   const office = req.query.office;
   if (!office) {
@@ -2153,7 +2145,7 @@ app.get("/api/office-status", (req, res) => {
   }
 
   const sql = `
-    -- PART 1: Employees with at least one attendance row today → online/offline
+  
     SELECT
       ranked.emp_name        AS name,
       ranked.location        AS location,
@@ -2189,7 +2181,6 @@ app.get("/api/office-status", (req, res) => {
 
     UNION
 
-    -- PART 2: Active logincrd employees (disableemp=0) in this office who did NOT clock in → Absent
     SELECT
       lc.Name              AS name,
       lc.Location          AS location,
@@ -2210,8 +2201,6 @@ app.get("/api/office-status", (req, res) => {
 
     UNION
 
-    -- PART 3: Any employee_master.NickName who isn’t in attendance today,
-    -- but does exist in logincrd (disableemp=0) for this office → Absent
     SELECT
       em.NickName          AS name,
       lc2.Location         AS location,
@@ -2269,9 +2258,9 @@ app.get("/api/office-status", (req, res) => {
 app.get("/api/site-status", (req, res) => {
   const sql = `
     SELECT
-      ranked.name        AS name,
-      ranked.location    AS location,
-      ranked.status      AS status,
+      ranked.name COLLATE utf8mb4_general_ci       AS name,
+      ranked.location COLLATE utf8mb4_general_ci    AS location,
+      ranked.status COLLATE utf8mb4_general_ci     AS status,
       lc.image_filename  AS image_filename
     FROM (
       -- Rank all attendance rows for today, per employee
@@ -2343,9 +2332,9 @@ app.get("/api/site-status", (req, res) => {
 app.get("/api/wfh-status", (req, res) => {
   const sql = `
     SELECT
-      ranked.name        AS name,
-      ranked.location    AS location,
-      ranked.status      AS status,
+      ranked.name COLLATE utf8mb4_general_ci       AS name,
+      ranked.location COLLATE utf8mb4_general_ci   AS location,
+      ranked.status COLLATE utf8mb4_general_ci     AS status,
       lc.image_filename  AS image_filename
     FROM (
       /* Rank every attendance row for today per employee */
