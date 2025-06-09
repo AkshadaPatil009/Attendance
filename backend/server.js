@@ -16,13 +16,14 @@ const { Server } = require("socket.io");
 
 
 const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || "localhost";
+const HOST = process.env.HOST || '127.0.0.1';
 const isProduction = process.env.NODE_ENV === "production";
 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+let io = null;
 // Serve uploaded uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -48,26 +49,25 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// Production: HTTPS Setup
-
+// ── SOCKET.IO SETUP ────────────────────────────────────────────────────────────
 if (isProduction) {
   try {
-    const privateKey = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/privkey.pem", "utf8");
-    const certificate = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/fullchain.pem", "utf8");
+    const privateKey  = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/privkey.pem","utf8");
+    const certificate = fs.readFileSync("/etc/letsencrypt/live/attendance.protovec.com/fullchain.pem","utf8");
     const credentials = { key: privateKey, cert: certificate };
 
     const httpsServer = https.createServer(credentials, app);
 
-    const io = new Server(httpsServer, {
+    // Assign to the module‐scoped `io` (no `const`)
+    io = new Server(httpsServer, {
       cors: {
-        origin: "*", // Replace with frontend domain in production
+        origin: "*", // In production, replace with your actual frontend origin
         methods: ["GET", "POST", "PUT", "DELETE"],
       },
     });
 
     io.on("connection", (socket) => {
       console.log("HTTPS client connected:", socket.id);
-
       socket.on("disconnect", () => {
         console.log("HTTPS client disconnected:", socket.id);
       });
@@ -77,24 +77,24 @@ if (isProduction) {
       console.log(`HTTPS Server running at https://${HOST}:${PORT}`);
     });
   } catch (err) {
-    console.error("Error loading SSL certificates", err.message);
+    console.error("Error loading SSL certificates:", err.message);
     process.exit(1);
   }
 
-// Development: HTTP Setup
 } else {
+  // Development: HTTP + Socket.IO
   const httpServer = http.createServer(app);
 
-  const io = new Server(httpServer, {
+  // Assign to the module‐scoped `io` (no `const`)
+  io = new Server(httpServer, {
     cors: {
-      origin: "*", // OK in local
+      origin: "*", // OK for local development
       methods: ["GET", "POST", "PUT", "DELETE"],
     },
   });
 
   io.on("connection", (socket) => {
     console.log("🌐 HTTP client connected:", socket.id);
-
     socket.on("disconnect", () => {
       console.log("❌ HTTP client disconnected:", socket.id);
     });
@@ -105,9 +105,15 @@ if (isProduction) {
   });
 }
 
-// Emit a socket event helper function
+// ── HELPER TO EMIT ATTENDANCE CHANGES ─────────────────────────────────────────
 const emitAttendanceChange = () => {
-  io.emit("attendanceChanged", { message: "Attendance data updated" });
+  if (io) {
+    io.emit("attendanceChanged", { message: "Attendance data updated" });
+  } else {
+    console.warn(
+      "⚠️  Tried to emit 'attendanceChanged' but `io` is not initialized yet."
+    );
+  }
 };
 
 // MySQL database connection using env variables
@@ -2515,3 +2521,8 @@ app.post("/api/register", async (req, res) => {
   });
 });
 
+// ── ERROR HANDLING MIDDLEWARE ────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal Server Error", details: err.message });
+});
